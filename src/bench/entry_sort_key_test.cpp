@@ -73,7 +73,7 @@ bool SameOrder(std::vector<fs::DirEntry> rows, ui::SortColumn col, ui::SortDirec
 
 bool AllOrders(const std::vector<fs::DirEntry>& rows) {
     const ui::SortColumn cols[] = {ui::SortColumn::Name, ui::SortColumn::Size, ui::SortColumn::Mtime,
-                                   ui::SortColumn::Type};
+                                   ui::SortColumn::Type, ui::SortColumn::Rating, ui::SortColumn::Duration};
     const app::FolderSortMode modes[] = {app::FolderSortMode::FoldersFirst, app::FolderSortMode::FollowDirection,
                                          app::FolderSortMode::Mixed};
     bool ok = true;
@@ -191,6 +191,40 @@ int main() {
         Check(other_thread, "a scope stays on its own thread");
         Check(app::CurrentFolderSortMode() == app::FolderSortMode::FoldersFirst && order(ui::SortDirection::Asc) == L"bac",
               "leaving the scope returns to the settings default");
+    }
+    {
+        // Unrated / unknown duration stay last in both directions, like folder sizes.
+        const auto file = [](const wchar_t* name, uint8_t rating, uint32_t duration_ms) {
+            fs::DirEntry e;
+            e.name = name;
+            e.media_rating = rating;
+            e.media_duration_ms = duration_ms;
+            return e;
+        };
+        std::vector<fs::DirEntry> rows = {file(L"zero", 0, 0), file(L"five", 5, 90'000),
+                                          file(L"two", 2, 10'000), file(L"also", 0, 0)};
+        const auto names = [](std::vector<fs::DirEntry> list, ui::SortColumn col, ui::SortDirection dir) {
+            app::SetFolderSortMode(app::FolderSortMode::Mixed);
+            app::SortEntries(list, col, dir);
+            std::wstring out;
+            for (const auto& e : list) {
+                if (!out.empty()) out += L' ';
+                out += e.name;
+            }
+            return out;
+        };
+        Check(names(rows, ui::SortColumn::Rating, ui::SortDirection::Asc) == L"two five also zero" &&
+                  names(rows, ui::SortColumn::Rating, ui::SortDirection::Desc) == L"five two also zero",
+              "rating: stars first, unrated last in both directions");
+        Check(names(rows, ui::SortColumn::Duration, ui::SortDirection::Asc) == L"two five also zero" &&
+                  names(rows, ui::SortColumn::Duration, ui::SortDirection::Desc) == L"five two also zero",
+              "duration: known times first, unknown last in both directions");
+        Check(SameOrder(rows, ui::SortColumn::Rating, ui::SortDirection::Asc) &&
+                  SameOrder(rows, ui::SortColumn::Rating, ui::SortDirection::Desc) &&
+                  SameOrder(rows, ui::SortColumn::Duration, ui::SortDirection::Asc) &&
+                  SameOrder(rows, ui::SortColumn::Duration, ui::SortDirection::Desc),
+              "rating/duration: SortEntries matches EntryLess");
+        app::SetFolderSortMode(app::FolderSortMode::FoldersFirst);
     }
     std::printf("== entry sort key tests: %s ==\n", failures ? "FAIL" : "PASS");
     return failures ? 1 : 0;

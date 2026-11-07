@@ -192,6 +192,25 @@ bool Less(const fs::DirEntry& a, const fs::DirEntry& b, ui::SortColumn col,
         cmp = _wcsicmp(a.full_path.c_str(), b.full_path.c_str());
         if (cmp == 0) cmp = ItemNameCompare(a, b, na, nb);
         break;
+    case ui::SortColumn::Duration: {
+        const uint32_t da = a.media_duration_ms, db = b.media_duration_ms;
+        if ((da == 0) != (db == 0)) return da != 0;
+        // Unknown rows trail the rest and keep A→Z in either direction.
+        if (da == 0) return ItemNameCompare(a, b, na, nb) < 0;
+        if (da < db) cmp = -1;
+        else if (da > db) cmp = 1;
+        else cmp = ItemNameCompare(a, b, na, nb);
+        break;
+    }
+    case ui::SortColumn::Rating: {
+        const uint8_t ra = a.media_rating, rb = b.media_rating;
+        if ((ra == 0) != (rb == 0)) return ra != 0;
+        if (ra == 0) return ItemNameCompare(a, b, na, nb) < 0;
+        if (ra < rb) cmp = -1;
+        else if (ra > rb) cmp = 1;
+        else cmp = ItemNameCompare(a, b, na, nb);
+        break;
+    }
     }
     if (dir == ui::SortDirection::Desc) cmp = -cmp;
     return cmp < 0;

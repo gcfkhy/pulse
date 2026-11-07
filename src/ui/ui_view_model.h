@@ -57,8 +57,12 @@ class BloomAccentPicker;
 int FluentSvgIdForGlyph(std::wstring_view glyph);
 
 // Values are persisted (folder sort prefs, session): append only.
-enum class SortColumn { Name, Mtime, Type, Size, Path, Created, Accessed };
+enum class SortColumn { Name, Mtime, Type, Size, Path, Created, Accessed, Rating, Duration };
 enum class SortDirection { Asc, Desc };
+
+inline constexpr bool IsMediaSortColumn(SortColumn column) noexcept {
+    return column == SortColumn::Rating || column == SortColumn::Duration;
+}
 
 struct TabView {
     std::wstring title;

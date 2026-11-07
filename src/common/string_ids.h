@@ -4419,5 +4419,13 @@
 #define IDS_OP_AUTH_TITLE_DELETE                                                         5627
 #define IDS_OP_AUTH_NOT_GRANTED_SHORT                                                    5628
 #define IDS_OP_AUTHORIZATION_ONCE                                                        5629
+#define IDS_COLUMN_RATING                                                                5630
+#define IDS_COLUMN_DURATION                                                              5631
+#define IDS_SORT_HINT_RATING                                                             5632
+#define IDS_SORT_HINT_DURATION                                                           5633
+#define IDS_SORT_LOW_HIGH                                                                5634
+#define IDS_SORT_HIGH_LOW                                                                5635
+#define IDS_SORT_SHORT_LONG                                                              5636
+#define IDS_SORT_LONG_SHORT                                                              5637
 
 #endif  // PULSE_STRING_IDS_H

@@ -488,6 +488,8 @@ CtlStep CtlSort(AppState& s, CtlRun& run, const json::Value& act) {
         {"name", ui::SortColumn::Name, I::AiCtlSortName},   {"modified", ui::SortColumn::Mtime, I::AiCtlSortModified},
         {"type", ui::SortColumn::Type, I::AiCtlSortType},   {"size", ui::SortColumn::Size, I::AiCtlSortSize},
         {"created", ui::SortColumn::Created, I::AiCtlSortCreated},
+        {"rating", ui::SortColumn::Rating, I::ColumnRating},
+        {"duration", ui::SortColumn::Duration, I::ColumnDuration},
     };
     const std::string want = act.get_string("by", act.get_string("sort"));
     const auto* m = std::find_if(std::begin(kCols), std::end(kCols), [&](const auto& e) { return want == e.id; });
@@ -499,11 +501,14 @@ CtlStep CtlSort(AppState& s, CtlRun& run, const json::Value& act) {
     std::vector<app::Pane*> panes;
     if (!StepPanes(s, act, st, panes)) return st;
     const bool desc = act.get_bool("desc", m->col == ui::SortColumn::Mtime || m->col == ui::SortColumn::Size ||
-                                               m->col == ui::SortColumn::Created);
+                                               m->col == ui::SortColumn::Created ||
+                                               m->col == ui::SortColumn::Rating || m->col == ui::SortColumn::Duration);
     // The direction in the column's own words: 新的在前, 大的在前, A → Z.
     const bool dated = m->col == ui::SortColumn::Mtime || m->col == ui::SortColumn::Created;
     const std::wstring dir_text = Text(dated ? (desc ? I::AiActSortNew : I::AiActSortOld)
                                        : m->col == ui::SortColumn::Size ? (desc ? I::AiActSortBig : I::AiActSortSmall)
+                                       : m->col == ui::SortColumn::Rating ? (desc ? I::SortHighLow : I::SortLowHigh)
+                                       : m->col == ui::SortColumn::Duration ? (desc ? I::SortLongShort : I::SortShortLong)
                                                                         : (desc ? I::AiActSortZA : I::AiActSortAZ));
     const std::wstring by = Text(m->name);
     st.arg = by + L" \u00B7 " + dir_text;

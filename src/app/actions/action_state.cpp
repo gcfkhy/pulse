@@ -79,6 +79,8 @@ const char* SortName(ui::SortColumn column) {
     case ui::SortColumn::Path: return "path";
     case ui::SortColumn::Created: return "created";
     case ui::SortColumn::Accessed: return "accessed";
+    case ui::SortColumn::Rating: return "rating";
+    case ui::SortColumn::Duration: return "duration";
     }
     return "name";
 }

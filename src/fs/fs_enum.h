@@ -34,6 +34,8 @@ struct DirEntryExtra {
     uint64_t drive_total = 0;
     uint64_t drive_free = 0;
     std::wstring shell_id;
+    uint32_t media_duration_ms = 0; // videos/audio: playing time; 0 = unknown
+    uint8_t media_rating = 0;       // 0 unrated, 1-5 stars (Windows Rating)
 };
 
 inline const DirEntryExtra kNoDirEntryExtra{};
@@ -65,6 +67,8 @@ private:
 
 inline bool IsUnsetExtra(const std::wstring& value) { return value.empty(); }
 inline bool IsUnsetExtra(uint64_t value) { return value == 0; }
+inline bool IsUnsetExtra(uint32_t value) { return value == 0; }
+inline bool IsUnsetExtra(uint8_t value) { return value == 0; }
 inline bool IsUnsetExtra(const FILETIME& value) { return !value.dwLowDateTime && !value.dwHighDateTime; }
 
 // An out-of-line field keeps its member syntax through an MSVC property:
@@ -130,6 +134,10 @@ struct DirEntry {
     // Phone rows (pulse:device:): the item's shell parsing name, so the
     // shell host can run Explorer's own verbs on it. Empty elsewhere.
     PULSE_DIR_ENTRY_EXTRA(std::wstring, shell_id)
+    // Media sort keys (Rating / Duration). 0 = unknown or unrated; filled from
+    // the property cache when that sort is active, not during enumeration.
+    PULSE_DIR_ENTRY_EXTRA(uint32_t, media_duration_ms)
+    PULSE_DIR_ENTRY_EXTRA(uint8_t, media_rating)
 };
 
 #undef PULSE_DIR_ENTRY_EXTRA

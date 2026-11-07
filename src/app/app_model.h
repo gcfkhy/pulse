@@ -154,6 +154,10 @@ struct Tab {
     // with, and when they last moved for new totals (GetTickCount64).
     uint64_t folder_size_signature = 0;
     uint64_t folder_size_resorted_at = 0;
+    // Rating / Duration order: MediaSortCache revision the rows were sorted
+    // with, and when they last moved for newly read properties.
+    uint64_t media_sort_signature = 0;
+    uint64_t media_sort_resorted_at = 0;
     ColumnStripState column_strip; // listings shown beside the list in column view
     std::wstring git_root;
     std::shared_ptr<std::vector<fs::DirEntry>> search_entries;

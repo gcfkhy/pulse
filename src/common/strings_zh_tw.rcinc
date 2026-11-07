@@ -4399,4 +4399,12 @@ BEGIN
     IDS_OP_AUTH_TITLE_DELETE "刪除這些項目需要系統管理員權限"
     IDS_OP_AUTH_NOT_GRANTED_SHORT "沒有取得系統管理員權限。"
     IDS_OP_AUTHORIZATION_ONCE "確認一次即可，本次操作的其餘項目不會再詢問。"
+    IDS_COLUMN_RATING "分級"
+    IDS_COLUMN_DURATION "時長"
+    IDS_SORT_HINT_RATING "按星級評分"
+    IDS_SORT_HINT_DURATION "按播放時長"
+    IDS_SORT_LOW_HIGH "低→高"
+    IDS_SORT_HIGH_LOW "高→低"
+    IDS_SORT_SHORT_LONG "短→長"
+    IDS_SORT_LONG_SHORT "長→短"
 END

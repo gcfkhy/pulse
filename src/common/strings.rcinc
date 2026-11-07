@@ -4401,6 +4401,14 @@ BEGIN
     IDS_OP_AUTH_TITLE_DELETE "删除这些项目需要管理员权限"
     IDS_OP_AUTH_NOT_GRANTED_SHORT "没有获得管理员权限。"
     IDS_OP_AUTHORIZATION_ONCE "确认一次即可，本次操作的其余项目不会再问。"
+    IDS_COLUMN_RATING "分级"
+    IDS_COLUMN_DURATION "时长"
+    IDS_SORT_HINT_RATING "按星级评分"
+    IDS_SORT_HINT_DURATION "按播放时长"
+    IDS_SORT_LOW_HIGH "低→高"
+    IDS_SORT_HIGH_LOW "高→低"
+    IDS_SORT_SHORT_LONG "短→长"
+    IDS_SORT_LONG_SHORT "长→短"
 END
 
 LANGUAGE 0x09, 0x01
@@ -8801,6 +8809,14 @@ BEGIN
     IDS_OP_AUTH_TITLE_DELETE "Deleting these items needs administrator permission"
     IDS_OP_AUTH_NOT_GRANTED_SHORT "Administrator permission wasn't granted."
     IDS_OP_AUTHORIZATION_ONCE "You only need to approve once; the rest of this operation won't ask again."
+    IDS_COLUMN_RATING "Rating"
+    IDS_COLUMN_DURATION "Duration"
+    IDS_SORT_HINT_RATING "By star rating"
+    IDS_SORT_HINT_DURATION "By playing time"
+    IDS_SORT_LOW_HIGH "Low→High"
+    IDS_SORT_HIGH_LOW "High→Low"
+    IDS_SORT_SHORT_LONG "Short→Long"
+    IDS_SORT_LONG_SHORT "Long→Short"
 END
 
 // Traditional Chinese (Taiwan), generated from the Simplified entries above.
