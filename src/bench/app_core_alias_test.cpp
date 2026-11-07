@@ -25,7 +25,7 @@ namespace {
     X(update_install_error) X(next_update_progress_paint) X(next_update_check) \
     X(notified_update_version) X(whatsNewVersion) X(whatsNewAt) X(tray_controller) \
     X(globalSearchHotkey) X(globalSearchWindow) X(single_instance) X(tagAdsResultRevision) \
-    X(tagAdsDiscoveryQueued) X(tagAdsDiscoveryChecked) X(index) X(folderSizes) X(changes) \
+    X(tagAdsDiscoveryQueued) X(tagAdsDiscoveryChecked) X(index) X(folderSizes) X(mediaSort) X(changes) \
     X(networkIndex) X(contentSearch) X(duplicateSearch) X(duplicateScan) X(dup_volume_cache) \
     X(dup_volume_cache_tick) X(dup_volume_cache_pending) X(savedSearches) \
     X(pendingIndexSearches) X(liveNetworkSearches) X(sessionSavedJson) X(updateSessionPrepared) \

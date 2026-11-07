@@ -18,7 +18,7 @@ std::wstring SortPrefKey(const std::wstring& path) {
 constexpr const wchar_t* kColumnNames[] = { L"name", L"modified", L"type", L"size", L"path",
                                             L"created", L"accessed", L"taken", L"dimensions",
                                             L"camera", L"title", L"artist", L"album", L"duration",
-                                            L"frame_rate" };
+                                            L"frame_rate", L"rating", L"runtime" };
 constexpr int kColumnCount = static_cast<int>(sizeof(kColumnNames) / sizeof(kColumnNames[0]));
 
 bool Valid(FolderSort sort) {

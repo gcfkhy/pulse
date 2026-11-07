@@ -1549,6 +1549,7 @@ void StartLoadingPath(AppState& s, app::Tab& tab, const std::wstring& path, Path
         snap = fs::LoadNetSnapshot(normalized, &disk_ts);
 
     if (snap) {
+        snap = app::WithMediaSortApplied(s, tab, snap, true);
         tab.SetSnapshot(snap);
         tab.loading = false;
         if (tab.snapshot && tab.EntryCount() != 0) tab.FocusFirstEntry();
@@ -1752,6 +1753,7 @@ static bool ApplyWorkerResultToWindow(AppState& s, app::WorkResult& res, bool ag
             tab->refresh_keeps_order = false;
             if (keep_order) app::PruneHeldRenames(tab->held_renames, *res.snapshot);
             else tab->held_renames.clear();
+            listing = app::WithMediaSortApplied(s, *tab, listing, !keep_order);
             tab->SetSnapshot(listing);
             if (focusedTab) UpdateDeviceFolderWatch(s);
             if (std::exchange(tab->auto_view_pending, false) && res.snapshot)

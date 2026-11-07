@@ -47,7 +47,7 @@ const char* RunActionsDescription() {
         "e, left or top first; \"\" leaves one]}, nav.go {path, pane}, window.new {path}, tab.new {path}, tab.close, ta"
         "b.to_window, pane.to_window {pane}, window.merge, window.overview, nav.back, nav.up, view.mode {view: extra_la"
         "rge_icons|large_icons|medium_icons|small_icons|list|details|tiles|content, pane}, view.sort {by: name|modified"
-        "|type|size|created, desc, pane}, view.group {by: none|name|date|type|size, pane}, sidebar.toggle {show}, favba"
+        "|type|size|created|rating|duration, desc, pane}, view.group {by: none|name|date|type|size, pane}, sidebar.toggle {show}, favba"
         "r.toggle {show}, details.toggle {show}, select.items {pane, name, extensions, items, type: folder|document|ima"
         "ge|video|audio|archive|code, modified: today|yesterday|this_week|last_7_days|this_month|last_month|{after, bef"
         "ore}, size: {larger_than, smaller_than}, tag, selected, mode: replace|add|remove} (on a search tab Pulse first"

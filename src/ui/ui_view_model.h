@@ -59,10 +59,15 @@ int FluentSvgIdForGlyph(std::wstring_view glyph);
 
 // Values are persisted (folder sort prefs, session): append only.
 // Media*: 媒体文件夹专用列 (PaneViewModel::media_columns), read by app/media_props.
+// Rating / Duration: read by app/media_sort (photo and video folders).
 enum class SortColumn { Name, Mtime, Type, Size, Path, Created, Accessed,
                         MediaTaken, MediaDims, MediaCamera, MediaTitle, MediaArtist, MediaAlbum,
-                        MediaDuration, MediaFps };
+                        MediaDuration, MediaFps, Rating, Duration };
 enum class SortDirection { Asc, Desc };
+
+inline constexpr bool IsMediaSortColumn(SortColumn column) noexcept {
+    return column == SortColumn::Rating || column == SortColumn::Duration;
+}
 
 struct TabView {
     std::wstring title;

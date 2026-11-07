@@ -4,6 +4,7 @@
 #include "entry_group.h"
 #include "entry_sort.h"
 #include "media_columns_ui.h"
+#include "media_sort.h"
 #include "window_registry.h"
 #include "../common/text_format.h"
 #include "../common/localization.h"
@@ -169,8 +170,12 @@ constexpr SortStyle kSortColumns[] = {
      ui::command_icons::Icon::File, 0xFBBF24, 0xB45309},
     {ui::SortColumn::Size, l10n::StringId::ColumnSize, l10n::StringId::SortHintSize,
      ui::command_icons::Icon::Sliders, 0xF472B6, 0xBE185D},
+    {ui::SortColumn::Rating, l10n::StringId::ColumnRating, l10n::StringId::SortHintRating,
+     ui::command_icons::Icon::Star, 0xFBBF24, 0xB45309},
+    {ui::SortColumn::Duration, l10n::StringId::ColumnDuration, l10n::StringId::SortHintDuration,
+     ui::command_icons::Icon::Timer, 0x22D3EE, 0x0E7490},
     {ui::SortColumn::Path, l10n::StringId::ColumnPath, l10n::StringId::SortHintPath,
-     ui::command_icons::Icon::Folder, 0x22D3EE, 0x0E7490},
+     ui::command_icons::Icon::Folder, 0x60A5FA, 0x1D4ED8},
 };
 
 std::wstring ShortTime(const FILETIME& ft) {
@@ -204,12 +209,28 @@ uint32_t Swatch(const fs::DirEntry& e) {
     return kPalette[h % 7];
 }
 
+std::wstring PlayingTime(uint32_t duration_ms) {
+    if (!duration_ms) return L"\x2014";
+    const uint32_t total = (duration_ms + 500) / 1000;
+    const uint32_t hours = total / 3600, minutes = total / 60 % 60, seconds = total % 60;
+    wchar_t text[32]{};
+    if (hours) swprintf_s(text, L"%u:%02u:%02u", hours, minutes, seconds);
+    else swprintf_s(text, L"%u:%02u", minutes, seconds);
+    return text;
+}
+
+std::wstring RatingStars(uint8_t rating) {
+    return rating ? std::wstring(static_cast<size_t>(rating), L'\x2605') : std::wstring(L"\x2014");
+}
+
 std::wstring SortValue(const fs::DirEntry& e, ui::SortColumn col) {
     switch (col) {
     case ui::SortColumn::Mtime: return ShortTime(e.mtime);
     case ui::SortColumn::Created: return ShortTime(e.ctime);
     case ui::SortColumn::Accessed: return ShortTime(e.atime);
     case ui::SortColumn::Size: return e.is_dir ? std::wstring(L"\x2014") : format::ByteSize(e.size);
+    case ui::SortColumn::Rating: return e.is_dir ? std::wstring(L"\x2014") : RatingStars(e.media_rating);
+    case ui::SortColumn::Duration: return e.is_dir ? std::wstring(L"\x2014") : PlayingTime(e.media_duration_ms);
     case ui::SortColumn::Path: {
         const std::wstring full = app::GroupLocationLabel(e);
         const size_t slash = full.find_last_of(L'\\', full.size() > 1 ? full.size() - 2 : 0);
@@ -235,11 +256,11 @@ std::vector<std::wstring> SplitBar(const std::wstring& text) {
 // full of cryptic names). Sorted with the real comparator, so direction and
 // folder placement behave exactly like the list.
 std::vector<fs::DirEntry> SampleEntries(bool with_path) {
-    struct Sample { bool dir; double hours_ago; uint64_t size; int location; };
+    struct Sample { bool dir; double hours_ago; uint64_t size; int location; uint8_t rating; uint32_t duration_ms; };
     static constexpr Sample kSamples[] = {
-        {true, 30.0, 0, 1},        {true, 24.0 * 12, 0, 0},  {false, 2.0, 1'240'000, 0},
-        {false, 24.0 * 3, 3'400'000, 1}, {false, 24.0 * 40, 48'000, 0},
-        {false, 24.0 * 7, 26'000, 3}, {false, 24.0 * 200, 5'100'000, 2},
+        {true, 30.0, 0, 1, 0, 0},        {true, 24.0 * 12, 0, 0, 0, 0},  {false, 2.0, 1'240'000, 0, 0, 0},
+        {false, 24.0 * 3, 3'400'000, 1, 5, 0}, {false, 24.0 * 40, 48'000, 0, 0, 0},
+        {false, 24.0 * 7, 26'000, 3, 0, 0}, {false, 24.0 * 200, 5'100'000, 2, 3, 222'000},
     };
     const auto names = SplitBar(l10n::Get(l10n::StringId::SortWheelSamples));
     const auto places = SplitBar(l10n::Get(l10n::StringId::SortWheelSamplePlaces));
@@ -267,6 +288,8 @@ std::vector<fs::DirEntry> SampleEntries(bool with_path) {
         e.ctime.dwHighDateTime = static_cast<DWORD>(created >> 32);
         e.atime.dwLowDateTime = static_cast<DWORD>(accessed & 0xFFFFFFFFu);
         e.atime.dwHighDateTime = static_cast<DWORD>(accessed >> 32);
+        e.media_rating = sample.rating;
+        e.media_duration_ms = sample.duration_ms;
         if (with_path && static_cast<size_t>(sample.location) < places.size())
             e.full_path = L"C:\\" + places[static_cast<size_t>(sample.location)] + L"\\" + e.name;
         out.push_back(std::move(e));
@@ -405,6 +428,9 @@ void OpenSortWheel(AppState& s) {
     if (kind == L"starred" || kind == L"recent") return;
     const bool show_path = kind == L"search" || kind == L"saved-search" || kind == L"recycle";
     const bool indexed = (kind == L"search" || kind == L"saved-search") && !tab->content_results;
+    const bool media = !show_path && !indexed &&
+        (ui::IsMediaSortColumn(tab->sort_column) ||
+         (tab->snapshot && app::EntriesHaveMedia(*tab->snapshot)));
     const std::vector<fs::DirEntry> entries = SampleEntries(show_path);
 
     ui::GroupWheelData data;
@@ -417,6 +443,7 @@ void OpenSortWheel(AppState& s) {
         if (indexed && (col.column == ui::SortColumn::Type || col.column == ui::SortColumn::Path)) continue;
         // Same rule as the sort menu: no creation / access times in search or the recycle bin.
         if (show_path && (col.column == ui::SortColumn::Created || col.column == ui::SortColumn::Accessed)) continue;
+        if (ui::IsMediaSortColumn(col.column) && !media) continue;
         ui::GroupWheelOption o;
         o.value = static_cast<int>(col.column);
         o.icon = static_cast<int>(col.icon);
@@ -428,6 +455,10 @@ void OpenSortWheel(AppState& s) {
             o.directions = {l10n::Get(l10n::StringId::SortOldNew), l10n::Get(l10n::StringId::SortNewOld)};
         else if (col.column == ui::SortColumn::Size)
             o.directions = {l10n::Get(l10n::StringId::SortSmallLarge), l10n::Get(l10n::StringId::SortLargeSmall)};
+        else if (col.column == ui::SortColumn::Rating)
+            o.directions = {l10n::Get(l10n::StringId::SortLowHigh), l10n::Get(l10n::StringId::SortHighLow)};
+        else if (col.column == ui::SortColumn::Duration)
+            o.directions = {l10n::Get(l10n::StringId::SortShortLong), l10n::Get(l10n::StringId::SortLongShort)};
         else
             o.directions = {az, za};
         std::vector<size_t> order(entries.size());

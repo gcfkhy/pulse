@@ -5092,6 +5092,14 @@ BEGIN
     IDS_ARCHIVE_PLUGIN_REQUIRED "需要压缩包插件。请安装并启用支持此格式的原生增强包。"
     IDS_ARCHIVE_PLUGIN_MIGRATION_TITLE "压缩包增强功能已迁移"
     IDS_ARCHIVE_PLUGIN_MIGRATION_BODY "旧的 7-Zip 下载包已停用。请安装并启用压缩包原生增强包以预览和解压 7z、RAR；内置 ZIP 功能不受影响。"
+    IDS_COLUMN_RATING "分级"
+    IDS_COLUMN_DURATION "时长"
+    IDS_SORT_HINT_RATING "按星级评分"
+    IDS_SORT_HINT_DURATION "按播放时长"
+    IDS_SORT_LOW_HIGH "低→高"
+    IDS_SORT_HIGH_LOW "高→低"
+    IDS_SORT_SHORT_LONG "短→长"
+    IDS_SORT_LONG_SHORT "长→短"
 END
 
 LANGUAGE 0x09, 0x01
@@ -10183,6 +10191,14 @@ BEGIN
     IDS_ARCHIVE_PLUGIN_REQUIRED "An archive plugin is required. Install and enable a native extension supporting this format."
     IDS_ARCHIVE_PLUGIN_MIGRATION_TITLE "Archive features have moved to plugins"
     IDS_ARCHIVE_PLUGIN_MIGRATION_BODY "The old 7-Zip download pack is retired. Install and enable the native archive extension to preview and extract 7z and RAR files. Built-in ZIP features remain available."
+    IDS_COLUMN_RATING "Rating"
+    IDS_COLUMN_DURATION "Duration"
+    IDS_SORT_HINT_RATING "By star rating"
+    IDS_SORT_HINT_DURATION "By playing time"
+    IDS_SORT_LOW_HIGH "Low→High"
+    IDS_SORT_HIGH_LOW "High→Low"
+    IDS_SORT_SHORT_LONG "Short→Long"
+    IDS_SORT_LONG_SHORT "Long→Short"
 END
 
 // Traditional Chinese (Taiwan), generated from the Simplified entries above.

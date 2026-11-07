@@ -98,6 +98,7 @@ namespace pulse::app { bool RunMediaColumnResizeCapture(); }
 #include "folder_sizes_ui.h"
 #include "media_columns_ui.h"
 #include "media_props.h"
+#include "media_sort.h"
 #include "saved_search.h"
 #include "search_query.h"
 #include "settings_controller.h"
@@ -2687,6 +2688,7 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
             if (TickChangeTracking(*s)) dirty = true;
             if (s->renderer.MtimeBoundaryDue()) dirty = true;   // 修改时间提示: a mark aged
             static bool folderSizeResortWaiting = false;
+            static bool mediaSortResortWaiting = false;
             if (s->folderSizes.TakeChanged()) {
                 dirty = true;
                 folderSizeResortWaiting = true;
@@ -2702,6 +2704,8 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
                 dirty = true;
             }
             if (s->mediaResortWaiting) s->mediaResortWaiting = ResortForMediaProps(*s);
+            if (app::RequestMediaSort(*s) || s->mediaSort.TakeChanged()) mediaSortResortWaiting = true;
+            if (mediaSortResortWaiting) mediaSortResortWaiting = app::ResortForMediaSort(*s);
             if (DrainDirNotifies(*s)) {
                 s->uiTimerPacer.NoteActivity(GetTickCount64());
                 SyncUiTimerRate(*s, hwnd, IsWindowVisible(hwnd) && !IsIconic(hwnd));
@@ -3853,6 +3857,7 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
                 s->watches.Stop();
                 const uint64_t watches_ms = timer.Lap();
                 s->folderSizes.Stop();
+                s->mediaSort.Stop();
                 const uint64_t sizes_ms = timer.Lap();
                 s->settings.ResetUi();
                 s->settings.Stop();

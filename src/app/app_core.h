@@ -31,6 +31,7 @@ namespace pulse::app { class RecycleShellWatch; }
 #include "external_open.h"
 #include "external_open_notice.h"
 #include "folder_sizes.h"
+#include "media_sort.h"
 #include "dialog_jump.h"
 #include "double_ctrl.h"
 #include "global_search_hotkey.h"
@@ -152,6 +153,7 @@ struct AppCore {
     std::unordered_set<std::wstring> tagAdsDiscoveryChecked;
     index::IndexClient index;
     app::FolderSizes folderSizes;
+    app::MediaSortCache mediaSort;
     ChangeTrackingUi changes;
     index::NetworkAgentClient networkIndex;
     index::ContentSearchClient contentSearch;
