@@ -5118,5 +5118,7 @@
 #define IDS_SORT_HIGH_LOW                                                                6396
 #define IDS_SORT_SHORT_LONG                                                              6397
 #define IDS_SORT_LONG_SHORT                                                              6398
+#define IDS_RATING_SET_FAILED_TITLE                                                      6399
+#define IDS_RATING_SET_FAILED                                                            6400
 
 #endif  // PULSE_STRING_IDS_H

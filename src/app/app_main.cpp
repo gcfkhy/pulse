@@ -2704,8 +2704,14 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
                 dirty = true;
             }
             if (s->mediaResortWaiting) s->mediaResortWaiting = ResortForMediaProps(*s);
-            if (app::RequestMediaSort(*s) || s->mediaSort.TakeChanged()) mediaSortResortWaiting = true;
+            // New 分级 / 时长 values also redraw the details panel and the columns.
+            const bool mediaValuesChanged = s->mediaSort.TakeChanged();
+            if (mediaValuesChanged) dirty = true;
+            if (app::RequestMediaSort(*s) || mediaValuesChanged) mediaSortResortWaiting = true;
             if (mediaSortResortWaiting) mediaSortResortWaiting = app::ResortForMediaSort(*s);
+            if (s->mediaSort.TakeRatingFailures() > 0)
+                s->notification_toast.ShowError(hwnd, l10n::Get(l10n::StringId::RatingSetFailedTitle),
+                                                l10n::Get(l10n::StringId::RatingSetFailed));
             if (DrainDirNotifies(*s)) {
                 s->uiTimerPacer.NoteActivity(GetTickCount64());
                 SyncUiTimerRate(*s, hwnd, IsWindowVisible(hwnd) && !IsIconic(hwnd));

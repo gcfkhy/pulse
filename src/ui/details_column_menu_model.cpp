@@ -15,11 +15,15 @@ constexpr const wchar_t* kIconCheck = L"\xE73E"; // Segoe Fluent Icons: CheckMar
 
 struct ColumnRow { K kind; I label; };
 // Same order as the header; 状态 last, since only cloud folders draw it.
+// 分级 / 时长 are listed only for photo and video folders.
 constexpr ColumnRow kRows[] = {
     {K::Date, I::ColumnModified}, {K::Created, I::ColumnCreated},
-    {K::Accessed, I::ColumnAccessed}, {K::Type, I::ColumnType}, {K::Size, I::ColumnSize},
+    {K::Accessed, I::ColumnAccessed}, {K::Type, I::ColumnType},
+    {K::Rating, I::ColumnRating}, {K::Duration, I::ColumnDuration}, {K::Size, I::ColumnSize},
     {K::Status, I::ColumnStatus},
 };
+
+constexpr bool IsMediaRow(K kind) { return kind == K::Rating || kind == K::Duration; }
 
 constexpr uint32_t Bit(K kind) { return 1u << static_cast<uint32_t>(kind); }
 
@@ -36,13 +40,15 @@ ui::FluentMenuItem CheckRow(int command, I label, bool checked, bool enabled) {
 
 } // namespace
 
-std::vector<ui::FluentMenuItem> BuildDetailsColumnMenu(uint32_t mask, uint32_t visible, bool search) {
+std::vector<ui::FluentMenuItem> BuildDetailsColumnMenu(uint32_t mask, uint32_t visible, bool search,
+                                                       bool media) {
     mask = ui::NormalizeDetailsColumns(mask);
     std::vector<ui::FluentMenuItem> items;
     items.reserve(std::size(kRows) + 2);
     items.push_back(CheckRow(kDetailsColumnToggleBase + static_cast<int>(K::Name),
                              I::ColumnName, true, false));
     for (const auto& row : kRows) {
+        if (IsMediaRow(row.kind) && !media) continue;
         const bool checked = (mask & Bit(row.kind)) != 0;
         auto item = CheckRow(kDetailsColumnToggleBase + static_cast<int>(row.kind), row.label, checked, true);
         // A chosen column the pane cannot show says why, so ticking it is

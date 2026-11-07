@@ -10,6 +10,7 @@
 #include "../fs/fs_enum.h"
 #include <objbase.h>
 #include <propsys.h>
+#include <propvarutil.h>
 #include <propkey.h>
 #include <shobjidl.h>
 #include <wrl/client.h>
@@ -106,6 +107,45 @@ MediaSortValue ReadMediaProperties(const std::wstring& path) {
     return out;
 }
 
+// System.Rating on disk: 1-12 is one star, 13-37 two, 38-62 three, 63-87 four, 88-99 five.
+uint32_t RatingFromStars(uint8_t stars) {
+    static constexpr uint32_t kValues[] = {0, 1, 25, 50, 75, 99};
+    return kValues[(std::min<size_t>)(stars, 5)];
+}
+
+// 0 clears the rating. Runs on the worker: the file's property handler opens it.
+HRESULT WriteRating(const std::wstring& path, uint8_t stars) {
+    const std::wstring shell = path::StripExtendedPathPrefix(path);
+    ComPtr<IPropertyStore> store;
+    HRESULT hr = shell.empty() ? E_INVALIDARG
+        : SHGetPropertyStoreFromParsingName(shell.c_str(), nullptr, GPS_READWRITE, IID_PPV_ARGS(&store));
+    if (FAILED(hr)) return hr;
+    if (!store) return E_FAIL;
+    PROPVARIANT value{};
+    PropVariantInit(&value);   // VT_EMPTY removes the property
+    if (stars) {
+        hr = InitPropVariantFromUInt32(RatingFromStars(stars), &value);
+        if (FAILED(hr)) return hr;
+    }
+    hr = store->SetValue(PKEY_Rating, value);
+    PropVariantClear(&value);
+    return SUCCEEDED(hr) ? store->Commit() : hr;
+}
+
+// The Details view draws 分级 / 时长 values: ticked in the column menu, or the
+// list is sorted by one of them.
+bool ShowsMediaValues(const AppState& s, const Tab& tab) {
+    return tab.view_mode == ui::ViewMode::Details &&
+        (ui::IsMediaSortColumn(tab.sort_column) || (s.appPrefs.details_columns & ui::kDetailsColumnsMedia) != 0);
+}
+
+// Properties are read for a sorted listing, and for a photo / video folder
+// whose Details view shows the columns.
+bool MediaPropsWanted(const AppState& s, const Tab& tab) {
+    if (ui::IsMediaSortColumn(tab.sort_column)) return true;
+    return tab.media_folder && ShowsMediaValues(s, tab);
+}
+
 struct ChangeFlag {
     std::atomic<bool> value{false}, posted{false};
     std::atomic<HWND> hwnd{nullptr};
@@ -137,6 +177,16 @@ static bool IsMediaPropertyName(std::wstring_view name) {
     return !ext.empty() && preview::IsAudioExtension(ext);
 }
 
+bool HasMediaProperties(std::wstring_view name) { return IsMediaPropertyName(name); }
+
+// Windows only writes a rating into formats that have a writable property
+// handler; the audio formats below do, WAV / FLAC / OGG do not.
+bool CanRateName(std::wstring_view name) {
+    if (IsMediaSortName(name)) return true;
+    const std::wstring ext = LowerExt(name);
+    return ext == L".mp3" || ext == L".m4a" || ext == L".wma";
+}
+
 bool EntriesHaveMedia(const std::vector<fs::DirEntry>& entries, size_t limit) {
     const size_t n = (std::min)(entries.size(), limit);
     for (size_t i = 0; i < n; ++i)
@@ -155,10 +205,17 @@ struct MediaSortCache::Impl {
         bool queued = false;
     };
 
+    struct RatingJob {
+        std::wstring path;
+        uint8_t stars = 0;
+    };
+
     mutable std::mutex mutex;
     std::condition_variable wake;
     std::unordered_map<std::wstring, Item> items;
     std::deque<std::wstring> queue;
+    std::deque<RatingJob> rating_jobs;
+    std::atomic<uint32_t> rating_failures{0};
     std::thread worker;
     bool stopping = false;
     uint64_t revision = 0;
@@ -174,12 +231,42 @@ struct MediaSortCache::Impl {
         size_t since_notify = 0;
         for (;;) {
             std::wstring path;
+            RatingJob job;
+            bool rate = false;
             {
                 std::unique_lock lock(mutex);
-                wake.wait(lock, [&] { return stopping || !queue.empty(); });
-                if (stopping && queue.empty()) break;
-                path = std::move(queue.front());
-                queue.pop_front();
+                wake.wait(lock, [&] { return stopping || !queue.empty() || !rating_jobs.empty(); });
+                if (stopping && queue.empty() && rating_jobs.empty()) break;
+                // A pressed key outranks reading properties for a long folder.
+                if (!rating_jobs.empty()) {
+                    job = std::move(rating_jobs.front());
+                    rating_jobs.pop_front();
+                    rate = true;
+                } else {
+                    path = std::move(queue.front());
+                    queue.pop_front();
+                }
+            }
+            if (rate) {
+                if (SUCCEEDED(WriteRating(job.path, job.stars))) {
+                    // Read it back: what the file holds is what the list shows.
+                    const MediaSortValue value = ReadMediaProperties(job.path);
+                    const std::wstring key = path::FoldedKey(job.path);
+                    {
+                        std::lock_guard lock(mutex);
+                        Item& item = items[key];
+                        item.path = job.path;
+                        item.duration_ms = value.duration_ms;
+                        item.rating = value.rating;
+                        item.ready = true;
+                        item.queued = false;
+                        ++revision;
+                    }
+                } else {
+                    ++rating_failures;
+                }
+                changed.Raise();
+                continue;
             }
             std::wstring read_path;
             {
@@ -269,6 +356,28 @@ void MediaSortCache::Apply(std::vector<fs::DirEntry>& entries, const std::wstrin
     }
 }
 
+bool MediaSortCache::Lookup(const std::wstring& path, MediaSortValue& out) const {
+    std::lock_guard lock(impl_->mutex);
+    const auto it = impl_->items.find(path::FoldedKey(path));
+    if (it == impl_->items.end() || !it->second.ready) return false;
+    out.duration_ms = it->second.duration_ms;
+    out.rating = it->second.rating;
+    return true;
+}
+
+void MediaSortCache::SetRating(std::vector<std::wstring> paths, uint8_t stars) {
+    if (paths.empty() || stars > 5) return;
+    {
+        std::lock_guard lock(impl_->mutex);
+        if (impl_->stopping) return;
+        for (auto& path : paths) impl_->rating_jobs.push_back({std::move(path), stars});
+        impl_->EnsureWorker();
+    }
+    impl_->wake.notify_one();
+}
+
+uint32_t MediaSortCache::TakeRatingFailures() { return impl_->rating_failures.exchange(0); }
+
 void MediaSortCache::Stop() {
     {
         std::lock_guard lock(impl_->mutex);
@@ -284,23 +393,27 @@ bool RequestMediaSort(AppState& s) {
     bool waiting = false;
     ForEachPane(s, [&](Pane& pane) {
         Tab* tab = pane.ActiveTab();
-        if (!tab || !ui::IsMediaSortColumn(tab->sort_column) || !tab->snapshot || tab->loading ||
+        if (!tab || !tab->snapshot || !MediaPropsWanted(s, *tab) || tab->loading ||
             tab->pending_generation != 0 || tab->content_results || tab->search_content_active ||
             tab->current_path.empty() || fs::IsVirtualPath(tab->current_path) ||
             tab->snapshot_path != tab->current_path)
             return;
-        std::vector<MediaSortRequest> files;
-        files.reserve((std::min)(tab->snapshot->size(), kRequestLimit));
-        for (const auto& entry : *tab->snapshot) {
-            if (files.size() >= kRequestLimit) break;
-            if (entry.is_dir || entry.cloud_recall || !IsMediaPropertyName(entry.name)) continue;
-            MediaSortRequest req;
-            req.path = entry.full_path.empty() ? ChildPath(tab->current_path, entry.name) : entry.full_path;
-            req.modified = FileTimeTicks(entry.mtime);
-            req.size = entry.size;
-            files.push_back(std::move(req));
+        // Queue each listing once; later ticks only wait for the revision to settle.
+        if (tab->media_request_id != tab->snapshot.get()) {
+            std::vector<MediaSortRequest> files;
+            files.reserve((std::min)(tab->snapshot->size(), kRequestLimit));
+            for (const auto& entry : *tab->snapshot) {
+                if (files.size() >= kRequestLimit) break;
+                if (entry.is_dir || entry.cloud_recall || !IsMediaPropertyName(entry.name)) continue;
+                MediaSortRequest req;
+                req.path = entry.full_path.empty() ? ChildPath(tab->current_path, entry.name) : entry.full_path;
+                req.modified = FileTimeTicks(entry.mtime);
+                req.size = entry.size;
+                files.push_back(std::move(req));
+            }
+            s.mediaSort.Request(files);
+            tab->media_request_id = tab->snapshot.get();
         }
-        s.mediaSort.Request(files);
         if (s.mediaSort.Revision() != tab->media_sort_signature) waiting = true;
     });
     return waiting;
@@ -314,7 +427,7 @@ bool ResortForMediaSort(AppState& s) {
         (GetKeyState(VK_LBUTTON) & 0x8000) != 0 || (GetKeyState(VK_RBUTTON) & 0x8000) != 0;
     ForEachPane(s, [&](Pane& pane) {
         Tab* tab = pane.ActiveTab();
-        if (!tab || !ui::IsMediaSortColumn(tab->sort_column) || !tab->snapshot || tab->loading ||
+        if (!tab || !tab->snapshot || !MediaPropsWanted(s, *tab) || tab->loading ||
             tab->pending_generation != 0 || tab->content_results || tab->search_content_active ||
             tab->current_path.empty() || fs::IsVirtualPath(tab->current_path) ||
             tab->snapshot_path != tab->current_path || !tab->held_renames.empty() ||
@@ -327,22 +440,25 @@ bool ResortForMediaSort(AppState& s) {
             waiting = true;
             return;
         }
+        const bool sorting = ui::IsMediaSortColumn(tab->sort_column);
         auto sorted = std::make_shared<std::vector<fs::DirEntry>>(*tab->snapshot);
         s.mediaSort.Apply(*sorted, tab->current_path);
-        {
+        if (sorting) {
             const ScopedEntryGrouping grouping(tab->EffectiveGroup(), tab->current_path);
             const ScopedFolderSortMode folder_mode(tab->EffectiveFolderSort());
             SortEntries(*sorted, tab->sort_column, tab->sort_direction);
         }
         tab->media_sort_signature = signature;
         tab->media_sort_resorted_at = now;
-        if (std::equal(sorted->begin(), sorted->end(), tab->snapshot->begin(), tab->snapshot->end(),
-                       [](const fs::DirEntry& a, const fs::DirEntry& b) { return a.name == b.name; }))
-            return;
+        const bool moved = sorting &&
+            !std::equal(sorted->begin(), sorted->end(), tab->snapshot->begin(), tab->snapshot->end(),
+                        [](const fs::DirEntry& a, const fs::DirEntry& b) { return a.name == b.name; });
+        // An unmoved list still takes the new values when the columns draw them.
+        if (!moved && !ShowsMediaValues(s, *tab)) return;
         const bool all = tab->all_selected;
         std::vector<std::wstring> names;
         std::wstring focus;
-        if (!all) {
+        if (moved && !all) {
             const int count = static_cast<int>(tab->EntryCount());
             for (const int index : tab->SelectedIndices())
                 if (index >= 0 && index < count) names.push_back(tab->EntryAt(static_cast<size_t>(index)).name);
@@ -350,24 +466,56 @@ bool ResortForMediaSort(AppState& s) {
                 focus = tab->EntryAt(static_cast<size_t>(tab->selected_index)).name;
         }
         tab->SetSnapshot(std::move(sorted));
-        tab->order_held = false;
-        if (!all) {
-            if (names.empty()) tab->ClearSelection();
-            else tab->RemapSelection(names, focus);
+        if (moved) {
+            tab->order_held = false;
+            if (!all) {
+                if (names.empty()) tab->ClearSelection();
+                else tab->RemapSelection(names, focus);
+            }
         }
         if (s.hwnd) InvalidateRect(s.hwnd, nullptr, FALSE);
     });
     return waiting;
 }
 
+std::vector<std::wstring> RatableSelection(const Tab& tab) {
+    std::vector<std::wstring> out;
+    if (!tab.snapshot || tab.content_results || tab.current_path.empty() || fs::IsVirtualPath(tab.current_path))
+        return out;
+    for (const int index : tab.SelectedIndices()) {
+        if (index < 0 || static_cast<size_t>(index) >= tab.EntryCount()) return {};
+        const fs::DirEntry entry = tab.EntryAt(static_cast<size_t>(index));
+        if (entry.is_dir || entry.cloud_recall || !CanRateName(entry.name)) return {};
+        std::wstring full = EntryFullPath(tab, index);
+        if (full.empty()) return {};
+        out.push_back(std::move(full));
+    }
+    return out;
+}
+
+bool SetSelectedRating(AppState& s, uint8_t stars) {
+    const Tab* tab = ActiveTab(s);
+    if (!tab || stars > 5) return false;
+    std::vector<std::wstring> paths = RatableSelection(*tab);
+    if (paths.empty()) return false;
+    s.mediaSort.SetChangeNotify(ServiceWindow(s), WM_UI_KICK);
+    s.mediaSort.SetRating(std::move(paths), stars);
+    return true;
+}
+
 fs::SnapshotPtr WithMediaSortApplied(AppState& s, Tab& tab, fs::SnapshotPtr listing, bool resort) {
-    if (!listing || !ui::IsMediaSortColumn(tab.sort_column)) return listing;
+    if (!listing) return listing;
+    const bool sorting = ui::IsMediaSortColumn(tab.sort_column);
+    // `tab` still describes the previous listing here, so look at the new one.
+    if (!sorting && !(ShowsMediaValues(s, tab) && EntriesHaveMedia(*listing))) return listing;
     auto copy = std::make_shared<std::vector<fs::DirEntry>>(*listing);
     s.mediaSort.Apply(*copy, tab.current_path);
     if (resort) {
-        const ScopedEntryGrouping grouping(tab.EffectiveGroup(), tab.current_path);
-        const ScopedFolderSortMode folder_mode(tab.EffectiveFolderSort());
-        SortEntries(*copy, tab.sort_column, tab.sort_direction);
+        if (sorting) {
+            const ScopedEntryGrouping grouping(tab.EffectiveGroup(), tab.current_path);
+            const ScopedFolderSortMode folder_mode(tab.EffectiveFolderSort());
+            SortEntries(*copy, tab.sort_column, tab.sort_direction);
+        }
         tab.media_sort_signature = s.mediaSort.Revision();
         tab.media_sort_resorted_at = GetTickCount64();
     }

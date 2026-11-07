@@ -28,6 +28,10 @@ struct MediaSortValue {
 // Image, camera raw, or video: folders of these get Rating / Duration sorts.
 bool IsMediaSortName(std::wstring_view name);
 bool EntriesHaveMedia(const std::vector<fs::DirEntry>& entries, size_t limit = 400);
+// Photos, videos and audio files have a playing time / rating to read.
+bool HasMediaProperties(std::wstring_view name);
+// The ones Windows can write a star rating into: photos, videos, MP3 / M4A / WMA.
+bool CanRateName(std::wstring_view name);
 
 class MediaSortCache {
 public:
@@ -43,6 +47,14 @@ public:
     // the worker. True when at least one requested file is already ready.
     bool Request(const std::vector<MediaSortRequest>& files);
     void Apply(std::vector<fs::DirEntry>& entries, const std::wstring& parent) const;
+    // The values already read for `path` (whatever its mtime was), if any.
+    bool Lookup(const std::wstring& path, MediaSortValue& out) const;
+    // Write 1-5 stars, or 0 to clear, on the worker thread (property handlers
+    // open the file). A written file is read back, so Lookup / Apply show what
+    // the file really holds.
+    void SetRating(std::vector<std::wstring> paths, uint8_t stars);
+    // Writes that failed since the last call.
+    uint32_t TakeRatingFailures();
     void Stop();
 
 private:
@@ -57,6 +69,14 @@ bool ResortForMediaSort(AppState& state);
 // Stamp cached rating/duration onto a listing. Re-sorts when `resort` is true
 // (a fresh listing); a keep-order refresh only fills the extra fields.
 fs::SnapshotPtr WithMediaSortApplied(AppState& state, Tab& tab, fs::SnapshotPtr listing, bool resort);
+
+// The selected files' full paths when every one of them can hold a rating;
+// empty when the selection is empty or has a folder, a cloud placeholder or
+// any other kind of file in it.
+std::vector<std::wstring> RatableSelection(const Tab& tab);
+// Keys 0-5 and the details panel's stars: rate the selected files (0 clears).
+// False when the selection cannot be rated, so the key keeps its other meaning.
+bool SetSelectedRating(AppState& state, uint8_t stars);
 
 } // namespace app
 } // namespace pulse

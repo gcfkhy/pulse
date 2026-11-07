@@ -471,6 +471,23 @@ void MainRenderer::DrawDetailsPanel(const WindowViewModel& vm, const D2D1_RECT_F
                 infoRow(pulse::l10n::Get(pulse::l10n::StringId::ColumnSize).c_str(),
                         d.size_pending ? pulse::l10n::Get(pulse::l10n::StringId::Calculating)
                                                 : d.size_text, iy);
+                if (!d.duration_text.empty())
+                    infoRow(pulse::l10n::Get(pulse::l10n::StringId::ColumnDuration).c_str(), d.duration_text, iy);
+                if (d.can_rate) {
+                    // 分级: five stars, filled up to the rating (or up to the hovered star).
+                    text(pulse::l10n::Get(pulse::l10n::StringId::ColumnRating),
+                         D2D1::RectF(panel.left + pad, iy, panel.left + pad + 96.0f * s, iy + 18.0f * s),
+                         compositor_->SmallFormat(), theme.text_secondary);
+                    int shown = d.rating;
+                    for (int star = 1; star <= 5; ++star)
+                        if (IsHovered(vm, HitTestResult::DetailsRating, star)) shown = star;
+                    for (size_t i = 0; i < hit.rating_stars.size(); ++i) {
+                        const bool filled = static_cast<int>(i) < shown;
+                        text(filled ? L"\x2605" : L"\x2606", hit.rating_stars[i], compositor_->SmallFormat(),
+                             filled ? theme.accent : WithAlpha(theme.text_secondary, theme.text_secondary.a * 0.7f));
+                    }
+                    iy += 18.0f * s;
+                }
                 if (d.is_dir) infoRow(pulse::l10n::Get(pulse::l10n::StringId::Contains).c_str(), d.contains_text, iy);
                 infoRow(pulse::l10n::Get(pulse::l10n::StringId::Created).c_str(), d.created_text, iy);
                 infoRow(pulse::l10n::Get(pulse::l10n::StringId::ModifiedTime).c_str(), d.modified_text, iy);

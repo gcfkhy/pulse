@@ -467,7 +467,10 @@ public:
     // Total: This PC's 总大小 (MainRenderer::ThisPcColumns), never a global column.
     // Media*: 媒体文件夹专用列 (MainRenderer::MediaColumns), never global
     // columns either; each sorts by the SortColumn of the same name.
-    enum class ColumnKind : uint8_t { Name, Path, Date, Type, Size, Created, Accessed, Status, Total,
+    // Rating / Duration (分级 / 时长): photo and video folders only, never in search views;
+    // they sit before Total so the "global column" kinds stay below it.
+    enum class ColumnKind : uint8_t { Name, Path, Date, Type, Size, Created, Accessed, Status,
+                                      Rating, Duration, Total,
                                       MediaTaken, MediaDims, MediaCamera, MediaTitle, MediaArtist,
                                       MediaAlbum, MediaDuration, MediaFps };
     static constexpr bool IsMediaColumn(ColumnKind kind) noexcept { return kind >= ColumnKind::MediaTaken; }
@@ -475,13 +478,15 @@ public:
     static std::wstring MediaColumnLabel(ColumnKind kind, uint8_t media_columns);
     DetailsColumnWidths ResizeMediaDetailsColumnDivider(const D2D1_RECT_F& bounds,
         const PaneViewModel& view, int divider, float cursor_x) const;
-    static constexpr size_t kMaxDetailsColumns = 11;
+    static constexpr size_t kMaxDetailsColumns = 13;
     static_assert(kDetailsColumnModified == 1u << static_cast<uint32_t>(ColumnKind::Date) &&
                   kDetailsColumnType == 1u << static_cast<uint32_t>(ColumnKind::Type) &&
                   kDetailsColumnSize == 1u << static_cast<uint32_t>(ColumnKind::Size) &&
                   kDetailsColumnCreated == 1u << static_cast<uint32_t>(ColumnKind::Created) &&
                   kDetailsColumnAccessed == 1u << static_cast<uint32_t>(ColumnKind::Accessed) &&
-                  kDetailsColumnStatus == 1u << static_cast<uint32_t>(ColumnKind::Status));
+                  kDetailsColumnStatus == 1u << static_cast<uint32_t>(ColumnKind::Status) &&
+                  kDetailsColumnRating == 1u << static_cast<uint32_t>(ColumnKind::Rating) &&
+                  kDetailsColumnDuration == 1u << static_cast<uint32_t>(ColumnKind::Duration));
     // Details columns in display order. Name is always first; Path only in
     // wide search views; then the shown metadata columns (modified, created,
     // accessed, type, size). Accessed, created, type, then modified are
@@ -528,6 +533,7 @@ public:
     struct ColumnAutoWidths {
         float date = 130.0f, type = 128.0f, size = 90.0f, created = 130.0f, accessed = 130.0f;
         float status = 112.0f;
+        float rating = 96.0f, duration = 88.0f;
     };
     ColumnAutoWidths AutoColumnWidths() const;
     float TypeChipWidthDip(const std::wstring& chip) const;
@@ -604,7 +610,9 @@ public:
     static DetailsColumnOrder ReorderedColumns(const DetailsColumnLayout& layout,
                                                const DetailsColumnOrder& order, int from, int slot) noexcept;
     // Columns shown by the last painted Details header of a pane: bit
-    // (1 << ColumnKind), plus bit 8 for the two-line search layout. 0 = unknown.
+    // (1 << ColumnKind), plus kPaintedTwoLine for the two-line search layout.
+    // 0 = unknown.
+    static constexpr uint32_t kPaintedTwoLine = 1u << 31;
     uint32_t PaintedColumnMask(int pane_index) const {
         return pane_index >= 0 && pane_index < static_cast<int>(painted_columns_.size())
             ? painted_columns_[static_cast<size_t>(pane_index)] : 0u;
@@ -622,13 +630,13 @@ public:
     void AutoFitColumnDivider(const D2D1_RECT_F& pane_bounds,
                               DetailsColumnWidths& dividers, bool search_view,
                               std::array<float, 4>& search_dividers, int divider_index,
-                              bool status_column = false) const;
+                              const DetailsExtraColumns& extra = {}) const;
     DetailsColumnLayout DetailsColumns(
         const D2D1_RECT_F& pane_bounds,
         const DetailsColumnWidths& dividers = {},
         bool search_view = false,
         const std::array<float, 4>& search_dividers = {},
-        bool status_column = false) const;
+        const DetailsExtraColumns& extra = {}) const;
     DetailsColumnLayout DetailsColumns(const D2D1_RECT_F& pane_bounds,
                                        const PaneViewModel& vm) const;
     // This PC in details view: 名称 · 使用情况 (Date) · 可用 (Size) · 总大小
@@ -646,7 +654,7 @@ public:
     DetailsColumnWidths ResizeDetailsColumnDivider(
         const D2D1_RECT_F& pane_bounds,
         const DetailsColumnWidths& dividers,
-        int divider_index, float cursor_x, bool status_column = false) const;
+        int divider_index, float cursor_x, const DetailsExtraColumns& extra = {}) const;
     std::array<float, 4> ResizeSearchColumnDivider(
         const D2D1_RECT_F& pane_bounds,
         const std::array<float, 4>& dividers,

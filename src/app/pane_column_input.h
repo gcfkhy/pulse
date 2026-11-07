@@ -18,7 +18,7 @@ inline void ResizePaneColumn(Tab& tab, const ui::PaneViewModel& view,
         tab.details_column_dividers = renderer.ResizeMediaDetailsColumnDivider(bounds, current, divider, cursor_x);
     } else
         tab.details_column_dividers = renderer.ResizeDetailsColumnDivider(
-            bounds, tab.details_column_dividers, divider, cursor_x, view.cloud_status_column);
+            bounds, tab.details_column_dividers, divider, cursor_x, view.ExtraColumns());
 }
 
 inline void AutoFitPaneColumn(Tab& tab, const ui::PaneViewModel& view,
@@ -38,6 +38,6 @@ inline void AutoFitPaneColumn(Tab& tab, const ui::PaneViewModel& view,
     }
     renderer.AutoFitColumnDivider(bounds, tab.details_column_dividers,
                                    view.is_search, tab.search_column_dividers, divider,
-                                   view.cloud_status_column);
+                                   view.ExtraColumns());
 }
 }

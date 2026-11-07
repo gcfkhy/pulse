@@ -1472,6 +1472,13 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
             if (ContainsPt(hitRects.attr_readonly, x, y)) { r.region = HitTestResult::DetailsAttrToggle; r.index = 0; return r; }
             if (ContainsPt(hitRects.attr_hidden, x, y)) { r.region = HitTestResult::DetailsAttrToggle; r.index = 1; return r; }
             if (ContainsPt(hitRects.security_change, x, y)) { r.region = HitTestResult::DetailsSecurityChange; return r; }
+            for (size_t i = 0; i < hitRects.rating_stars.size(); ++i) {
+                if (ContainsPt(hitRects.rating_stars[i], x, y)) {
+                    r.region = HitTestResult::DetailsRating;
+                    r.index = static_cast<int>(i) + 1;
+                    return r;
+                }
+            }
             for (size_t i = 0; i < hitRects.preset_chips.size(); ++i) {
                 if (ContainsPt(hitRects.preset_chips[i], x, y)) {
                     r.region = HitTestResult::DetailsPresetTag;
@@ -1751,6 +1758,8 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
             case ColumnKind::Size: out.column = SortColumn::Size; break;
             case ColumnKind::Created: out.column = SortColumn::Created; break;
             case ColumnKind::Accessed: out.column = SortColumn::Accessed; break;
+            case ColumnKind::Rating: out.column = SortColumn::Rating; break;
+            case ColumnKind::Duration: out.column = SortColumn::Duration; break;
             case ColumnKind::Status:   // display-only, but it can be dragged
                 if (!columns.reorderable) out.region = HitTestResult::Pane;
                 break;

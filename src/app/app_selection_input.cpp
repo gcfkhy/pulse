@@ -1,6 +1,7 @@
 #include "app_input.h"
 #include "app_commands.h"
 #include "app_navigation.h"
+#include "media_sort.h"
 
 namespace pulse {
 bool HandleListCharacter(AppState& s, wchar_t ch) {
@@ -10,6 +11,12 @@ bool HandleListCharacter(AppState& s, wchar_t ch) {
         s.renameIndex >= 0 || s.filterEditing || !s.tagRenameId.empty()) return false;
     auto* tab = ActiveTab(s);
     if (!tab || tab->loading || !tab->snapshot || tab->content_results || IsSettingsTab(tab)) return false;
+    // 1-5 rate the selected photos / videos, 0 clears the rating; with anything
+    // else selected the digit still jumps to a name as before.
+    if (ch >= L'0' && ch <= L'5' && app::SetSelectedRating(s, static_cast<uint8_t>(ch - L'0'))) {
+        InvalidateRect(s.hwnd, nullptr, FALSE);
+        return true;
+    }
     if (s.listTypeAheadTab != tab || s.listTypeAheadFolder != tab->current_path) {
         s.listTypeAhead = {};
         s.listTypeAheadTab = tab;

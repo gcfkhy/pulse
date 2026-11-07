@@ -5100,6 +5100,8 @@ BEGIN
     IDS_SORT_HIGH_LOW "高→低"
     IDS_SORT_SHORT_LONG "短→长"
     IDS_SORT_LONG_SHORT "长→短"
+    IDS_RATING_SET_FAILED_TITLE "无法设置分级"
+    IDS_RATING_SET_FAILED "这个文件不支持分级，或者它是只读的、正被占用。"
 END
 
 LANGUAGE 0x09, 0x01
@@ -10199,6 +10201,8 @@ BEGIN
     IDS_SORT_HIGH_LOW "High→Low"
     IDS_SORT_SHORT_LONG "Short→Long"
     IDS_SORT_LONG_SHORT "Long→Short"
+    IDS_RATING_SET_FAILED_TITLE "Couldn't set the rating"
+    IDS_RATING_SET_FAILED "This file can't hold a rating, or it is read-only or in use."
 END
 
 // Traditional Chinese (Taiwan), generated from the Simplified entries above.

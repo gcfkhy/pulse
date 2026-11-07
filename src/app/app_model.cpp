@@ -13,6 +13,7 @@
 #include "../common/config_json.h"
 #include "search_query.h"
 #include "entry_group.h"
+#include "media_sort.h"
 #include "tag_query.h"
 #include "../common/json_utils.h"
 #include "../common/localization.h"
@@ -178,6 +179,7 @@ void Tab::SetSnapshot(fs::SnapshotPtr value) {
     view_compare_marks.reset();
     view_compare_map.reset();
     snapshot_path = snapshot ? current_path : L"";
+    media_folder = snapshot && EntriesHaveMedia(*snapshot);
     if(content_results) { directory_count=0; file_count=content_results->Count(); return; }
     if (all_selected && !ShowsEveryEntry()) MaterializeSelection();
     std::erase_if(selected, [&](int i) { return !EntryVisible(i); });
@@ -2169,6 +2171,14 @@ void FillPaneViewModelBody(ui::PaneViewModel& out, const Pane& pane, const Place
     out.view_generation = tab->view_generation;
     out.sort_column = tab->sort_column;
     out.sort_direction = tab->sort_direction;
+    // 分级 / 时长: photo and video folders, or whatever the list is sorted by
+    // (that column must stay visible). Same rule as the sort picker.
+    if (!out.is_search && out.is_file_system) {
+        const bool sorted_by_media = ui::IsMediaSortColumn(tab->sort_column);
+        if (tab->media_folder || sorted_by_media) out.media_columns = ui::kDetailsColumnsMedia;
+        // Like Explorer, the two columns come as a pair: sorting by either shows both.
+        if (sorted_by_media) out.forced_columns = ui::kDetailsColumnsMedia;
+    }
     out.details_column_dividers = tab->details_column_dividers;
     out.media_column_widths = tab->media_column_widths;
     out.search_column_dividers = tab->search_column_dividers;

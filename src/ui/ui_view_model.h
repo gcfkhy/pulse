@@ -106,6 +106,8 @@ struct ListEntryView {
     std::wstring thumb_path;
     std::wstring created_text;   // empty when the source has no creation time
     std::wstring accessed_text;
+    std::wstring rating_text;    // 分级 / 时长 columns; empty = unrated / unknown
+    std::wstring duration_text;
     DWORD attrs = 0;
     uint64_t size_value = 0;
     uint64_t modified_value = 0;
@@ -374,6 +376,13 @@ struct PaneViewModel {
     bool is_search = false;   // search results add a display-only 路径 column
     // Folder under a Cloud Files sync root: the Details view adds 状态.
     bool cloud_status_column = false;
+    // Photo / video folder: the Details view may add 分级 and 时长 (details_column_set.h
+    // bits); `forced` are shown even when not ticked, because the list is sorted by them.
+    uint32_t media_columns = 0;
+    uint32_t forced_columns = 0;
+    DetailsExtraColumns ExtraColumns() const noexcept {
+        return {cloud_status_column, media_columns, forced_columns};
+    }
     bool is_query_search = false;
     bool is_content_search = false;
     // Tag views (pulse:tag: / pulse:tags:): the condition bar and 细分 row.
@@ -796,6 +805,10 @@ struct DetailsPanelView {
     std::wstring owner_text, permissions_text;
     std::wstring drive_text, fs_text, free_space_text;
     bool size_pending = false;      // folder size still computing
+    // Photo / video / audio file: 时长 and the 分级 stars (keys 0-5, or a click).
+    bool can_rate = false;
+    uint8_t rating = 0;             // 0 unrated, 1-5
+    std::wstring duration_text;     // empty until read, or when the file has none
     bool starred = false;
     // 下载并预览 (C4b): a file whose content is only in the cloud. The well
     // explains and offers the download instead of a preview.
@@ -817,6 +830,7 @@ struct DetailsHitRects {
     D2D1_RECT_F tag_add{}, preview{}, preview_toggle{}, preview_enable{};
     D2D1_RECT_F attr_readonly{}, attr_hidden{}, attr_advanced{};
     D2D1_RECT_F security_change{};
+    std::array<D2D1_RECT_F, 5> rating_stars{};   // the 分级 row's five stars, when it is shown
     std::vector<D2D1_RECT_F> preset_chips;
     std::vector<int> preset_ids;    // tag_index per chip
     std::vector<D2D1_RECT_F> section_headers;
@@ -1638,6 +1652,7 @@ struct HitTestResult {
         DetailsAttrToggle,
         DetailsSecurityChange,
         DetailsPresetTag,
+        DetailsRating,          // one of the 分级 stars; index 1-5
         DetailsPreview,
         DetailsPreviewToggle,
         DetailsPreviewEnable,   // preview pane on/off chip inside the well

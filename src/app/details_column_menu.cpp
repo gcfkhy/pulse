@@ -6,10 +6,10 @@
 
 namespace pulse {
 
-void ShowDetailsColumnMenu(AppState& s, POINT screen_pt, uint32_t visible, bool search) {
+void ShowDetailsColumnMenu(AppState& s, POINT screen_pt, uint32_t visible, bool search, bool media) {
     if (!EnsureMenu(s)) return;
     const uint32_t mask = s.appPrefs.details_columns;
-    const int command = s.menu->TrackPopup(screen_pt, app::BuildDetailsColumnMenu(mask, visible, search));
+    const int command = s.menu->TrackPopup(screen_pt, app::BuildDetailsColumnMenu(mask, visible, search, media));
     const uint32_t next = app::ApplyDetailsColumnCommand(mask, command);
     // Reset also brings back the classic order (header drags).
     const bool reorder = command == app::kDetailsColumnsReset &&
