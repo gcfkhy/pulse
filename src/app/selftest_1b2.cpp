@@ -7964,23 +7964,40 @@ void TestOptionalColumns() {
           L"optional columns: narrowing drops accessed, created, type, then modified");
     // 状态: chosen by default, drawn only for cloud folders, right after the name.
     r.SetDetailsColumns(ui::kDetailsColumnsDefault);
-    const auto cloud = r.DetailsColumns(pane(1200.0f), {}, false, {}, true);
-    const auto plain = r.DetailsColumns(pane(1200.0f), {}, false, {}, false);
-    const auto cloud_search = r.DetailsColumns(pane(1200.0f), {}, true, {}, true);
+    const ui::DetailsExtraColumns cloud_extra{true};
+    const auto cloud = r.DetailsColumns(pane(1200.0f), {}, false, {}, cloud_extra);
+    const auto plain = r.DetailsColumns(pane(1200.0f), {}, false, {}, {});
+    const auto cloud_search = r.DetailsColumns(pane(1200.0f), {}, true, {}, cloud_extra);
     Check(cloud.count == 5 && cloud.kinds[1] == K::Status && cloud.kinds[2] == K::Date && fills(cloud) &&
               !plain.Has(K::Status) && plain.count == 4 && !cloud_search.Has(K::Status),
           L"cloud status: shown after the name in cloud folders only, never in search results");
     bool status_order = true;
     for (float w = 260.0f; w <= 1200.0f; w += 20.0f) {
-        const auto c = r.DetailsColumns(pane(w), {}, false, {}, true);
+        const auto c = r.DetailsColumns(pane(w), {}, false, {}, cloud_extra);
         status_order &= fills(c) && (c.Has(K::Status) || !c.Has(K::Type)) && (c.Has(K::Date) || !c.Has(K::Status));
     }
     Check(status_order, L"cloud status: narrowing drops type, then status, then modified");
     ui::DetailsColumnWidths status_widths{};
     status_widths = r.ResizeDetailsColumnDivider(pane(1200.0f), status_widths, 1,
-                                                 cloud.DividerX(1) + 30.0f * scale, true);
+                                                 cloud.DividerX(1) + 30.0f * scale, cloud_extra);
     Check(status_widths[0] > 1.0f && status_widths[1] <= 1.0f,
           L"cloud status: the divider after status resizes modified, status keeps its fitted width");
+    // 分级 / 时长: photo and video folders only; the sort key is shown even when not ticked.
+    r.SetDetailsColumns(ui::kDetailsColumnsDefault | ui::kDetailsColumnsMedia);
+    const ui::DetailsExtraColumns media_extra{false, ui::kDetailsColumnsMedia, 0};
+    const auto media = r.DetailsColumns(pane(1400.0f), {}, false, {}, media_extra);
+    const auto media_none = r.DetailsColumns(pane(1400.0f), {}, false, {}, {});
+    const auto media_search = r.DetailsColumns(pane(1400.0f), {}, true, {}, media_extra);
+    r.SetDetailsColumns(ui::kDetailsColumnsDefault);
+    const auto forced = r.DetailsColumns(pane(1400.0f), {}, false, {},
+                                         ui::DetailsExtraColumns{false, ui::kDetailsColumnsMedia, ui::kDetailsColumnDuration});
+    const auto unticked = r.DetailsColumns(pane(1400.0f), {}, false, {}, media_extra);
+    Check(media.Has(K::Rating) && media.Has(K::Duration) && fills(media) &&
+              media.IndexOf(K::Rating) < media.IndexOf(K::Duration) &&
+              media.IndexOf(K::Duration) < media.IndexOf(K::Size) &&
+              !media_none.Has(K::Rating) && !media_none.Has(K::Duration) && !media_search.Has(K::Rating) &&
+              forced.Has(K::Duration) && !forced.Has(K::Rating) && !unticked.Has(K::Duration),
+          L"media columns: 分级 / 时长 show in photo and video folders only; the sort key is forced on");
     r.SetDetailsColumns(ui::kDetailsColumnsAll);
     const auto search = r.DetailsColumns(pane(1600.0f), {}, true);
     Check(!search.Has(K::Created) && !search.Has(K::Accessed) && search.Has(K::Path) &&
@@ -8104,6 +8121,28 @@ void TestOptionalColumns() {
               l10n::Get(l10n::StringId::DetailsColumnCloudOnly) &&
               BuildDetailsColumnMenu(with_created, drawn, false)[6].badge_text.empty(),
           L"cloud status: outside cloud folders the menu says it is for cloud folders only");
+    // 分级 / 时长: the header menu offers them only for photo and video folders.
+    const auto media_menu = BuildDetailsColumnMenu(ui::kDetailsColumnsDefault, 0xFFFFFFFFu, false, true);
+    Check(media_menu.size() == menu.size() + 2 &&
+          media_menu[5].command == kDetailsColumnToggleBase + static_cast<int>(K::Rating) && !media_menu[5].checked &&
+          media_menu[6].command == kDetailsColumnToggleBase + static_cast<int>(K::Duration) && !media_menu[6].checked &&
+          media_menu[7].command == kDetailsColumnToggleBase + static_cast<int>(K::Size) &&
+          media_menu[9].command == kDetailsColumnsReset && !media_menu[9].enabled,
+          L"media columns: the header menu lists 分级 and 时长 for photo and video folders only");
+    const uint32_t with_duration = ApplyDetailsColumnCommand(
+        ui::kDetailsColumnsDefault, kDetailsColumnToggleBase + static_cast<int>(K::Duration));
+    Check(with_duration == (ui::kDetailsColumnsDefault | ui::kDetailsColumnDuration) &&
+          ui::NormalizeDetailsColumns(with_duration) == with_duration &&
+          ApplyDetailsColumnCommand(with_duration, kDetailsColumnToggleBase + static_cast<int>(K::Duration)) ==
+              ui::kDetailsColumnsDefault &&
+          (ui::kDetailsColumnsDefault & ui::kDetailsColumnsMedia) == 0 &&
+          BuildDetailsColumnMenu(with_duration, 0xFFFFFFFFu, false, true)[6].checked &&
+          BuildDetailsColumnMenu(with_duration, 0xFFFFFFFFu, false, true)[9].enabled,
+          L"media columns: 时长 toggles, survives normalising, and stays off by default");
+    Check(format::PlayingTime(0).empty() && format::PlayingTime(222000) == L"3:42" &&
+          format::PlayingTime(3723000) == L"1:02:03" && format::RatingStars(0).empty() &&
+          format::RatingStars(3) == std::wstring(3, L'\x2605') && format::RatingStars(9).size() == 5,
+          L"media columns: unknown values draw nothing, times and stars read as expected");
     AppPrefs legacy;
     legacy.persist = false;
     legacy.FromJson(L"{\"details_columns\":28}");

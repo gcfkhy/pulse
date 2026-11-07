@@ -5,6 +5,7 @@
 #include "folder_alias.h"
 #include "app_wall_hint.h"
 #include "arrival_select.h"
+#include "media_sort.h"
 #include "pane_column_input.h"
 #include "../ui/ui_renderer.h"
 // app_input.cpp — extracted from app_main.cpp.
@@ -3205,6 +3206,16 @@ LRESULT HandleLButtonDown(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARA
             StartCloudPreviewDownload(*s, vm.details.path, vm.details.size_value);
             return 0;
         }
+        if (hit.region == ui::HitTestResult::DetailsRating) {
+            // Clicking the star the file already has clears the rating. (Handled here,
+            // not in the else-if chain below, which is at the compiler's nesting limit.)
+            s->dragPending = false;
+            if (hit.index >= 1 && hit.index <= 5 && vm.details.can_rate) {
+                const uint8_t next = vm.details.rating == hit.index ? uint8_t{0} : static_cast<uint8_t>(hit.index);
+                if (app::SetSelectedRating(*s, next)) InvalidateRect(hwnd, nullptr, FALSE);
+            }
+            return 0;
+        }
         if (hit.region == ui::HitTestResult::DetailsPreviewEnable) {
             s->detailsPreviewEnabled = !s->detailsPreviewEnabled;
             s->detailsScroll = 0;
@@ -5028,6 +5039,7 @@ LRESULT HandleRButtonUp(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                 s->context_menu.Close();
                 uint32_t visible = 0xFFFFFFFFu;
                 bool search = false;
+                bool media = false;
                 if (hit.pane_index < static_cast<int>(vm.pane_slots.size())) {
                     const auto& slot = vm.pane_slots[static_cast<size_t>(hit.pane_index)];
                     const auto columns = s->renderer.DetailsColumns(
@@ -5036,8 +5048,9 @@ LRESULT HandleRButtonUp(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                     for (int i = 0; i < columns.count; ++i)
                         visible |= 1u << static_cast<uint32_t>(columns.kinds[static_cast<size_t>(i)]);
                     search = slot.pane.is_search;
+                    media = !search && slot.pane.media_columns != 0;
                 }
-                ShowDetailsColumnMenu(*s, sp, visible, search);
+                ShowDetailsColumnMenu(*s, sp, visible, search, media);
                 shown = true;
             } else if (hit.pane_index >= 0 ||
                 (mx >= content.left && mx < content.right && my >= content.top && my < content.bottom)) {

@@ -7,6 +7,7 @@
 #include "folder_alias.h"
 #include "app_wall_hint.h"
 #include "app_internal.h"
+#include "media_sort.h"
 #include "app_network_page.h"
 #include "shortcut_page.h"
 #include "keymap.h"
@@ -3187,6 +3188,15 @@ ui::WindowViewModel BuildVm(AppState& s, bool probe_details) {
                 s.detailsFreeSpace.clear();
                 if (!fs::IsVirtualPath(dv.path))
                     PrefetchDetailsMeta(s.hwnd, dv.path);
+                // 时长 and 分级 are read in the background; the panel fills in when they arrive.
+                if (!dv.is_dir && !fs::IsVirtualPath(dv.path) && app::HasMediaProperties(dv.name)) {
+                    app::MediaSortRequest request;
+                    request.path = dv.path;
+                    request.modified = dv.modified_value;
+                    request.size = dv.size_value;
+                    s.mediaSort.SetChangeNotify(ServiceWindow(s), WM_UI_KICK);
+                    s.mediaSort.Request({request});
+                }
             }
             s.detailsStarred = s.places.IsStarred(dv.path);
             dv.starred = s.detailsStarred;
@@ -3206,6 +3216,14 @@ ui::WindowViewModel BuildVm(AppState& s, bool probe_details) {
                 dv.size_text = pulse::format::ByteSize(dv.size_value, true) + L" (" +
                                pulse::format::GroupedInt(dv.size_value) +
                                pulse::l10n::Get(pulse::l10n::StringId::Bytes).c_str();
+            }
+            if (!dv.is_dir && !dv.cloud_online && !fs::IsVirtualPath(dv.path) && app::HasMediaProperties(dv.name)) {
+                dv.can_rate = app::CanRateName(dv.name);
+                app::MediaSortValue media;
+                if (s.mediaSort.Lookup(dv.path, media)) {
+                    dv.rating = media.rating;
+                    dv.duration_text = pulse::format::PlayingTime(media.duration_ms);
+                }
             }
             if (s.detailsMetaPath == dv.path) {
                 dv.owner_text = s.detailsOwner;
@@ -3611,6 +3629,7 @@ std::wstring TooltipForHover(AppState& s) {
     case R::DetailsNewTab: return text(I::OpenNewTab);
     case R::DetailsCopyPath: return text(I::CopyPath);
     case R::DetailsSection: return text(I::ExpandCollapse);
+    case R::DetailsRating: return text(I::ColumnRating);
     case R::DetailsAttrToggle:
         switch (s.hoverControlIndex) {
         case 0: return text(I::ReadOnly);
