@@ -132,11 +132,17 @@ struct SortStyle {
     uint32_t hue1, hue2;
 };
 
+// Rating and Duration only appear for photo / video folders; they sit right after
+// Modified so the drum shows them without scrolling past the date columns.
 constexpr SortStyle kSortColumns[] = {
     {ui::SortColumn::Name, l10n::StringId::ColumnName, l10n::StringId::SortHintName,
      ui::command_icons::Icon::Sort, 0xA78BFA, 0x6D28D9},
     {ui::SortColumn::Mtime, l10n::StringId::ColumnModified, l10n::StringId::SortHintModified,
      ui::command_icons::Icon::History, 0x34D399, 0x0F766E},
+    {ui::SortColumn::Rating, l10n::StringId::ColumnRating, l10n::StringId::SortHintRating,
+     ui::command_icons::Icon::Star, 0xFBBF24, 0xB45309},
+    {ui::SortColumn::Duration, l10n::StringId::ColumnDuration, l10n::StringId::SortHintDuration,
+     ui::command_icons::Icon::Timer, 0x22D3EE, 0x0E7490},
     {ui::SortColumn::Created, l10n::StringId::ColumnCreated, l10n::StringId::SortHintCreated,
      ui::command_icons::Icon::Add, 0x60A5FA, 0x1D4ED8},
     {ui::SortColumn::Accessed, l10n::StringId::ColumnAccessed, l10n::StringId::SortHintAccessed,
@@ -145,10 +151,6 @@ constexpr SortStyle kSortColumns[] = {
      ui::command_icons::Icon::File, 0xFBBF24, 0xB45309},
     {ui::SortColumn::Size, l10n::StringId::ColumnSize, l10n::StringId::SortHintSize,
      ui::command_icons::Icon::Sliders, 0xF472B6, 0xBE185D},
-    {ui::SortColumn::Rating, l10n::StringId::ColumnRating, l10n::StringId::SortHintRating,
-     ui::command_icons::Icon::Star, 0xFBBF24, 0xB45309},
-    {ui::SortColumn::Duration, l10n::StringId::ColumnDuration, l10n::StringId::SortHintDuration,
-     ui::command_icons::Icon::Timer, 0x22D3EE, 0x0E7490},
     {ui::SortColumn::Path, l10n::StringId::ColumnPath, l10n::StringId::SortHintPath,
      ui::command_icons::Icon::Folder, 0x60A5FA, 0x1D4ED8},
 };
@@ -184,18 +186,15 @@ uint32_t Swatch(const fs::DirEntry& e) {
     return kPalette[h % 7];
 }
 
+// The drum's sample card shows a dash where a value is unknown.
 std::wstring PlayingTime(uint32_t duration_ms) {
-    if (!duration_ms) return L"\x2014";
-    const uint32_t total = (duration_ms + 500) / 1000;
-    const uint32_t hours = total / 3600, minutes = total / 60 % 60, seconds = total % 60;
-    wchar_t text[32]{};
-    if (hours) swprintf_s(text, L"%u:%02u:%02u", hours, minutes, seconds);
-    else swprintf_s(text, L"%u:%02u", minutes, seconds);
-    return text;
+    std::wstring text = format::PlayingTime(duration_ms);
+    return text.empty() ? std::wstring(L"\x2014") : text;
 }
 
 std::wstring RatingStars(uint8_t rating) {
-    return rating ? std::wstring(static_cast<size_t>(rating), L'\x2605') : std::wstring(L"\x2014");
+    std::wstring text = format::RatingStars(rating);
+    return text.empty() ? std::wstring(L"\x2014") : text;
 }
 
 std::wstring SortValue(const fs::DirEntry& e, ui::SortColumn col) {
