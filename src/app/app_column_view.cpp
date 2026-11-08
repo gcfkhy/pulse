@@ -3,6 +3,7 @@
 #include "../ui/column_strip_layout.h"
 #include "../ui/ui_renderer.h"
 #include <algorithm>
+#include <cmath>
 #include <cwchar>
 
 namespace pulse {
@@ -164,6 +165,12 @@ void SyncTab(AppState& s, app::Tab& tab) {
         return;
     }
     if (state.for_path != tab.current_path) RebuildAncestors(s, tab);
+    // The strip can be scrolled with the list out of sight; a selection that moves (keys,
+    // a click) belongs on screen.
+    if (state.seen_selection_revision != tab.selection_revision) {
+        state.seen_selection_revision = tab.selection_revision;
+        state.scroll_from_right_dip = 0.0f;
+    }
     for (auto& col : state.ancestors) SyncColumn(s, tab, col);
 
     const std::wstring folder = SelectedFolder(tab);
@@ -217,6 +224,29 @@ bool ScrollStripBy(AppState& s, const ui::WindowViewModel& vm, int pane_index, f
     const float scale = s.scale > 0.0f ? s.scale : 1.0f;
     float& offset = tab->column_strip.scroll_from_right_dip;
     offset = std::clamp(offset + delta_dip, 0.0f, layout.max_scroll_px / scale);
+    InvalidateRect(s.hwnd, nullptr, FALSE);
+    return true;
+}
+
+// One wheel notch pans the ancestor strip this far.
+constexpr float kWheelPanDip = 96.0f;
+// A wheel event that finds a column at the end of its own scroll pans the
+// strip only after this pause since a column last took one: the tail of a
+// fast spin down a long list must not slide the columns.
+constexpr ULONGLONG kWheelChainPauseMs = 350;
+
+// Arrow click: the strip moves one column toward `direction`.
+bool StepStrip(AppState& s, const ui::WindowViewModel& vm, int pane_index, int direction) {
+    app::Tab* tab = TabAtSlot(s, pane_index);
+    const ui::PaneViewModel* pane = SlotPane(vm, pane_index);
+    ui::ColumnStripLayout layout;
+    if (!tab || !pane || !SlotLayout(s, vm, pane_index, layout) || layout.max_scroll_px <= 0.0f) return false;
+    const float scale = s.scale > 0.0f ? s.scale : 1.0f;
+    const float target = ui::StepColumnStripScroll(layout, pane->column_strip.ancestors.size(),
+                                                   pane->column_strip.widths_dip, scale,
+                                                   layout.scroll_px, direction);
+    tab->column_strip.scroll_from_right_dip =
+        std::clamp((layout.max_scroll_px - target) / scale, 0.0f, layout.max_scroll_px / scale);
     InvalidateRect(s.hwnd, nullptr, FALSE);
     return true;
 }
@@ -323,6 +353,10 @@ bool HandleColumnStripMouseDown(AppState& s, const ui::WindowViewModel& vm,
     }
     case R::ColumnStripBlank:
         return true;
+    case R::ColumnStripNav:
+        // The arrow that just ran out of travel disappears under the pointer.
+        if (StepStrip(s, vm, hit.pane_index, hit.index)) RefreshScrolledHover(s);
+        return true;
     case R::ColumnStripHScroll: {
         app::Tab* tab = TabAtSlot(s, hit.pane_index);
         ui::ColumnStripLayout layout;
@@ -421,17 +455,15 @@ bool ColumnStripSwallowDoubleClick(const AppState& s) {
 bool HandleColumnStripWheel(AppState& s, const ui::WindowViewModel& vm,
                             const ui::HitTestResult& hit, int wheel_delta) {
     using R = ui::HitTestResult;
-    const bool horizontal = hit.region == R::ColumnStripHScroll ||
-        ((GetKeyState(VK_SHIFT) & 0x8000) != 0 &&
-         hit.sub_index != ui::kColumnStripChildId &&
-         (hit.region == R::ColumnStripRow || hit.region == R::ColumnStripBlank));
-    if (horizontal) {
-        // Wheel up reveals farther ancestors (to the left).
-        ScrollStripBy(s, vm, hit.pane_index,
-                      static_cast<float>(wheel_delta) / WHEEL_DELTA * 96.0f);
+    const bool in_column = hit.region == R::ColumnStripRow || hit.region == R::ColumnStripBlank;
+    // Wheel up reveals older ancestors (to the left), wheel down moves back.
+    const float pan = static_cast<float>(wheel_delta) / WHEEL_DELTA * kWheelPanDip;
+    if (hit.region == R::ColumnStripHScroll || hit.region == R::ColumnStripNav ||
+        ((GetKeyState(VK_SHIFT) & 0x8000) != 0 && in_column)) {
+        ScrollStripBy(s, vm, hit.pane_index, pan);
         return true;
     }
-    if (hit.region != R::ColumnStripRow && hit.region != R::ColumnStripBlank) return false;
+    if (!in_column) return false;
     app::Tab* tab = TabAtSlot(s, hit.pane_index);
     const D2D1_RECT_F* rect = SlotRect(vm, hit.pane_index);
     const ui::PaneViewModel* pane = SlotPane(vm, hit.pane_index);
@@ -440,29 +472,84 @@ bool HandleColumnStripWheel(AppState& s, const ui::WindowViewModel& vm,
         : s.renderer.ContentRect(static_cast<float>(s.compositor.Width()),
                                  static_cast<float>(s.compositor.Height()));
     const ui::ColumnStripLayout layout = s.renderer.ColumnStripGeometry(*pane, bounds);
+    // The column under the pointer scrolls its rows while it can move that way.
+    bool has_rows_to_scroll = false;
     app::ColumnStripColumn* col = StripColumn(*tab, hit.sub_index);
-    if (!col) return true;
     const ui::ColumnStripColumnView* view = nullptr;
     if (hit.sub_index == ui::kColumnStripChildId) view = &pane->column_strip.child;
     else if (hit.sub_index >= 0 &&
              static_cast<size_t>(hit.sub_index) < pane->column_strip.ancestors.size())
         view = &pane->column_strip.ancestors[static_cast<size_t>(hit.sub_index)];
-    if (!view) return true;
-    for (const auto& slot : layout.columns) {
-        if (slot.id != hit.sub_index) continue;
-        const float view_h = s.renderer.ColumnStripViewHeight(slot.rect);
-        const float scale = s.scale > 0.0f ? s.scale : 1.0f;
-        const float current = s.renderer.ColumnStripScrollPx(*view, view_h);
-        const float max_scroll = s.renderer.ColumnStripMaxScrollPx(*view, view_h);
-        const float step = static_cast<float>(wheel_delta) / WHEEL_DELTA * 3.0f *
-                           s.renderer.RowHeight();
-        const float next = std::clamp(current - step, 0.0f, max_scroll);
-        col->auto_scroll = false;
-        col->scroll_dip = next / scale;
-        InvalidateRect(s.hwnd, nullptr, FALSE);
-        break;
+    if (col && view) {
+        for (const auto& slot : layout.columns) {
+            if (slot.id != hit.sub_index) continue;
+            const float view_h = s.renderer.ColumnStripViewHeight(slot.rect);
+            const float scale = s.scale > 0.0f ? s.scale : 1.0f;
+            const float current = s.renderer.ColumnStripScrollPx(*view, view_h);
+            const float max_scroll = s.renderer.ColumnStripMaxScrollPx(*view, view_h);
+            const float step = static_cast<float>(wheel_delta) / WHEEL_DELTA * 3.0f *
+                               s.renderer.RowHeight();
+            const float next = std::clamp(current - step, 0.0f, max_scroll);
+            has_rows_to_scroll = max_scroll > 0.5f;
+            if (std::fabs(next - current) > 0.5f) {
+                col->auto_scroll = false;
+                col->scroll_dip = next / scale;
+                s.stripWheelTick = GetTickCount64();
+                InvalidateRect(s.hwnd, nullptr, FALSE);
+                return true;
+            }
+            break;
+        }
     }
+    // Nothing to scroll that way: the wheel pans the strip of columns (like
+    // the arrows), unless a spin down this column's rows is still going.
+    const ULONGLONG now = GetTickCount64();
+    if (has_rows_to_scroll && now - s.stripWheelTick < kWheelChainPauseMs) {
+        s.stripWheelTick = now;
+        return true;
+    }
+    if ((GetKeyState(VK_CONTROL) & 0x8000) == 0) ScrollStripBy(s, vm, hit.pane_index, pan);
     return true;
+}
+
+namespace {
+// Pane body of a column view that the strip pans over: below the header, the
+// current folder's list and the columns right of it (as far as they are on screen).
+bool OverStripBody(const ui::ColumnStripLayout& layout, const D2D1_RECT_F* pane_rect, int x, int y) {
+    if (!layout.active || layout.max_scroll_px <= 0.0f || layout.viewport.right <= layout.viewport.left)
+        return false;
+    const float fx = static_cast<float>(x), fy = static_cast<float>(y);
+    return fy >= layout.viewport.top && fy < layout.viewport.bottom &&
+           fx >= layout.body.left && (!pane_rect || fx < pane_rect->right);
+}
+} // namespace
+
+bool HandleColumnStripBodyWheel(AppState& s, const ui::WindowViewModel& vm,
+                                const ui::HitTestResult& hit, int x, int y, int wheel_delta) {
+    if (hit.pane_index < 0) return false;
+    ui::ColumnStripLayout layout;
+    if (!SlotLayout(s, vm, hit.pane_index, layout) ||
+        !OverStripBody(layout, SlotRect(vm, hit.pane_index), x, y)) {
+        return false;
+    }
+    return ScrollStripBy(s, vm, hit.pane_index,
+                         static_cast<float>(wheel_delta) / WHEEL_DELTA * kWheelPanDip);
+}
+
+bool HandleColumnStripHWheel(AppState& s, const ui::WindowViewModel& vm,
+                             const ui::HitTestResult& hit, int x, int y, int wheel_delta) {
+    if (hit.pane_index < 0) return false;
+    ui::ColumnStripLayout layout;
+    if (!SlotLayout(s, vm, hit.pane_index, layout)) return false;
+    const float fx = static_cast<float>(x), fy = static_cast<float>(y);
+    const D2D1_RECT_F* rect = SlotRect(vm, hit.pane_index);
+    const bool over_ancestors = layout.viewport.right > layout.viewport.left &&
+        fx >= layout.viewport.left && fx < layout.viewport.right &&
+        fy >= layout.viewport.top && fy < layout.viewport.bottom;
+    if (!over_ancestors && !OverStripBody(layout, rect, x, y)) return false;
+    // Tilting right looks further right: back toward the parent.
+    return ScrollStripBy(s, vm, hit.pane_index,
+                         -static_cast<float>(wheel_delta) / WHEEL_DELTA * kWheelPanDip);
 }
 
 bool HandleColumnArrowKey(AppState& s, bool right) {

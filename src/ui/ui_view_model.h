@@ -1763,6 +1763,7 @@ struct HitTestResult {
         SidebarBarSwitch,      // 收藏夹 root row: move the list to the 收藏栏; index = run
         FavoritesBarDock,      // 收藏栏's right end: put the list back in the sidebar
         SettingsAssistant,     // Settings > AI 助手: index = AssistantHit
+        ColumnStripNav,        // column view arrow button: index = kColumnStripNavLeft / Right
     } region = None;
     SidebarAddAction sidebar_action = SidebarAddAction::None;
     int index = -1;          // tab/row/sidebar item/tray batch/tray item.

@@ -573,7 +573,7 @@ if(PULSE_WITH_SELFTEST)
     set(PULSE_TEST_HOOKS_EFFECTIVE ON)
 endif()
 if(NOT PULSE_TEST_HOOKS_EFFECTIVE)
-    list(FILTER PULSE_APP_SOURCES EXCLUDE REGEX "(navigation_audit|selection_input|selection_refresh|folder_size_experience|folder_thumbnail)_probe\\.cpp$")
+    list(FILTER PULSE_APP_SOURCES EXCLUDE REGEX "(navigation_audit|selection_input|selection_refresh|folder_size_experience|folder_thumbnail|column_strip_nav)_probe\\.cpp$")
     # In-app GUI tests and probes driven by PULSE_TEST_* variables (app_main
     # dispatches them under PULSE_WITH_TEST_HOOKS). cloud_sync_probe and
     # download_source_probe are product features and stay.

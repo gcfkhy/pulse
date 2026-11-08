@@ -24,8 +24,17 @@ bool ColumnStripSwallowDoubleClick(const AppState& s);
 // Right-click on a column row: selects that item the way a click does (the
 // list moves to its folder). Returns true when the item is now selected.
 bool SelectColumnStripRow(AppState& s, const ui::HitTestResult& hit);
+// Wheel over a column: scrolls its rows; where it has none to scroll that way
+// (or with Shift, over the arrows or the scrollbar) it pans the strip of ancestor columns.
 bool HandleColumnStripWheel(AppState& s, const ui::WindowViewModel& vm,
                             const ui::HitTestResult& hit, int wheel_delta);
+// Wheel over the current folder's list that has nothing to scroll: pans the
+// strip instead. (x, y) is the client point under the pointer.
+bool HandleColumnStripBodyWheel(AppState& s, const ui::WindowViewModel& vm,
+                                const ui::HitTestResult& hit, int x, int y, int wheel_delta);
+// Sideways wheel (tilt wheel, touchpad swipe) over the column view pans the strip.
+bool HandleColumnStripHWheel(AppState& s, const ui::WindowViewModel& vm,
+                             const ui::HitTestResult& hit, int x, int y, int wheel_delta);
 // Left/Right in the column view: go to the parent / enter the selected folder.
 bool HandleColumnArrowKey(AppState& s, bool right);
 void ToggleColumnLayout(AppState& s, int pane_index);

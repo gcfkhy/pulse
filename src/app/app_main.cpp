@@ -2933,6 +2933,7 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
             return TRUE;
         }
         if (hit.region == ui::HitTestResult::RowFolderSize ||
+            hit.region == ui::HitTestResult::ColumnStripNav ||
             hit.region == ui::HitTestResult::FilterClear ||
             hit.region == ui::HitTestResult::AddressSearch ||
             hit.region == ui::HitTestResult::AddressSearchScope ||
@@ -3035,7 +3036,7 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
         return HandleRButtonUp(s, hwnd, msg, wParam, lParam);
 
     case WM_MOUSEWHEEL:
-    case WM_MOUSEHWHEEL:   // only the 地址栏 takes the sideways wheel
+    case WM_MOUSEHWHEEL:   // the 地址栏 and the column view take the sideways wheel
         return HandleMouseWheel(s, hwnd, msg, wParam, lParam);
 
     case WM_APPCOMMAND:
@@ -5504,6 +5505,14 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
         if (state.isolatedTest && GetEnvironmentVariableW(L"PULSE_TEST_SELECTION_FLOW", selection_probe.data(), static_cast<DWORD>(selection_probe.size()))) {
             extern int RunSelectionInputProbe(AppState&, const wchar_t*);
             const int result = WaitForShotReady(state) ? RunSelectionInputProbe(state, selection_probe.data()) : 4;
+            DestroyWindow(hwnd);
+            OleUninitialize();
+            return result;
+        }
+        wchar_t column_nav_probe[32768]{};
+        if (state.isolatedTest && GetEnvironmentVariableW(L"PULSE_TEST_COLUMN_NAV_FLOW", column_nav_probe, ARRAYSIZE(column_nav_probe))) {
+            extern int RunColumnStripNavProbe(AppState&, const wchar_t*);
+            const int result = WaitForShotReady(state) ? RunColumnStripNavProbe(state, column_nav_probe) : 4;
             DestroyWindow(hwnd);
             OleUninitialize();
             return result;

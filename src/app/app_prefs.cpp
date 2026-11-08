@@ -263,10 +263,8 @@ std::wstring AppPrefs::ToJson() const {
     out += std::to_wstring(folder_sort_mode >= 0 && folder_sort_mode <= 2 ? folder_sort_mode : 0);
     out += L",\n  \"details_columns\":";
     out += std::to_wstring(ui::NormalizeDetailsColumns(details_columns));
-    out += L",
-  \"details_columns_v\":3";
-    out += L",
-  \"details_column_order\":\"";
+    out += L",\n  \"details_columns_v\":3";
+    out += L",\n  \"details_column_order\":\"";
     out += ui::FormatDetailsColumnOrder(details_column_order);
     out += L"\"";
     out += L",\n  \"startup_open\":";

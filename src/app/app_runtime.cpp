@@ -3880,6 +3880,10 @@ std::wstring TooltipForHover(AppState& s) {
         return text(names[s.hoverControlIndex])+keys[s.hoverControlIndex];
     }
     case R::PaneClose: return text(I::WorkspaceClosePane);
+    case R::ColumnStripNav:  // names the arrow; the second line tells the wheel does the same
+        return text(s.hoverControlIndex == ui::kColumnStripNavLeft ? I::ColumnStripScrollLeft
+                                                                   : I::ColumnStripScrollRight) +
+               (s.appPrefs.show_hints ? L"\n" + text(I::ColumnStripWheelHint) : std::wstring());
     case R::PaneViewButton: return text(I::More);
     case R::FilterBox: return text(s.appPrefs.show_hints ? I::TipxFilter : I::FilterCurrent);
     case R::FilterClear: return text(I::Clear);

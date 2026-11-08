@@ -75,6 +75,12 @@ struct StripColumnMotion {
 
 struct StripPaneMotion {
     std::unordered_map<int, StripColumnMotion> columns;
+    // The strip's drawn scroll, in px from its resting right end (the
+    // settled value is ColumnStripLayout::max_scroll_px - scroll_px).
+    bool hscroll_init = false, hscroll_moving = false;
+    float hscroll_shown = 0.0f, hscroll_vel = 0.0f;
+    uint64_t hscroll_last = 0;
+    std::wstring hscroll_key;
     motion::SpringRectMotion hover;
     float hover_alpha = 0.0f;
     uint64_t hover_context = 0, hover_last = 0;
@@ -123,6 +129,44 @@ float StepStripScroll(StripColumnMotion& m, float target, float view_h, uint64_t
         moving = true;
     }
     return m.scroll_shown;
+}
+
+// Eases the drawn strip offset toward `target` (px from the parent end; Smooth
+// spring, 4 ms steps, clamped to [0, max_px]). The first frame, another
+// folder chain (`key`) or `animate == false` land at once.
+float StepStripHScroll(StripPaneMotion& pm, const std::wstring& key, float target, float max_px,
+                       uint64_t now, bool animate, bool& moving) {
+    if (!pm.hscroll_init || !animate || key != pm.hscroll_key) {
+        pm.hscroll_init = true;
+        pm.hscroll_moving = false;
+        pm.hscroll_key = key;
+        pm.hscroll_shown = target;
+        pm.hscroll_vel = 0.0f;
+        pm.hscroll_last = now;
+        return target;
+    }
+    // The first frame of a glide only starts it: the time since the previous
+    // frame is idle time, not motion.
+    float dt = pm.hscroll_moving ? static_cast<float>((std::min<uint64_t>)(now - pm.hscroll_last, 64)) * 0.001f
+                                 : 0.0f;
+    pm.hscroll_last = now;
+    const motion::SpringSpec s = motion::spring::Smooth;
+    while (dt > 0.0f) {
+        const float h = (std::min)(dt, 0.004f);
+        pm.hscroll_vel += (s.k * (target - pm.hscroll_shown) - s.c * pm.hscroll_vel) * h;
+        pm.hscroll_shown += pm.hscroll_vel * h;
+        dt -= h;
+    }
+    pm.hscroll_shown = std::clamp(pm.hscroll_shown, 0.0f, (std::max)(0.0f, max_px));
+    if (std::fabs(target - pm.hscroll_shown) < 0.5f && std::fabs(pm.hscroll_vel) < 10.0f) {
+        pm.hscroll_shown = target;
+        pm.hscroll_vel = 0.0f;
+        pm.hscroll_moving = false;
+    } else {
+        pm.hscroll_moving = true;
+        moving = true;
+    }
+    return pm.hscroll_shown;
 }
 
 std::wstring LeafName(const std::wstring& path) {
@@ -189,14 +233,13 @@ float MainRenderer::ColumnStripScrollPx(const ColumnStripColumnView& column, flo
     return std::clamp(scroll, 0.0f, max_scroll);
 }
 
-void MainRenderer::DrawColumnStrip(const WindowViewModel& vm, const PaneViewModel& pane,
-                                   const D2D1_RECT_F& bounds, int pane_index, const Theme& theme) {
+ColumnStripLayout MainRenderer::DrawColumnStrip(const WindowViewModel& vm, const PaneViewModel& pane,
+                                                const D2D1_RECT_F& bounds, int pane_index, const Theme& theme) {
     ID2D1DeviceContext* dc = compositor_ ? compositor_->Dc() : nullptr;
-    if (!dc) return;
-    const ColumnStripLayout strip = ColumnStripGeometry(pane, bounds);
-    if (!strip.active) return;
+    if (!dc) return {};
+    const ColumnStripLayout settled = ColumnStripGeometry(pane, bounds);
+    if (!settled.active) return settled;
     const ColumnStripView& cs = pane.column_strip;
-    const bool has_viewport = strip.viewport.right > strip.viewport.left;
     StripPaneMotion& pm = StripMotionFor(this, pane_index);
     const bool hc = IsHighContrast();
     if (motion_now_ - pm.animations_checked > 2000 || !pm.animations_checked) {
@@ -206,6 +249,23 @@ void MainRenderer::DrawColumnStrip(const WindowViewModel& vm, const PaneViewMode
     }
     const bool animate = pm.animations && !hc;
     pm.moving = false;
+    // The strip glides to where the arrows, the wheel or a click on the
+    // scrollbar track put it; dragging the thumb, another folder chain and
+    // reduced motion land at once. Hit-testing keeps the settled position.
+    ColumnStripLayout strip = settled;
+    if (settled.max_scroll_px > 0.0f) {
+        const float rest = settled.max_scroll_px - settled.scroll_px;
+        const std::wstring key = cs.ancestors.empty() ? std::wstring() : cs.ancestors.back().path;
+        const float shown = StepStripHScroll(pm, key, rest, settled.max_scroll_px, motion_now_,
+                                             animate && !cs.hscroll_pressed, pm.moving);
+        if (std::fabs(shown - rest) > 0.01f) {
+            strip = LayoutColumnStrip(bounds, bounds.top + pane_header_height_, cs.ancestors.size(),
+                                      cs.has_child, cs.widths_dip, scale_, shown / (std::max)(0.5f, scale_));
+        }
+    } else {
+        pm.hscroll_init = false;
+    }
+    const bool has_viewport = strip.viewport.right > strip.viewport.left;
     // Per column: which folder it shows, when its rows came, and the scroll
     // it is drawn at. Columns that went away are forgotten.
     for (auto it = pm.columns.begin(); it != pm.columns.end();) {
@@ -307,26 +367,72 @@ void MainRenderer::DrawColumnStrip(const WindowViewModel& vm, const PaneViewMode
                                       lx + line_w * 0.5f, divider.bottom - inset),
                           brAccent_.get());
     }
-    D2D1_RECT_F track{}, thumb{};
-    if (ColumnStripHScrollRects(strip, track, thumb)) {
-        // Edge line where the scrolled strip meets the list.
-        if (strip.scroll_px < strip.max_scroll_px - 0.5f) {
-            MakeBrush(dc, theme.stroke_divider, brAccent_);
-            const float lx = strip.viewport.right;
-            dc->FillRectangle(D2D1::RectF(lx - 0.5f * scale_, strip.viewport.top + 6.0f * scale_,
-                                          lx + 0.5f * scale_, strip.viewport.bottom - 6.0f * scale_),
-                              brAccent_.get());
-        }
-        const bool hot = cs.hscroll_pressed ||
-            (vm.hover_region == static_cast<int>(HitTestResult::ColumnStripHScroll) &&
-             vm.hover_pane_index == pane_index);
-        const float h = (hot ? theme.scrollbar_hover : theme.scrollbar_silent + 1.0f) * scale_;
-        const float cy = (track.top + track.bottom) * 0.5f;
-        MakeBrush(dc, theme.scrollbar_thumb, brScrollbar_);
-        FillRoundedRect(dc, brScrollbar_.get(), thumb.left, cy - h * 0.5f,
-                        thumb.right - thumb.left, h, h * 0.5f);
-    }
     if (pm.moving) RequestMotionFrame();
+    return strip;
+}
+
+void MainRenderer::DrawColumnStripNav(const WindowViewModel& vm, const PaneViewModel& pane,
+                                      const D2D1_RECT_F& bounds, int pane_index, const Theme& theme) {
+    ID2D1DeviceContext* dc = compositor_ ? compositor_->Dc() : nullptr;
+    if (!dc) return;
+    const ColumnStripLayout settled = ColumnStripGeometry(pane, bounds);
+    if (!settled.active) return;
+    const bool hc = IsHighContrast();
+    const ColumnStripView& cs = pane.column_strip;
+    // The scrollbar under the whole strip, thumb at the drawn scroll. It spans the list and
+    // the child column too, so it is drawn after them.
+    {
+        ColumnStripLayout shown = settled;
+        const StripPaneMotion& pm = StripMotionFor(this, pane_index);
+        if (settled.max_scroll_px > 0.0f && pm.hscroll_init) {
+            shown.scroll_px = std::clamp(settled.max_scroll_px - pm.hscroll_shown, 0.0f, settled.max_scroll_px);
+        }
+        D2D1_RECT_F track{}, thumb{};
+        if (ColumnStripHScrollRects(shown, track, thumb)) {
+            const bool hot = cs.hscroll_pressed ||
+                (vm.hover_region == static_cast<int>(HitTestResult::ColumnStripHScroll) &&
+                 vm.hover_pane_index == pane_index);
+            const float h = (hot ? theme.scrollbar_hover : theme.scrollbar_silent + 1.0f) * scale_;
+            const float cy = (track.top + track.bottom) * 0.5f;
+            MakeBrush(dc, theme.scrollbar_thumb, brScrollbar_);
+            FillRoundedRect(dc, brScrollbar_.get(), thumb.left, cy - h * 0.5f,
+                            thumb.right - thumb.left, h, h * 0.5f);
+        }
+    }
+    // Round arrows at the pane's left and right edge. Called once the pane's
+    // list is drawn, so they sit above every column, the list included.
+    // Which ones show follows the settled position, like their hit-testing.
+    const ColumnStripNavLayout nav = LayoutColumnStripNav(settled, scale_);
+    for (const int direction : {kColumnStripNavLeft, kColumnStripNavRight}) {
+        if (!(direction == kColumnStripNavLeft ? nav.left : nav.right)) continue;
+        const D2D1_RECT_F& rc = direction == kColumnStripNavLeft ? nav.left_rect : nav.right_rect;
+        const bool hot = vm.hover_region == static_cast<int>(HitTestResult::ColumnStripNav) &&
+                         vm.hover_pane_index == pane_index && vm.hover_control_index == direction;
+        const D2D1_POINT_2F mid = D2D1::Point2F((rc.left + rc.right) * 0.5f, (rc.top + rc.bottom) * 0.5f);
+        const float r = (rc.right - rc.left) * 0.5f;
+        if (!hc) {
+            // A few soft layers below the button, as under the other floating cards.
+            for (int i = 3; i >= 1; --i) {
+                const float grow = static_cast<float>(i) * 1.5f * scale_;
+                MakeBrush(dc, D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.05f), brFillInput_);
+                dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(mid.x, mid.y + 1.5f * scale_), r + grow, r + grow),
+                                brFillInput_.get());
+            }
+        }
+        D2D1_COLOR_F surface = hc ? theme.bg : theme.surface_flyout;
+        surface.a = 1.0f;  // opaque: the rows must not show through the glyph
+        MakeBrush(dc, surface, brFillInput_);
+        dc->FillEllipse(D2D1::Ellipse(mid, r, r), brFillInput_.get());
+        if (hot && !hc) {
+            MakeBrush(dc, theme.fill_hover, brFillHover_);
+            dc->FillEllipse(D2D1::Ellipse(mid, r, r), brFillHover_.get());
+        }
+        MakeBrush(dc, hc ? theme.text : hot ? theme.accent : theme.stroke_card, brStrokeCard_);
+        dc->DrawEllipse(D2D1::Ellipse(mid, r - 0.5f, r - 0.5f), brStrokeCard_.get(), 1.0f);
+        DrawIconText(rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top,
+                     direction == kColumnStripNavLeft ? kIconChevronLeft : kIconChevronRight,
+                     direction == kColumnStripNavLeft ? L"<" : L">", theme.text, 0.62f);
+    }
 }
 
 void MainRenderer::DrawColumnStripColumn(const WindowViewModel& vm, const PaneViewModel& /*pane*/,
@@ -498,6 +604,20 @@ bool MainRenderer::HitTestColumnStrip(const PaneViewModel& vm, const D2D1_RECT_F
         return !IsAncestorId(id) || !has_viewport ||
                (px >= strip.viewport.left && px < strip.viewport.right + grip);
     };
+    // The arrows float over the rows: round, so the corners of their square stay clickable rows.
+    const ColumnStripNavLayout nav = LayoutColumnStripNav(strip, scale_);
+    for (const int direction : {kColumnStripNavLeft, kColumnStripNavRight}) {
+        if (!(direction == kColumnStripNavLeft ? nav.left : nav.right)) continue;
+        const D2D1_RECT_F& rc = direction == kColumnStripNavLeft ? nav.left_rect : nav.right_rect;
+        const float r = (rc.right - rc.left) * 0.5f;
+        const float dx = x - (rc.left + rc.right) * 0.5f, dy = y - (rc.top + rc.bottom) * 0.5f;
+        if (dx * dx + dy * dy <= r * r) {
+            out.region = HitTestResult::ColumnStripNav;
+            out.index = direction;
+            out.sub_index = -1;
+            return true;
+        }
+    }
     D2D1_RECT_F track{}, thumb{};
     if (ColumnStripHScrollRects(strip, track, thumb) && x >= track.left && x < track.right &&
         y >= track.top - 2.0f * scale_ && y < strip.viewport.bottom) {
