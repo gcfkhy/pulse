@@ -33,7 +33,11 @@ struct ColumnStripState {
     std::wstring for_path;                     // current_path the ancestors belong to
     std::vector<ColumnStripColumn> ancestors;  // farthest -> parent
     ColumnStripColumn child;                   // selected folder (path empty = none)
-    float scroll_from_right_dip = 0.0f;        // ancestor strip scroll; 0 = parent visible
+    // Scroll of the whole strip (ancestors, list, child) from its resting right end;
+    // 0 = the last column ends at the pane's right edge.
+    float scroll_from_right_dip = 0.0f;
+    // tab.selection_revision last seen: a changed selection brings the list back into view.
+    uint64_t seen_selection_revision = 0;
 
     bool Empty() const { return for_path.empty() && ancestors.empty() && child.path.empty(); }
 };

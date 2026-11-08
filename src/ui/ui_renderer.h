@@ -798,8 +798,14 @@ private:
                         const Theme& theme);
     void DrawPaneEmptyState(const WindowViewModel& vm, const PaneViewModel& pane,
                             const D2D1_RECT_F& bounds, int pane_index, const Theme& theme);
-    void DrawColumnStrip(const WindowViewModel& vm, const PaneViewModel& pane,
-                         const D2D1_RECT_F& bounds, int pane_index, const Theme& theme);
+    // Draws the ancestor and child columns. Returns the strip as drawn (it eases
+    // toward the settled layout): the current folder's list follows its body.left.
+    ColumnStripLayout DrawColumnStrip(const WindowViewModel& vm, const PaneViewModel& pane,
+                                      const D2D1_RECT_F& bounds, int pane_index, const Theme& theme);
+    // The round scroll arrows at the column area's two ends; drawn after the
+    // pane's list so they stay on top of every column.
+    void DrawColumnStripNav(const WindowViewModel& vm, const PaneViewModel& pane,
+                            const D2D1_RECT_F& bounds, int pane_index, const Theme& theme);
     void DrawColumnStripColumn(const WindowViewModel& vm, const PaneViewModel& pane,
                                const ColumnStripColumnView& column, int column_id,
                                const D2D1_RECT_F& rc, int pane_index, const Theme& theme);

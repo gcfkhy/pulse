@@ -2868,11 +2868,22 @@ void MainRenderer::DrawSinglePane(const WindowViewModel& vm, const PaneViewModel
     }
     y += pane_header_height_;
 
+    // Column view: the current folder's list is one of the columns of the
+    // scrolling strip. It is laid out at its settled place (hit-testing and the
+    // hover plates use that) and drawn translated to where the strip is now.
+    D2D1_MATRIX_3X2_F strip_transform{};
+    bool strip_shifted = false;
     if (const ColumnStripLayout strip = ColumnStripGeometry(pane, pane_rect); strip.active) {
-        DrawColumnStrip(vm, pane, pane_rect, pane_index, theme);
+        const ColumnStripLayout drawn = DrawColumnStrip(vm, pane, pane_rect, pane_index, theme);
         bounds = strip.body;
         x = bounds.left;
         w = bounds.right - bounds.left;
+        const float shift = drawn.active ? drawn.body.left - strip.body.left : 0.0f;
+        if (std::fabs(shift) > 0.01f) {
+            dc->GetTransform(&strip_transform);
+            dc->SetTransform(D2D1::Matrix3x2F::Translation(shift, 0.0f) * strip_transform);
+            strip_shifted = true;
+        }
     }
 
     const float bannerH = PaneBannerHeight(pane, w, scale_, compositor_);
@@ -3330,6 +3341,8 @@ void MainRenderer::DrawSinglePane(const WindowViewModel& vm, const PaneViewModel
     g_ai_list_painter = nullptr;
     g_ai_list_pane = -1;
     dc->PopAxisAlignedClip();
+    if (strip_shifted) dc->SetTransform(strip_transform);
+    DrawColumnStripNav(vm, pane, pane_rect, pane_index, theme);  // column view scrollbar and arrows, over every column
     if (ai_list.On()) {
         ai_list.Margin(D2D1::RectF(x, y, x + w, bottom));
         ai_list.Watch(detailsRc.left - 10.0f * scale_, y0, pane_header_height_, x + 90.0f * scale_);

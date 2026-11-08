@@ -4282,6 +4282,7 @@ LRESULT HandleLButtonDblClk(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPA
         case ui::HitTestResult::PaneSizeButton:
         case ui::HitTestResult::PaneViewButton:
         case ui::HitTestResult::PaneDetails:
+        case ui::HitTestResult::ColumnStripNav:
         case ui::HitTestResult::ToolbarPin:
         case ui::HitTestResult::FilterClear:
         case ui::HitTestResult::CompareDiffToggle:
@@ -4881,6 +4882,7 @@ LRESULT HandleRButtonUp(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             }
             return 0;
         }
+        if (hit.region == ui::HitTestResult::ColumnStripNav) return 0;  // a button: no menu
         if (HandleFavoritesBarContextMenu(*s, hit, sp)) return 0;   // 收藏栏
         // A pinned tool: separators, remove, 自定义工具栏 (the preview pin and
         // the apps fall through to the popover).
@@ -5088,7 +5090,23 @@ LRESULT HandleMouseWheel(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                 return 0;
             }
         }
-        if (msg == WM_MOUSEHWHEEL) return DefWindowProcW(hwnd, msg, wParam, lParam);
+        if (msg == WM_MOUSEHWHEEL) {
+            // A sideways wheel or swipe over the column view pans its strip of columns.
+            if (!IsSettingsTab(ActiveTab(*s))) {
+                POINT hp{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+                ScreenToClient(hwnd, &hp);
+                const ui::WindowViewModel hvm = BuildVm(*s, false);
+                const D2D1_RECT_F hrect = D2D1::RectF(0, 0, static_cast<float>(s->compositor.Width()),
+                                                      static_cast<float>(s->compositor.Height()));
+                const ui::HitTestResult hhit = s->renderer.HitTest(hvm, hrect, static_cast<float>(hp.x),
+                                                                   static_cast<float>(hp.y));
+                if (HandleColumnStripHWheel(*s, hvm, hhit, hp.x, hp.y, GET_WHEEL_DELTA_WPARAM(wParam))) {
+                    RefreshScrolledHover(*s);
+                    return 0;
+                }
+            }
+            return DefWindowProcW(hwnd, msg, wParam, lParam);
+        }
         s->blankClickTab = nullptr;
         CancelRenameClick(*s);
         {
@@ -5203,6 +5221,13 @@ LRESULT HandleMouseWheel(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM
                     if (sizeWheel) ResetSizeTooltip(*s);
                 }
             }
+            return 0;
+        }
+        // Column view: a list with nothing to scroll hands the wheel to the strip of columns.
+        if (wheelTab && wheelTab->view_mode != ui::ViewMode::List && !marquee &&
+            MaxScrollForActivePane(*s) <= 0.5f &&
+            HandleColumnStripBodyWheel(*s, wheelVm, wheelHit, pt.x, pt.y, delta)) {
+            RefreshScrolledHover(*s);
             return 0;
         }
         if (wheelTab && wheelTab->view_mode == ui::ViewMode::List) {

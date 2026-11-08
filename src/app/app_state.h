@@ -423,6 +423,7 @@ struct AppState : AppCoreOwner {
     float stripHScrollStartDip = 0.0f;   // scroll_from_right_dip at press
     float stripHScrollRatio = 0.0f;      // strip px per thumb px
     float stripHScrollMaxDip = 0.0f;
+    ULONGLONG stripWheelTick = 0;        // last wheel event a column view column took (vertical scroll)
 
     bool tabDragPending = false;
     bool tabDragging = false;
