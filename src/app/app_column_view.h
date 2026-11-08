@@ -24,6 +24,11 @@ bool ColumnStripSwallowDoubleClick(const AppState& s);
 // Right-click on a column row: selects that item the way a click does (the
 // list moves to its folder). Returns true when the item is now selected.
 bool SelectColumnStripRow(AppState& s, const ui::HitTestResult& hit);
+// Drag over a column: a drop lands in the folder row under the pointer, or
+// else in that column's folder. *folder_row is the row (or -1). False when
+// the hit is not on a column, so the caller keeps its own target.
+bool ColumnStripDropFolder(AppState& s, const ui::HitTestResult& hit, std::wstring& folder,
+                           int* folder_row);
 // Wheel over a column: scrolls its rows; where it has none to scroll that way
 // (or with Shift, over the arrows or the scrollbar) it pans the strip of ancestor columns.
 bool HandleColumnStripWheel(AppState& s, const ui::WindowViewModel& vm,
