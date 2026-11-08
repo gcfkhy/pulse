@@ -277,10 +277,6 @@ constexpr IconPart k_desktop[] = {
     {"M4.5 4.5h15a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1 -1.5 1.5h-15a1.5 1.5 0 0 1 -1.5 -1.5v-9a1.5 1.5 0 0 1 1.5 -1.5Z", 0, 0x000000u, 1.6f, 1.0f},
     {"M9 20h6M12 16.5V20", 0, 0x000000u, 1.6f, 1.0f},
 };
-constexpr IconPart k_tray[] = {
-    {"M4 13.5l2.2-7.2A1.8 1.8 0 0 1 7.9 5h8.2a1.8 1.8 0 0 1 1.7 1.3l2.2 7.2V18a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18z", 0, 0x000000u, 1.6f, 1.0f},
-    {"M4 13.5h4.5l1 2h5l1-2H20", 0, 0x000000u, 1.6f, 1.0f},
-};
 constexpr IconPart k_star[] = {
     {"M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8L3.6 9.6l5.8-.8z", 0, 0x000000u, 1.6f, 1.0f},
 };
@@ -409,7 +405,6 @@ constexpr IconDef kIcons[] = {
     {k_split, std::size(k_split)},
     {k_newwin, std::size(k_newwin)},
     {k_desktop, std::size(k_desktop)},
-    {k_tray, std::size(k_tray)},
     {k_star, std::size(k_star)},
     {k_kbd, std::size(k_kbd)},
     {k_tiles, std::size(k_tiles)},

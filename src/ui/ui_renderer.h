@@ -1,4 +1,4 @@
-// ui_renderer.h — Full-window Fluent renderer (title bar, toolbar, sidebar, pane, tray).
+// ui_renderer.h — Full-window Fluent renderer (title bar, toolbar, sidebar, pane).
 #pragma once
 #include "ui_view_model.h"
 #include "ui_compositor.h"
@@ -231,9 +231,6 @@ public:
         row_height_dip_ = std::clamp(dip, 24.0f, 48.0f);
         row_height_ = row_height_dip_ * scale_;
     }
-    // Staging-tray deck icon edge preference (DIPs); single-item decks add 8.
-    void SetTrayIconDip(float dip) { tray_icon_dip_ = std::clamp(dip, 32.0f, 64.0f); }
-    float TrayIconDip() const { return tray_icon_dip_; }
     float Margin() const { return margin_; }
 
     // Right details panel: toggled from the view menu; ContentRect shrinks.
@@ -619,7 +616,6 @@ public:
     D2D1_RECT_F RenameFieldRect(const PaneViewModel& vm, const D2D1_RECT_F& list,
                                 int source_index);
     D2D1_RECT_F SidebarRect(float w, float h) const;
-    D2D1_RECT_F StagingTrayRect(const WindowViewModel& vm, float w, float h) const;
     D2D1_RECT_F TitleBarRect(float w) const;
     D2D1_RECT_F ToolbarRect(float w) const;
     D2D1_RECT_F AddressBarRect(float w) const;
@@ -743,9 +739,6 @@ public:
     float SidebarMaxScroll(const WindowViewModel& vm, float window_w, float window_h) const;
     bool SidebarScrollbarGeometry(const WindowViewModel& vm, float window_w, float window_h,
                                   D2D1_RECT_F& track, D2D1_RECT_F& thumb, float& max_scroll) const;
-    // How many deck cards the tray panel fits at the current sidebar width
-    // without breaking the max-50%-overlap rule (>= 1).
-    int TrayDeckCapacity(float window_w) const;
 
 private:
     UINT caret_due_ms_ = 0;
@@ -852,21 +845,6 @@ private:
                           int hover_region, int hover_control_index, int pane_index);
     static std::wstring GroupLabel(const PaneViewModel& vm, const ListGroup& g);
     int group_hover_pane_ = -1;   // pane under the mouse for header hover
-    // Scatter deck of staged files inside the tray panel (draw + hit-test
-    // share the geometry helpers in ui_renderer.cpp).
-    IDWriteTextFormat* ShelfFormat(int role) const;
-    float ShelfMeasure(const std::wstring& text, bool compact_text) const;
-    void DrawTrayShelf(const WindowViewModel& vm, const D2D1_RECT_F& panel_rc,
-                       const Theme& theme);
-    void DrawTrayShelfLayer(const WindowViewModel& vm, int stage, const D2D1_RECT_F& panel_rc,
-                            const Theme& theme);
-    // 剪贴板 N 项 · 收入: the strip button (row false) or the shelf row.
-    void DrawShelfClip(const WindowViewModel& vm, const D2D1_RECT_F& rc, bool row, const Theme& theme);
-    void DrawTrayOpen(const WindowViewModel& vm, const D2D1_RECT_F& panel_rc, const Theme& theme);
-    // Two checked files side by side, right of the sidebar (after the panes).
-    void DrawTrayCompareCard(const WindowViewModel& vm, const Theme& theme);
-    void DrawTrayDeck(const WindowViewModel& vm, const D2D1_RECT_F& panel_rc,
-                      const Theme& theme);
 
     void UpdateBrushes(const Theme& theme);
     void DrawButton(const D2D1_RECT_F& rc, const Theme& theme, const D2D1_COLOR_F& bg,
@@ -970,7 +948,6 @@ private:
     RenderCaches& caches_;
     ShellIconCache& icon_cache_ = caches_.icons;
     OpenWithIconCache& open_with_icons_ = caches_.open_with_icons;
-    std::unordered_map<ID2D1Bitmap*, ComPtr<ID2D1Effect>> tray_shadows_;
     ThumbnailCache& thumbnail_cache_ = caches_.thumbnails;
     FolderThumbnailCache& folder_thumbnail_cache_ = caches_.folder_thumbnails;
     bool folder_thumbnails_enabled_ = true;
@@ -1212,16 +1189,6 @@ private:
     std::array<uint32_t, 8> painted_columns_{};
     struct HoverNamePaint { int source = -1; bool truncated = true; };
     std::array<HoverNamePaint, 8> hover_names_{};   // per pane, see HoveredNameTruncated
-    float tray_icon_dip_ = 48.0f;
-    // Staging tray card text: 13 px semibold name, 11 px folder line.
-    mutable ComPtr<IDWriteTextFormat> tray_name_format_;
-    // Staging tray shelf text formats (ui_tray_shelf.cpp ShelfFormat roles).
-    static constexpr int kShelfFormatCount = 11;
-    mutable D2D1_RECT_F tray_panel_rc_{};  // last painted tray panel (compare card anchor)
-    mutable ComPtr<IDWriteTextFormat> shelf_formats_[kShelfFormatCount];
-    mutable float shelf_formats_scale_ = 0.0f;
-    mutable ComPtr<IDWriteTextFormat> tray_folder_format_;
-    mutable float tray_formats_scale_ = 0.0f;
     // 系统右键菜单 card titles: 13 px semibold (Painter keeps its own private).
     mutable ComPtr<IDWriteTextFormat> sysctx_title_format_;
     mutable ComPtr<IDWriteTextFormat> sysctx_stat_format_;  // 概览 stat numbers: 22 px semibold

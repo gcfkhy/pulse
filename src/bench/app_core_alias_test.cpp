@@ -19,7 +19,7 @@ namespace {
 #define PULSE_APP_CORE_ALIASES(X) \
     X(store) X(worker) X(watches) X(notify_mu) X(notify_queue) X(size_patches) X(last_unc_poll) \
     X(sidebar) X(sidebarRefresh) X(networkLocations) X(recycle_info) X(recycle_refresh_at) \
-    X(recycle_refresh_left) X(recycle_ignore_items) X(recycle_info_guard) X(tray) X(places) \
+    X(recycle_refresh_left) X(recycle_ignore_items) X(recycle_info_guard) X(places) \
     X(ctxMenuPrefs) X(context_menu) X(appPrefs) X(searchHistory) X(searchHistoryWriter) \
     X(settings) X(update_checker) X(update_result) X(update_result_ready) X(update_installer) \
     X(update_install_error) X(next_update_progress_paint) X(next_update_check) \
@@ -34,7 +34,7 @@ namespace {
     X(startupComplete) X(isolatedTest) X(isolatedTestPersist) X(contentIndexObserver) \
     X(accentColor) X(session_path) X(gitRoots) X(resultMutex) X(results) X(ops) X(shell_windows) \
     X(shell_windows_published) X(explorer_takeover) X(cutPaths) X(pendingCutClipboardSequence) \
-    X(trayClipboardSequence) X(trayClipboardBatchId) X(pendingCutClipboardPaths) \
+    X(pendingCutClipboardPaths) \
     X(completedCutClipboardPaths)
 
 template <typename Alias, typename Field>

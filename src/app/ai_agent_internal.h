@@ -335,7 +335,6 @@ CtlStep CtlView(AppState& s, CtlRun& run, const json::Value& act);
 CtlStep CtlSort(AppState& s, CtlRun& run, const json::Value& act);
 CtlStep CtlGroup(AppState& s, CtlRun& run, const json::Value& act);
 CtlStep CtlBar(AppState& s, CtlRun& run, const json::Value& act, bool favorites);
-CtlStep CtlTray(AppState& s, CtlRun& run, const json::Value& act);
 CtlStep CtlTag(AppState& s, CtlRun& run, const json::Value& act);
 CtlStep CtlFavorite(AppState& s, CtlRun& run, const json::Value& act);
 CtlStep CtlMerge(AppState& s, CtlRun& run);

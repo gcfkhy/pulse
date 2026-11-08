@@ -80,7 +80,6 @@ struct AppPrefs {
     bool sync_onedrive = true;
     bool sync_svn = true;
     bool vertical_tabs = false;       // tabs as the first sidebar section
-    bool tray_hide_when_empty = false; // staging tray folds away while empty (drags still show it)
     // 网络位置 (Settings → 文件操作): machine-local, not in settings export.
     bool lan_discovery = true;           // look for LAN devices when the network page opens
     bool network_recent_enabled = true;  // remember and list 最近访问
@@ -176,7 +175,6 @@ struct AppPrefs {
     // searches the user folders and asks once; 1 Desktop/Documents/Downloads;
     // 2 all drives.
     int content_scope = 0;
-    int tray_icon_size = 48; // staging-tray deck icon edge in DIPs (32..64)
     // Interaction hints: status-bar context hints + one-time teaching tips.
     bool show_hints = true;
     // Background update checks and their "update available" toasts (Settings > About).
@@ -225,7 +223,6 @@ struct AppPrefs {
     std::wstring duplicate_scan_drive;
     // Version that last ran with these prefs; drives the one-time "updated" toast.
     std::wstring last_seen_version;
-    std::wstring tray_dests; // staging tray: recent drop folders, newest first, '|'-joined (max 3)
     bool had_file = false; // runtime only: app.json existed when Load() ran
     bool load_failed = false; // blocks saving defaults over an unreadable/damaged existing file
 

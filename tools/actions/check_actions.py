@@ -47,9 +47,7 @@ def inventory():
 
 
 # Moves that are not run_actions file steps: the flow tools have their cards.
-FLOW_MOVES = {
-    "tray.send_to": "the staging tray's send flow (organize_files / run_task)",
-}
+FLOW_MOVES = {}
 
 
 def ids_in(text, table):

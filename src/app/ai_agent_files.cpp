@@ -430,7 +430,7 @@ CtlStep CtlRunStep(AppState& s, CtlRun& run, const std::string& id, const json::
         return st;
     }
     const app::actions::Policy policy = app::actions::AiPolicy(id);
-    // Plan without a file step of its own (tray.send_to): the flow tools.
+    // Plan without a file step of its own: the flow tools.
     if (policy.gate == app::actions::Gate::Plan || policy.gate == app::actions::Gate::Locked) {
         CtlStep st;
         st.title = StepTitle(s, id);
@@ -465,7 +465,6 @@ CtlStep CtlRunStep(AppState& s, CtlRun& run, const std::string& id, const json::
     if (id == "view.group") return CtlGroup(s, run, act);
     if (id == "sidebar.toggle") return CtlBar(s, run, act, false);
     if (id == "favbar.toggle") return CtlBar(s, run, act, true);
-    if (id == "tray.add") return CtlTray(s, run, act);
     if (id == "tag.toggle") return CtlTag(s, run, act);
     if (id == "fav.add") return CtlFavorite(s, run, act);
     if (id == "select.items") return CtlSelect(s, run, act);

@@ -68,10 +68,7 @@ constexpr UINT WM_REGISTER_DROP_TARGET = WM_APP + 96;  // posted by every WM_CRE
 constexpr UINT WM_FAVORITE_UNDO = WM_APP + 97;  // the 已移出收藏夹 snack (收藏栏 drag-out): put it back
 constexpr UINT WM_TAG_DROP_UNDO = WM_APP + 98;  // the 已给 N 项加上「…」 snack (files dropped on a tag): undo
 constexpr UINT WM_TAG_RULE_HIT = WM_APP + 99;  // 自动规则: files appeared in a watched folder (tag_rules.cpp)
-constexpr UINT WM_TRAY_UNDO = WM_APP + 100;      // the tray release snack: undo the copy / move
-constexpr UINT WM_TRAY_OPEN_DEST = WM_APP + 101;  // the tray release snack: open the target folder
-constexpr UINT WM_TRAY_RESTORE = WM_APP + 102;   // the 已清空暂存区 snack: put the items back
-constexpr UINT WM_TRAY_TAKE_CLIP = WM_APP + 103;  // stage the Ctrl+C / Ctrl+X offer (剪贴板 N 项 · 收入)
+// WM_APP + 100..103 were the staging tray's snack messages (removed).
 constexpr UINT WM_TAG_RULE_ACCEPT = WM_APP + 104;  // the 自动规则 snack's 加上
 constexpr UINT WM_GIT_RESULT = WM_APP + 105;  // in-app Git: lParam owns a finished job (git_ui.cpp)
 constexpr UINT WM_CLOUD_PIN_DONE = WM_APP + 106;  // 始终保留 / 释放空间 finished: wParam CloudPinAction, lParam failed count

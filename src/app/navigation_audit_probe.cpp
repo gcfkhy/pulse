@@ -393,35 +393,6 @@ int RunNavigationAuditProbe(AppState& s, FILE* log) {
         check(valid, "3/4/5 custom colors keep picker action and every swatch in independent command ranges");
     }
     {
-        app::StagingTray tray;
-        const auto first = fixture_root + L"\\a.keep";
-        const auto second = fixture_root + L"\\b.secret";
-        tray.Collect({first, second}, true);
-        tray.MarkPendingMove(8001, {first, second}, 0);
-        tray.Collect({first}, true);
-        check(tray.batches().size() == 2 && tray.batches()[0].items.size() == 2 &&
-              tray.batches()[0].items[0].inflight_task == 8001 && tray.batches()[1].items[0].inflight_task == 0,
-              "tray retains queued move cards and does not claim later identical collection");
-        tray.MarkPendingMove(8002, {first}, 0);
-        check(tray.batches()[0].items[0].inflight_task == 8001,
-              "second release cannot steal an in-flight tray item");
-        tray.CompleteMove(8001, {first});
-        check(tray.batches().size() == 2 && tray.batches()[0].items.size() == 1 &&
-              tray.batches()[0].items[0].path == fs::NormalizePath(second) &&
-              tray.batches()[0].items[0].inflight_task == 0 && tray.batches()[1].items.size() == 1,
-              "partial move consumes confirmed original item only and releases failed item for retry");
-        tray.MarkPendingMove(8003, {second}, 0);
-        tray.CompleteMove(8003, {});
-        check(tray.batches()[0].items[0].inflight_task == 0,
-              "cancelled or skipped move retains original card for retry");
-        tray.CompleteMove(8001, {first, second});
-        check(tray.batches().size() == 2, "late duplicate terminal cannot consume newer or retriable tray cards");
-        tray.MarkPendingMove(8004, {second}, 0);
-        tray.CompleteMove(8004, {second});
-        check(tray.batches().size() == 1 && tray.batches()[0].items[0].path == fs::NormalizePath(first),
-              "successful retry removes only matching batch and preserves newer staged duplicate");
-    }
-    {
         ApplyLayoutPreset(s, app::LayoutPreset::TwoVertical);
         auto views = LiveLayout(s).VisiblePanes();
         if (views.size() != 2) check(false, "create-intent test requires two panes");
@@ -525,22 +496,6 @@ int RunNavigationAuditProbe(AppState& s, FILE* log) {
                 check(origin.selected_index == 0 && origin.create_rename_intents.empty() && s.renameIndex < 0,
                       "real created item is selected by origin refresh after focus changes");
             }
-            const auto source = sandbox + L"\\move-me.txt";
-            HANDLE file = CreateFileW(source.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW,
-                                      FILE_ATTRIBUTE_NORMAL, nullptr);
-            const bool wrote = file != INVALID_HANDLE_VALUE;
-            if (wrote) CloseHandle(file);
-            s.tray.Clear();
-            if (wrote) s.tray.Collect({source}, true);
-            ReleaseTrayBatch(s, 0);
-            const uint64_t move_task = s.tray.batches().empty() ? 0 : s.tray.batches()[0].items[0].inflight_task;
-            check(wrote && move_task != 0 && s.tray.batches().size() == 1,
-                  "real ReleaseTrayBatch retains move card after enqueue and associates returned task");
-            const auto moved = move_task ? wait_terminal(move_task) : std::nullopt;
-            check(moved && moved->success && s.tray.batches().empty() &&
-                  GetFileAttributesW((destination + L"\\move-me.txt").c_str()) != INVALID_FILE_ATTRIBUTES &&
-                  GetFileAttributesW(source.c_str()) == INVALID_FILE_ATTRIBUTES,
-                  "real move terminal consumes originating tray card only after successful filesystem move");
             s.pane = saved_pane;
         }
     }

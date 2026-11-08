@@ -38,7 +38,6 @@ constexpr KeyActionInfo kActions[] = {
     {X::Cut, "Cut", G::Files, N::Normal, L"剪切", L"Cut", D(K(C, 'X')), 0, 0, 0, false},
     {X::Paste, "Paste", G::Files, N::Normal, L"粘贴", L"Paste", D(K(C, 'V')), 0, 0, 0, false},
     {X::CopyPath, "CopyPath", G::Files, N::Normal, L"复制路径", L"Copy path", D(K(C | S, 'C')), 0, 0, 0, false},
-    {X::StageToTray, "StageToTray", G::Files, N::Normal, L"加入暂存区", L"Add to staging tray", D(K(C | S, 'S')), 0, 0, 0, false},
     {X::Undo, "Undo", G::Files, N::Normal, L"撤销", L"Undo", D(K(C, 'Z')), 0, 0, 0, false},
     {X::Rename, "Rename", G::Files, N::Normal, L"重命名", L"Rename", D(K(0, VK_F2)), 0, 0, 0, false},
     {X::BatchRename, "BatchRename", G::Files, N::Normal, L"批量重命名", L"Batch rename", D(K(C | S, 'R')), 0, 0, 0, false},

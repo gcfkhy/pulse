@@ -611,39 +611,6 @@ CtlStep CtlBar(AppState& s, CtlRun& run, const json::Value& act, bool favorites)
     return st;
 }
 
-CtlStep CtlTray(AppState& s, CtlRun& run, const json::Value& act) {
-    CtlStep st;
-    st.icon = ui::AiIcon::Tray;
-    st.title = Text(I::AiCtlStepTray);
-    const std::vector<std::wstring> paths = CtlItems(s, act);
-    st.arg = Fill(Text(I::AiCtlItems), L"{n}", Num(paths.size()));
-    if (paths.empty()) {
-        st.error = "no items (select some, or pass full paths)";
-        st.why = Text(I::AiActWhyNoItems);
-        return st;
-    }
-    std::vector<uint64_t> before;
-    for (const auto& b : s.tray.batches())
-        for (const auto& it : b.items) before.push_back(it.id);
-    StagePaths(s, paths, std::nullopt);
-    std::vector<uint64_t> added;
-    size_t total = 0;
-    for (const auto& b : s.tray.batches())
-        for (const auto& it : b.items) {
-            ++total;
-            if (std::find(before.begin(), before.end(), it.id) == before.end()) added.push_back(it.id);
-        }
-    st.ok = true;
-    st.sub = Fill(Text(I::AiCtlTrayNow), L"{n}", Num(total));
-    if (!added.empty())
-        run.undo.push_back([added](AppState& st2) { RemoveTrayItems(st2, added); });
-    ++run.organize;
-    run.organize_kinds.push_back(Text(I::AiCtlKindTray));
-    AddLine(run, SplitLine(Text(I::AiCtlLineTray), L"{items}", st.arg));
-    AddKeys(run, Text(I::AiCtlKeyTray), KeysFor(app::KeyAction::StageToTray));
-    return st;
-}
-
 CtlStep CtlTag(AppState& s, CtlRun& run, const json::Value& act) {
     CtlStep st;
     st.icon = ui::AiIcon::Tag;
@@ -1434,7 +1401,7 @@ std::string StepAction(const json::Value& step) {
         {"tab_to_window", "tab.to_window"}, {"pane_to_window", "pane.to_window"}, {"merge_windows", "window.merge"},
         {"window_overview", "window.overview"}, {"view", "view.mode"},  {"sort", "view.sort"},
         {"group", "view.group"},          {"sidebar", "sidebar.toggle"}, {"favorites_bar", "favbar.toggle"},
-        {"tray", "tray.add"},             {"tag", "tag.toggle"},        {"favorite", "fav.add"},
+        {"tag", "tag.toggle"},            {"favorite", "fav.add"},
     };
     const std::string old = step.get_string("do");
     for (const auto& [from, to] : kOld)
@@ -1482,7 +1449,6 @@ ui::AiIcon ArgIcon(std::string_view id) {
     for (const Pair& p : kExact)
         if (p.id == id) return p.icon;
     if (id.starts_with("tag.")) return ui::AiIcon::Tag;
-    if (id.starts_with("tray.")) return ui::AiIcon::Tray;
     if (id.starts_with("search.")) return ui::AiIcon::Search;
     if (id.starts_with("keymap.")) return ui::AiIcon::Keyboard;
     if (id.starts_with("git.")) return ui::AiIcon::Git;
@@ -1490,10 +1456,10 @@ ui::AiIcon ArgIcon(std::string_view id) {
     return ui::AiIcon::Bolt;
 }
 
-// Organize rows (tags, aliases, the tray, recent, smart views): the card
+// Organize rows (tags, aliases, recent, smart views): the card
 // says 只改 Pulse 的整理信息.
 bool ArgOrganizes(std::string_view id) {
-    return id.starts_with("tag.") || id.starts_with("alias.") || id.starts_with("tray.") || id == "recent.remove" ||
+    return id.starts_with("tag.") || id.starts_with("alias.") || id == "recent.remove" ||
            id == "smartview.save";
 }
 

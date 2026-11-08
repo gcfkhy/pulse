@@ -493,8 +493,7 @@ static thread_local const RECT* t_paint_damage = nullptr;
 // Motion the app runs itself (scrolling, layout, theme): it moves pixels the
 // partial-redraw damage does not know about.
 static bool AppMotion(const AppState& s) {
-    return s.scrollAnimating || s.marqueeAutoScroll || s.themeReveal.start || s.paneLayoutMotion.start ||
-           s.trayAnimating;
+    return s.scrollAnimating || s.marqueeAutoScroll || s.themeReveal.start || s.paneLayoutMotion.start;
 }
 
 void Render(AppState& s) {
@@ -536,11 +535,6 @@ void Render(AppState& s) {
     bool hc = s.shot_high_contrast || ui::IsHighContrast();
     ui::Theme theme = hc ? ui::MakeHighContrastTheme() : ui::MakeTheme(s.darkMode, s.accentColor);
 
-    // The staging tray steps once per frame painted, so motion a click or a
-    // drag-over starts begins with this frame instead of the next UI tick;
-    // the pump keeps the frames coming while it moves.
-    const bool tray_moving = TickTrayDeck(s);
-    s.trayAnimating = tray_moving && s.framePump.Running();
     const bool app_motion = AppMotion(s);  // before this frame's scroll step
     if (s.scrollAnimating) UpdateSmoothScroll(s);
     UpdateMarqueeFrame(s);
@@ -708,7 +702,6 @@ static app::SessionSnapshot CaptureWindowSession(AppState& requested, HWND reque
         snap.tab_groups.push_back({group.id, group.name, group.color_rgb, group.collapsed});
     for (const auto& layout : s.window_tabs.items)
         snap.layout_tabs.push_back(app::CaptureLayoutTab(*layout));
-    snap.tray = s.tray;
     snap.undo_json = s.ops.UndoToJson();
     snap.sidebar_collapsed = static_cast<int>(s.sidebarCollapsedMask);
     snap.sidebar_hidden = static_cast<int>(s.sidebarHiddenMask);
@@ -1441,7 +1434,6 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
         s->renderer.SetSidebarWidthDip(static_cast<float>(s->appPrefs.sidebar_width));
         s->renderer.SetVerticalTabs(s->appPrefs.vertical_tabs);
         s->renderer.SetSidebarCollapsed(s->appPrefs.sidebar_collapsed);
-        s->renderer.SetTrayIconDip(static_cast<float>(s->appPrefs.tray_icon_size));
         ApplyAccentFromPrefs(*s, true);
         ApplyAppWindowChrome(*s);
         if (init_core) {
@@ -1610,7 +1602,7 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
             if (!s->pending_undo_json.empty()) s->ops.UndoFromJson(s->pending_undo_json);
         }
 
-        // OLE drop target: list rows, pane headers, breadcrumbs, sidebar, tray.
+        // OLE drop target: list rows, pane headers, breadcrumbs, sidebar.
         {
             ui::DropTargetCallbacks dcb;
             dcb.drag_over = [hwnd](const std::vector<std::wstring>& srcs, POINT pt,
@@ -2124,13 +2116,6 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
         if (s) OfferPermanentDeleteForRefused(*s);
         return 0;
 
-    case WM_TRAY_UNDO:
-    case WM_TRAY_OPEN_DEST:
-    case WM_TRAY_RESTORE:
-    case WM_TRAY_TAKE_CLIP:
-        if (s) HandleTrayMessage(*s, msg);
-        return 0;
-
     case WM_AI_SNACK_UNDO:
     case WM_AI_SNACK_OPEN:
         if (s) pulse::HandleAiSnackMessage(*s, msg);
@@ -2204,7 +2189,7 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
         }
         if (!IsWindowVisible(hwnd) || IsIconic(hwnd) ||
             (!s->scrollAnimating && !s->marqueeAutoScroll && !s->themeReveal.start && !s->paneLayoutMotion.start &&
-             !s->trayAnimating && !s->renderer.TickMotion(GetTickCount64()))) {
+             !s->renderer.TickMotion(GetTickCount64()))) {
             s->framePump.Disarm();  // WM_PAINT re-arms once shown again
             return 0;
         }
@@ -2422,12 +2407,6 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
                 TickTabTransitions(*s);
                 dirty = true;
             }
-            // Without the pump (or until it takes over) the timer steps the tray.
-            if (!s->trayAnimating && TickTrayDeck(*s)) {
-                s->trayAnimating = s->framePump.Running();
-                if (s->trayAnimating) ArmMotionFrames(*s, true);
-                else dirty = true;
-            }
             if (TickTabFlash(*s)) dirty = true;
             if (SyncTagGroups(*s)) {
                 // Tags changed: a tag-grouped folder re-sorts into its new groups,
@@ -2457,11 +2436,6 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
             }
             if (UpdateTeachTip(*s)) dirty = true;
             if (s->renderer.SettleBreadcrumbScroll(GetTickCount64())) dirty = true;   // 地址栏 back to its end
-            // Staging tray: notice items moved or deleted outside Pulse.
-            if (!s->tray.batches().empty() && GetTickCount64() - s->trayProbeAt >= 2000) {
-                s->trayProbeAt = GetTickCount64();
-                if (s->tray.RefreshExists()) dirty = true;
-            }
             QueueVisibleTagDiscovery(*s);
             UpdateOperationWindow(*s, false);
             if (dirty) {
@@ -2685,19 +2659,7 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
             if (GetCapture() == hwnd) ReleaseCapture();
             return 0;
         }
-        // Shift flips the shelf's copy / move label live.
-        if (s && wParam == VK_SHIFT && !s->tray.batches().empty()) {
-            s->uiTimerPacer.NoteActivity(GetTickCount64());
-            InvalidateRect(hwnd, nullptr, FALSE);
-        }
         return HandleKeyDown(s, hwnd, msg, wParam, lParam);
-
-    case WM_KEYUP:
-        if (s && wParam == VK_SHIFT && !s->tray.batches().empty()) {
-            s->uiTimerPacer.NoteActivity(GetTickCount64());
-            InvalidateRect(hwnd, nullptr, FALSE);
-        }
-        break;
 
     case WM_COMMAND: {
         if (s && reinterpret_cast<HWND>(lParam) == s->hwndFilterEdit &&
@@ -2846,10 +2808,6 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
                             app::AliasStore::Instance().Move(completed.sources[i],
                                                              completed.destinations[i]);
                             FollowMovedFolder(*s, completed.sources[i], completed.destinations[i]);
-                            // Only the items that really moved / were renamed:
-                            // every rename entry (list, tray) leaves the tray
-                            // to this, so failed or cancelled items keep their names.
-                            s->tray.ReplacePath(completed.sources[i], completed.destinations[i]);
                             tag_metadata_paths.push_back(completed.destinations[i]);
                         }
                         if (completed.type == ops::OpType::Move &&
@@ -2880,7 +2838,6 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
                                completed.type == ops::OpType::RealDelete) {
                         s->places.RemoveAssignments(completed.sources, true);
                         s->duplicateScan.RemoveDeleted(completed.sources);
-                        s->tray.RemoveDeleted(completed.sources);
                     }
                     if (completed.type == ops::OpType::RecycleDelete ||
                         completed.type == ops::OpType::RealDelete ||
@@ -2912,7 +2869,6 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
                     NoteArrivalFinished(*s, finished);
                     NoteDeleteFinished(*s, finished);
                     NoteBatchRenameFinished(*s, finished);
-                    NoteTrayReleaseFinished(*s, finished);
                     if (finished.type == ops::OpType::EmptyRecycle)
                         ApplyEmptyRecycleFinished(*s, finished.success);
                 }
@@ -3614,50 +3570,6 @@ void StageTagShotStates(AppState& state) {
     }
 }
 
-// No C++ objects with destructors here: SEH (__try/__except) forbids unwinding.
-// Verification hook for --shot-tray: PULSE_SHOT_TRAY_ACTION=<action>:<ms>.
-static void ApplyShotTrayAction(AppState& state) {
-    wchar_t tray_action[64]{};
-    if (state.shot_tray &&
-        GetEnvironmentVariableW(L"PULSE_SHOT_TRAY_ACTION", tray_action, ARRAYSIZE(tray_action))) {
-        // Verification hook: <action>:<ms> captures the card stack in the
-        // middle of an animation (throw, back, drag:<dx>, dismiss, clear, hover).
-        int ms = 0;
-        if (wchar_t* colon = wcschr(tray_action, L':')) { ms = _wtoi(colon + 1); *colon = L'\0'; }
-        for (int k = 0; k < 60; ++k) { TickTrayDeck(state); Sleep(16); }
-        const auto top = TrayDeckEntries(state.tray, static_cast<size_t>(TrayStackTop(state)), 1);
-        if (wcscmp(tray_action, L"throw") == 0) {
-            ThrowTrayTop(state, 1.0f, 0.0f, 0.0f);
-        } else if (wcscmp(tray_action, L"back") == 0) {
-            TrayStepBack(state);
-        } else if (wcscmp(tray_action, L"drag") == 0 && !top.empty()) {
-            state.trayDrag.active = true;
-            state.trayDrag.path = top.front().item->path;
-            state.trayDrag.dx = static_cast<float>(ms);
-            state.trayDrag.dy = 10.0f;
-            ms = 400; // let the card settle into the held pose
-        } else if (wcscmp(tray_action, L"dismiss") == 0 && !top.empty()) {
-            MarkTrayExit(state, { top.front().item->path }, false);
-            SpawnTrayPuffs(state);
-            state.tray.RemoveItem(static_cast<size_t>(top.front().batch),
-                                  static_cast<size_t>(top.front().sub));
-        } else if (wcscmp(tray_action, L"clear") == 0) {
-            std::vector<std::wstring> all;
-            for (const auto& b : state.tray.batches())
-                for (const auto& item : b.items) all.push_back(item.path);
-            MarkTrayExit(state, all, true);
-            SpawnTrayPuffs(state);
-            state.tray.Clear();
-        } else if (wcscmp(tray_action, L"hover") == 0) {
-            state.hoverRegion = static_cast<int>(ui::HitTestResult::TrayCard);
-            ms = std::max(ms, 400);
-        }
-        const ULONGLONG until = GetTickCount64() + static_cast<ULONGLONG>(std::max(0, ms));
-        while (GetTickCount64() < until) { TickTrayDeck(state); Sleep(4); }
-        TickTrayDeck(state);
-    }
-}
-
 // GUI verification for two-pane layouts: PULSE_SHOT_SPLIT_PATH opens that
 // folder in a second pane (PULSE_SHOT_SPLIT_STACKED=1: top/bottom instead of
 // left/right; PULSE_SHOT_SPLIT_FOCUS=1 focuses the second pane).
@@ -3750,7 +3662,6 @@ int ShotModeMain(AppState& state, HWND hwnd) {
             }
             Sleep(40);
         }
-        ApplyShotTrayAction(state); // separate frame: __try forbids unwinding objects
         if (g_shot_ai >= 0) {
             pulse::StageAiShot(g_shot_ai);
             Render(state);   // the snapshot reads the frame before the last Present
@@ -4014,7 +3925,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
         // M7f: Ctrl+Shift+T and the overview can still bring these back.
         for (const auto& closed : session.closed_windows)
             state.core.closed_windows.Push(app::ClosedWindowFromSession(closed, ++state.core.close_seq));
-        state.tray = session.tray;
         state.darkMode = session.dark;
         state.sidebarCollapsedMask = static_cast<uint32_t>(session.sidebar_collapsed);
         state.sidebarHiddenMask = static_cast<uint32_t>(session.sidebar_hidden);
@@ -4055,11 +3965,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
             }
         } else if (wcscmp(__wargv[i], L"--colorpickdialog") == 0) {
             state.colorpickdialog = true;
-        } else if (wcscmp(__wargv[i], L"--shot-tray") == 0) {
-            state.shot_tray = true;
-            // Optional item count: --shot-tray 1 stages a single file.
-            if (i + 1 < __argc && __wargv[i + 1][0] >= L'0' && __wargv[i + 1][0] <= L'9')
-                state.shot_tray_count = std::max(1, _wtoi(__wargv[++i]));
         } else if (wcscmp(__wargv[i], L"--shot-tab-colors") == 0) {
             state.shot_tab_colors = true;
         } else if (wcscmp(__wargv[i], L"--shot-pinned-tab") == 0) {
@@ -4639,26 +4544,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
             return result;
         }
 #endif
-        if (state.shot_tray) {
-            // Stage a few real files from the shot folder so the deck is
-            // visible in the verification screenshot. Drop any restored
-            // session tray first so the shot is deterministic.
-            state.tray.Clear();
-            std::vector<std::wstring> staged;
-            const std::wstring root = fs::NormalizePath(state.shot.path);
-            WIN32_FIND_DATAW fd{};
-            HANDLE hFind = FindFirstFileW((root + L"\\*").c_str(), &fd);
-            if (hFind != INVALID_HANDLE_VALUE) {
-                do {
-                    if ((fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) continue;
-                    if (fd.cFileName[0] == L'.') continue;
-                    staged.push_back(root + L"\\" + fd.cFileName);
-                    if (staged.size() >= static_cast<size_t>(state.shot_tray_count)) break;
-                } while (FindNextFileW(hFind, &fd));
-                FindClose(hFind);
-            }
-            if (!staged.empty()) state.tray.Collect(staged, false);
-        }
         if (state.shot_tab_colors && state.pane) {
             NewTab(state, state.shot.path);
             NewTab(state, state.shot.path);

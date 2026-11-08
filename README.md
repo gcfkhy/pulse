@@ -2,7 +2,7 @@
 
 **为 Windows 打造的文件管理器，让浏览、搜索和整理文件更顺手。**
 
-多标签与多窗格、全盘索引与拼音搜索、空格快速预览、暂存盘和可自定义外观，放在同一个工作空间里。
+多标签与多窗格、全盘索引与拼音搜索、空格快速预览和可自定义外观，放在同一个工作空间里。
 
 [下载最新版](https://github.com/jimmgreen/pulse/releases/latest) · [查看更新记录](https://github.com/jimmgreen/pulse/releases) · [反馈问题](https://github.com/jimmgreen/pulse/issues) · [English](README.en.md)
 
@@ -63,14 +63,6 @@
 「设置 → 快速预览 · 支持的格式」列出全部可预览格式，并检测 HEIF / HEVC / AV1 / WebP 系统扩展是否已安装。
 
 ![Pulse 快速预览 Markdown](docs/images/quicklook.png)
-
-## 暂存盘与文本对比
-
-复制或剪切（Ctrl+C / Ctrl+X）的文件会收进左下角的暂存盘，可以跨文件夹、跨标签页收集后一次拖到目标位置；拖放默认复制，按住 Shift 为移动。
-
-暂存两个文件时可以对照位置、修改时间、大小和内容；文本文件点击「查看差异」打开对比窗口，支持并排 / 统一视图、行内差异高亮、仅看差异、忽略空白和大小写，以及 F7 / Shift+F7 跳转。
-
-![Pulse 暂存盘文本对比](docs/images/diff.png)
 
 ## 融入 Windows
 

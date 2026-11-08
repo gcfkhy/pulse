@@ -685,14 +685,14 @@ int RunSettingsFlowTest(AppState& s,const wchar_t* output) {
                     }
                     for(const auto* locale:{L"zh-CN",L"en-US"}) {
                         l10n::SetLanguage(locale);bool fits=true;
-                        const I labels[]={I::SettingsDensityCompact,I::SettingsDensityStandard,I::SettingsDensityRoomy,I::SettingsTraySmall,I::SettingsTrayStandard,I::SettingsTrayLarge};
+                        const I labels[]={I::SettingsDensityCompact,I::SettingsDensityStandard,I::SettingsDensityRoomy};
                         for(I id:labels) {
                             const auto& label=l10n::Get(id);ui::ComPtr<IDWriteTextLayout> measured;
                             s.compositor.DwriteFactory()->CreateTextLayout(label.c_str(),static_cast<UINT32>(label.size()),s.compositor.TextFormat(),2000*scale,100*scale,&measured);
                             DWRITE_TEXT_METRICS metrics{};if(measured.get()) measured->GetMetrics(&metrics);
                             fits &= measured.get() && metrics.widthIncludingTrailingWhitespace<=layout.density_row[0].right-layout.density_row[0].left-6*scale;
                         }
-                        check(fits,"density and tray labels fit their segments in both languages");
+                        check(fits,"density labels fit their segments in both languages");
                     }
                     l10n::SetLanguage(L"zh-CN");
                 }

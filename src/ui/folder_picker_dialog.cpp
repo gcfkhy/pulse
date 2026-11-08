@@ -697,7 +697,6 @@ private:
         vm_.focused = GetForegroundWindow() == hwnd_;
         vm_.can_go_back = history_.CanGoBack();
         vm_.can_go_forward = history_.CanGoForward();
-        vm_.tray_deck.hidden = true;
         vm_.details_visible = false;
         vm_.settings_open = false;
         vm_.window_effect = WindowEffect::MicaAlt;

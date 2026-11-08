@@ -15,7 +15,7 @@ constexpr const char* kStepWaits[] = {"listing_loaded", "op_finished", "preview_
 const char* RunActionsDescription() {
     static const std::string text = std::string(
         "Does things in Pulse itself, in order, as one undo group (at most 12 steps): panes and the folders in them, wi"
-        "ndows, tabs, view, sort, grouping, panels, selection, the staging tray, tags, favorites, settings, new folders"
+        "ndows, tabs, view, sort, grouping, panels, selection, tags, favorites, settings, new folders"
         ", opening files, file operations, and any action find_actions returns. What AI apps may do is the user's choic"
         "e in Pulse (Settings > \345\242\236\345\274\272\345\214\205 > AI \344\270\216 MCP > AI \345\272\224"
         "\347\224\250\345\217\257\344\273\245\345\201\232\347\232\204\344\272\213): view steps by default; organize, cr"
@@ -42,7 +42,7 @@ const char* RunActionsDescription() {
         "ge|video|audio|archive|code, modified: today|yesterday|this_week|last_7_days|this_month|last_month|{after, bef"
         "ore}, size: {larger_than, smaller_than}, tag, selected, mode: replace|add|remove} (on a search tab Pulse first"
         " waits for the search to finish, 10 s at most, then picks among all its results; tag does not work on content "
-        "search results), select.all, select.clear, tray.add {items}, tag.toggle {tag, items} (a new tag is made), fav."
+        "search results), select.all, select.clear, tag.toggle {tag, items} (a new tag is made), fav."
         "add {path or items}, file.new_folder {name} (in the open folder), nav.open {path} (a file or program), setting"
         "s.set {key, value}, edit.undo, tab.pin {tab, pin}, tab.color {tab, color: red|orange|yellow|green|teal|blue|pu"
         "rple|pink|none}, tab.rename {tab, name}, tab.group {tab, group}, tab.activate {tab}, tag.create {name, color, "
@@ -54,7 +54,7 @@ const char* RunActionsDescription() {
         "tab: 1 = first as in get_state, a title, \"all\" or a list - several tabs go in ONE step. Words: \346\240\207"
         "\347\255\276 is a tag (tag.create, then tag.toggle to put it on items; \345\212\240\346\240\207\347\255\276 / "
         "\346\211\223\346\240\207\347\255\276 = tag.toggle), \346\240\207\347\255\276\351\241\265 is a tab (tab.*), "
-        "\346\211\230\347\233\230 / \346\232\202\345\255\230 is the staging tray (only when the user says so). pane: 1-"
+        "pane: 1-"
         "4 in screen order as in get_state, focused, target, or all (view / sort / group). Paths: absolute, a drive (D:"
         ") or a known folder (Downloads, Desktop, Documents, Pictures, Videos, Music). items: full paths; omitted = the"
         " selection.\n") + std::string(
@@ -68,7 +68,7 @@ const char* RunActionsDescription() {
         "s|default_location, new_tab_open current|default_location, external_open smart|tab|window, vertical_tabs, pinn"
         "ed_tab_names, double_click_closes_tab, close_window_with_last_tab, launch_at_signin (Windows), start_in_tray, "
         "keep_running, tray_icon always|background|never, explorer_tag_menu (Windows), open_folders_with_pulse (default"
-        " file manager; Windows), staging_icon_size small|standard|large, staging_hide_when_empty, change_tracking, cha"
+        " file manager; Windows), change_tracking, cha"
         "nge_days today|3|7, lan_discovery, network_recent, hidden_shares, confirm_delete (can only be turned on), glob"
         "al_search (Windows), pinyin_search. Locked (only the user, in Settings): confirm_delete off, the AI permission"
         "s, always allow rules, connections, the API key.");
@@ -81,7 +81,7 @@ std::vector<ToolDef> MakeTools() {
     tools.push_back({"get_context", "Current Pulse view",
         "Returns what the user sees in Pulse: the panes of the active tab in screen order (pane 1 is the left "
         "or top one) with each folder, view, filter and selection (up to 200 paths for the focused pane), the "
-        "other tabs, the staging tray, the preview and any open dialog. Use it to find out what \"this folder\", "
+        "other tabs, the preview and any open dialog. Use it to find out what \"this folder\", "
         "\"these files\" or \"the right pane\" refers to.",
         true, false, true, {}});
     tools.push_back({"list_folder", "List a folder",

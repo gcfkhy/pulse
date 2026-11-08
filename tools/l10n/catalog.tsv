@@ -242,11 +242,6 @@ SettingsRowHeightDesc	IDS_SETTINGS_ROW_HEIGHT_DESC	1014	调整文件列表每一
 DensityCompact	IDS_DENSITY_COMPACT	1015	紧凑（28 像素）	Compact (28 pixels)	緊湊（28 像素）
 DensityStandard	IDS_DENSITY_STANDARD	1016	标准（34 像素）	Standard (34 pixels)	標準（34 像素）
 DensityComfortable	IDS_DENSITY_COMFORTABLE	1017	舒适（40 像素）	Comfortable (40 pixels)	舒適（40 像素）
-SettingsTrayIcon	IDS_SETTINGS_TRAY_ICON	1018	暂存区图标	Staging icon size	暫存區圖示
-SettingsTrayIconDesc	IDS_SETTINGS_TRAY_ICON_DESC	1019	调整暂存托盘里文件图标的大小，立即生效	Changes file icons in the staging tray	調整暫存托盤裡檔案圖示的大小，立即生效
-TrayIconSmall	IDS_TRAY_ICON_SMALL	1020	小（40 像素）	Small (40 pixels)	小（40 像素）
-TrayIconStandard	IDS_TRAY_ICON_STANDARD	1021	标准（48 像素）	Standard (48 pixels)	標準（48 像素）
-TrayIconLarge	IDS_TRAY_ICON_LARGE	1022	大（56 像素）	Large (56 pixels)	大（56 像素）
 SettingsLanguage	IDS_SETTINGS_LANGUAGE	1023	显示语言	Display language	顯示語言
 SettingsLanguageDesc	IDS_SETTINGS_LANGUAGE_DESC	1024	默认跟随 Windows，也可以为 Pulse 单独选择	Follow Windows or choose a language for Pulse	預設跟隨 Windows，也可以為 Pulse 單獨選擇
 LanguageSystem	IDS_LANGUAGE_SYSTEM	1025	跟随系统	Use system setting	跟隨系統
@@ -332,11 +327,7 @@ NewFolder	IDS_NEW_FOLDER	1099	新建文件夹	New folder	新增資料夾
 FilterPlaceholder	IDS_FILTER_PLACEHOLDER	1100	按名称/标签过滤...	Filter by name or tag...	按名稱/標籤過濾...
 New	IDS_NEW	1101	新建	New	新增
 ItemsCountFormat	IDS_ITEMS_COUNT_FORMAT	1102	%d 项	%d items	%d 項
-StagingTray	IDS_STAGING_TRAY	1103	临时暂存托盘	Staging tray	臨時暫存托盤
-StagingTrayHelper	IDS_STAGING_TRAY_HELPER	1104	拖入文件，集中复制/移动	Drop files here to copy or move them together	拖入檔案，集中複製/移動
 Release	IDS_RELEASE	1105	释放	Release	釋放
-TotalSizeFormat	IDS_TOTAL_SIZE_FORMAT	1106	共 %s	%s total	共 %s
-TotalSizeBatchesFormat	IDS_TOTAL_SIZE_BATCHES_FORMAT	1107	共 %s · %d 批	%s total · %d batches	共 %s · %d 批
 ClearAll	IDS_CLEAR_ALL	1108	清空	Clear all	清空
 SearchHistory	IDS_SEARCH_HISTORY	1686	搜索历史	Search history	搜尋歷史
 SearchHistoryEmpty	IDS_SEARCH_HISTORY_EMPTY	1687	没有匹配的搜索历史	No matching search history	沒有符合的搜尋歷史
@@ -772,10 +763,6 @@ FolderSizePartial	IDS_FOLDER_SIZE_PARTIAL	2024	部分统计	Partial	部分統計
 FolderSizeUnavailable	IDS_FOLDER_SIZE_UNAVAILABLE	2025	无法统计 · 点击重试	Unavailable · Retry	無法統計 · 點選重試
 FolderSizeCached	IDS_FOLDER_SIZE_CACHED	2026	已缓存 · 点击更新	Cached · Refresh	已快取 · 點選更新
 FolderSizeIndexed	IDS_FOLDER_SIZE_INDEXED	2027	索引估算	Index estimate	索引估算
-StagingTrayEmpty	IDS_STAGING_TRAY_EMPTY	2028	暂存区是空的	The staging tray is empty	暫存區是空的
-TrayPrev	IDS_TRAY_PREV	2029	上一张	Previous	上一張
-TrayNext	IDS_TRAY_NEXT	2030	下一张	Next	下一張
-TrayFlingHint	IDS_TRAY_FLING_HINT	2031	按住卡片左右甩出，可把它放到最后	Hold a card and fling it sideways to send it to the back	按住卡片左右甩出，可把它放到最後
 SettingsWallpaperLook	IDS_SETTINGS_WALLPAPER_LOOK	2012	界面透明度	Interface transparency	介面透明度
 SettingsWallpaperLookDesc	IDS_SETTINGS_WALLPAPER_LOOK_DESC	2013	面板透出背景的程度，对背景图、亚克力、云母生效	How much the background shows through (image, Acrylic, Mica)	面板透出背景的程度，對背景圖、壓克力、雲母生效
 WallpaperLookSubtle	IDS_WALLPAPER_LOOK_SUBTLE	2014	柔和	Subtle	柔和
@@ -1263,9 +1250,6 @@ SettingsUnavailable	IDS_SETTINGS_UI_1920	1920	暂不可用	Unavailable	暫不可
 SettingsDensityCompact	IDS_SETTINGS_UI_1921	1921	紧凑	Compact	緊湊
 SettingsDensityStandard	IDS_SETTINGS_UI_1922	1922	标准	Standard	標準
 SettingsDensityRoomy	IDS_SETTINGS_UI_1923	1923	宽松	Roomy	寬鬆
-SettingsTraySmall	IDS_SETTINGS_UI_1924	1924	小	Small	小
-SettingsTrayStandard	IDS_SETTINGS_UI_1925	1925	标准	Standard	標準
-SettingsTrayLarge	IDS_SETTINGS_UI_1926	1926	大	Large	大
 SettingsContentEmptyHelp	IDS_SETTINGS_UI_1927	1927	请在索引维护中启用本地磁盘，以搜索文档内容。	Enable a local drive in index maintenance to search document contents.	請在索引維護中啟用本機磁碟，以搜尋文件內容。
 SettingsContentRebuildHelp	IDS_SETTINGS_UI_1928	1928	重新读取共用索引范围中的文档内容	Read documents in the shared index scope again	重新讀取共用索引範圍中的文件內容
 SettingsContextItems	IDS_SETTINGS_UI_1929	1929	自定义菜单项	Customize menu items	自訂選單項
@@ -1302,13 +1286,6 @@ ListThumbnailBadges	IDS_LIST_THUMBNAIL_BADGES	2525	缩略图上显示打开方�
 ListThumbnailBadgesDesc	IDS_LIST_THUMBNAIL_BADGES_DESC	2526	在缩略图右下角显示默认打开程序的图标，视频另外标出时长，图片和视频一眼分清	Badge each thumbnail with its default app's icon and mark videos with their length, so photos and videos are easy to tell apart	在縮圖右下角顯示預設開啟程式的圖示，影片另外標出長度，圖片和影片一眼分清
 TrayIntentCopy	IDS_TRAY_INTENT_COPY	2124	复制	Copy	複製
 TrayIntentMove	IDS_TRAY_INTENT_MOVE	2125	移动	Move	移動
-TrayReleaseCopy	IDS_TRAY_RELEASE_COPY	2126	复制到此	Copy here	複製到此
-TrayReleaseMove	IDS_TRAY_RELEASE_MOVE	2127	移动到此	Move here	移動到此
-DropStageCopy	IDS_DROP_STAGE_COPY	2128	暂存为复制 · 按住 Shift 改为移动	Add to tray as copy · hold Shift to move	暫存為複製 · 按住 Shift 改為移動
-DropStageMove	IDS_DROP_STAGE_MOVE	2129	暂存为移动	Add to tray as move	暫存為移動
-TipTrayIntent	IDS_TIP_TRAY_INTENT	2130	点击切换：释放时复制还是移动	Click to switch: copy or move on release	點選切換：釋放時複製還是移動
-TipTrayReleaseCopy	IDS_TIP_TRAY_RELEASE_COPY	2131	复制到当前文件夹，暂存项保留，可再次释放	Copy into this folder; the batch stays in the tray	複製到目前資料夾，暫存項保留，可再次釋放
-TipTrayReleaseMove	IDS_TIP_TRAY_RELEASE_MOVE	2132	移动到当前文件夹，完成后移出暂存区	Move into this folder; the batch leaves the tray	移動到目前資料夾，完成後移出暫存區
 CompareSideBySide	IDS_CMD_COMPARE_SIDE_BY_SIDE	2133	并排对比	Compare side by side	並排對比
 CompareTitle	IDS_COMPARE_TITLE	2134	对比	Compare	對比
 CompareSummaryFormat	IDS_COMPARE_SUMMARY_FORMAT	2135	仅此侧 %d · 较新 %d · 较旧 %d · 不同 %d	Only here %d · Newer %d · Older %d · Differ %d	僅此側 %d · 較新 %d · 較舊 %d · 不同 %d
@@ -1361,8 +1338,6 @@ AdvCustom	IDS_ADV_CUSTOM	2181	自定义	Custom	自訂
 AdvPickFolder	IDS_ADV_PICK_FOLDER	2182	选择文件夹…	Choose folder…	選擇資料夾…
 AdvSumKeywordNeeded	IDS_ADV_SUM_KEYWORD_NEEDED	2183	请输入要在文件里查找的词	Type the words to find inside files	請輸入要在檔案裡查詢的詞
 HintFolderSel	IDS_HINT_FOLDER_SEL	2184	Enter 打开  ·  中键 后台新标签页  ·  空格 预览	Enter open  ·  Middle-click new background tab  ·  Space preview	Enter 開啟  ·  中鍵 背景新分頁  ·  空格 預覽
-HintMultiSel	IDS_HINT_MULTI_SEL	2185	拖到暂存托盘，攒齐后一起复制或移动	Drag to the tray to copy or move them together	拖到暫存托盤，攢齊後一起複製或移動
-HintActTray	IDS_HINT_ACT_TRAY	2186	加入暂存托盘	Add to tray	加入暫存托盤
 HintDrag	IDS_HINT_DRAG	2187	同盘移动、跨盘复制  ·  Ctrl 复制  ·  Shift 移动  ·  Esc 取消	Same drive moves, other drives copy  ·  Ctrl copy  ·  Shift move  ·  Esc cancel	同磁碟移動、跨磁碟複製  ·  Ctrl 複製  ·  Shift 移動  ·  Esc 取消
 HintSplit	IDS_HINT_SPLIT	2188	比较两侧有什么不同	See what differs between the two sides	比較兩側有什麼不同
 HintActCompare	IDS_HINT_ACT_COMPARE	2189	并排对比	Compare	並排對比
@@ -1382,7 +1357,6 @@ TipxSidebar	IDS_TIPX_SIDEBAR	2202	折叠侧栏 · Ctrl+B\n折叠后悬停左侧�
 TipxFilter	IDS_TIPX_FILTER	2203	筛选当前文件夹 · Ctrl+F\n只过滤当前列表；全盘查找请用搜索 Ctrl+K	Filter this folder · Ctrl+F\nFilters this list only; use Search (Ctrl+K) to find anywhere	篩選目前資料夾 · Ctrl+F\n只過濾目前清單；全磁碟查詢請用搜尋 Ctrl+K
 TipxSearch	IDS_TIPX_SEARCH	2204	搜索 · Ctrl+K\n可直接输入 pdf、本周 等词自动筛选	Search · Ctrl+K\nType words like pdf or this week to filter	搜尋 · Ctrl+K\n可直接輸入 pdf、本週 等詞自動篩選
 TipxStar	IDS_TIPX_STAR	2205	收藏 / 取消收藏\n收藏的项目显示在侧栏「收藏夹」里	Star / unstar\nStarred items appear under Starred in the sidebar	收藏 / 取消收藏\n收藏的項目顯示在側欄「收藏夾」裡
-TipxTray	IDS_TIPX_TRAY	2206	暂存托盘\n从多个文件夹拖入，再一次性复制或移动\n放下时默认复制 · 按住 Shift 改为移动	Staging tray\nCollect files from several folders, then copy or move them at once\nDrops copy by default · hold Shift to move	暫存托盤\n從多個資料夾拖入，再一次性複製或移動\n放下時預設複製 · 按住 Shift 改為移動
 EmptySearchTry	IDS_EMPTY_SEARCH_TRY	2207	没有找到结果，试试：	No results. Try:	沒有找到結果，試試：
 EmptyActContent	IDS_EMPTY_ACT_CONTENT	2208	改为搜索文件内容	Search file contents	改為搜尋檔案內容
 EmptyActEverywhere	IDS_EMPTY_ACT_EVERYWHERE	2209	搜索整个索引	Search entire index	搜尋整個索引
@@ -1393,8 +1367,6 @@ TeachNever	IDS_TEACH_NEVER	2213	不再显示提示	Don't show tips	不再顯示�
 TeachTry	IDS_TEACH_TRY	2214	试一下	Try it	試一下
 TeachMiddleTitle	IDS_TEACH_MIDDLE_TITLE	2215	更快地开新标签页	Open tabs faster	更快地開新分頁
 TeachMiddleBody	IDS_TEACH_MIDDLE_BODY	2216	中键点文件夹就能在后台新标签页打开；Ctrl+中键打开并切换过去。	Middle-click a folder to open it in a background tab; Ctrl+middle-click opens and switches.	中鍵點資料夾就能在背景新分頁開啟；Ctrl+中鍵開啟並切換過去。
-TeachTrayTitle	IDS_TEACH_TRAY_TITLE	2217	文件分散在多个文件夹？	Files spread across folders?	檔案分散在多個資料夾？
-TeachTrayBody	IDS_TEACH_TRAY_BODY	2218	把它们拖到暂存托盘，攒齐后一次性复制或移动。	Drag them to the staging tray, then copy or move them all at once.	把它們拖到暫存托盤，攢齊後一次性複製或移動。
 TeachCompareTitle	IDS_TEACH_COMPARE_TITLE	2219	两个文件夹有什么不同？	What differs between the two folders?	兩個資料夾有什麼不同？
 TeachCompareBody	IDS_TEACH_COMPARE_BODY	2220	试试「并排对比」：颜色会标出只在一侧、较新、较旧和不同的文件。	Try Compare: colours mark files that are only on one side, newer, older, or different.	試試「並排對比」：顏色會標出只在一側、較新、較舊和不同的檔案。
 TeachSearchTitle	IDS_TEACH_SEARCH_TITLE	2221	搜索可以更精确	Make searches more precise	搜尋可以更精確
@@ -1421,36 +1393,7 @@ HintFiltering	IDS_HINT_FILTERING	2241	只筛选当前文件夹，不含子文件
 HintActSearchSub	IDS_HINT_ACT_SEARCH_SUB	2242	搜索子文件夹	Search subfolders	搜尋子資料夾
 EmptyActClearFilter	IDS_EMPTY_ACT_CLEAR_FILTER	2243	清除筛选	Clear filter	清除篩選
 EmptyFilterTry	IDS_EMPTY_FILTER_TRY	2244	当前文件夹没有匹配项，试试：	No matches in this folder. Try:	目前資料夾沒有符合項，試試：
-HintTrayDragOut	IDS_HINT_TRAY_DRAG_OUT	2245	从托盘拖出始终复制，原文件和托盘都保留  ·  Esc 取消	Tray drag always copies; originals and tray stay  ·  Esc cancel	從托盤拖出始終複製，原檔案和托盤都保留  ·  Esc 取消
 TrayMenuZip	IDS_TRAY_MENU_ZIP	2246	压缩为 ZIP	Compress to ZIP	壓縮為 ZIP
-TrayMenuRename	IDS_TRAY_MENU_RENAME	2247	批量重命名…	Batch rename…	批次重新命名…
-TrayMenuTag	IDS_TRAY_MENU_TAG	2248	打标签 / 存为新标签…	Tag all / save as new tag…	打標籤 / 存為新標籤…
-TrayMenuCopyPaths	IDS_TRAY_MENU_COPY_PATHS	2249	复制全部路径	Copy all paths	複製全部路徑
-TrayMenuOpenAll	IDS_TRAY_MENU_OPEN_ALL	2250	全部打开	Open all	全部開啟
-TrayMenuReveal	IDS_TRAY_MENU_REVEAL	2251	在所在位置显示	Show in folder	在所在位置顯示
-TrayOpenAllConfirm	IDS_TRAY_OPEN_ALL_CONFIRM	2252	要一次打开 {n} 个项目吗？	Open {n} items at once?	要一次開啟 {n} 個項目嗎？
-HintTrayMenu	IDS_HINT_TRAY_MENU	2253	拖动卡片甩到后面  ·  拖出侧栏 = 复制到任意位置  ·  右键：整批操作	Drag a card to fling it back  ·  Drag out of the sidebar to copy anywhere  ·  Right-click: batch actions	拖曳卡片甩到後面  ·  拖出側欄 = 複製到任意位置  ·  右鍵：整批操作
-HintTrayDest	IDS_HINT_TRAY_DEST	2254	单击：把托盘全部复制到这里  ·  Shift+单击：移动	Click: copy the tray here  ·  Shift+click: move	按一下：把托盤全部複製到這裡  ·  Shift+按一下：移動
-TrayDestMissing	IDS_TRAY_DEST_MISSING	2255	这个文件夹已不存在	This folder no longer exists	這個資料夾已不存在
-TrayStaleFormat	IDS_TRAY_STALE_FORMAT	2256	⚠ {n} 项已被移动或删除	⚠ {n} moved or deleted	⚠ {n} 項已被移動或刪除
-TrayStaleFind	IDS_TRAY_STALE_FIND	2257	找回	Find	找回
-TrayStaleRemove	IDS_TRAY_STALE_REMOVE	2258	移出	Remove	移出
-TraySkippedFormat	IDS_TRAY_SKIPPED_FORMAT	2259	已跳过 {n} 项已被移动或删除的文件	Skipped {n} item(s) that were moved or deleted	已跳過 {n} 項已被移動或刪除的檔案
-HintTrayStaleFind	IDS_HINT_TRAY_STALE_FIND	2260	按文件名在全部位置搜索失效的文件	Search everywhere for the missing file by name	按檔名在全部位置搜尋失效的檔案
-HintTrayStaleRemove	IDS_HINT_TRAY_STALE_REMOVE	2261	把失效的项目移出托盘	Remove missing items from the tray	把失效的項目移出托盤
-TrayCompare	IDS_TRAY_COMPARE	2262	⇄ 比较	⇄ Compare	⇄ 比較
-TrayCmpLocation	IDS_TRAY_CMP_LOCATION	2263	位置	Where	位置
-TrayCmpModified	IDS_TRAY_CMP_MODIFIED	2264	修改	Date	修改
-TrayCmpSize	IDS_TRAY_CMP_SIZE	2265	大小	Size	大小
-TrayCmpContent	IDS_TRAY_CMP_CONTENT	2266	内容	Content	內容
-TrayCmpNewer	IDS_TRAY_CMP_NEWER	2267	较新	newer	較新
-TrayCmpCheck	IDS_TRAY_CMP_CHECK	2268	点击比较内容	Click to compare	點選比較內容
-TrayCmpChecking	IDS_TRAY_CMP_CHECKING	2269	正在比较…	Comparing…	正在比較…
-TrayCmpSame	IDS_TRAY_CMP_SAME	2270	✓ 完全相同	✓ Identical	✓ 完全相同
-TrayCmpDifferent	IDS_TRAY_CMP_DIFFERENT	2271	不同	Different	不同
-TrayCmpFailed	IDS_TRAY_CMP_FAILED	2272	无法读取	Can't read	無法讀取
-HintTrayCompare	IDS_HINT_TRAY_COMPARE	2273	并排比较托盘里的两个文件；再点一次返回卡片	Compare the two staged files side by side; click again to go back	並排比較托盤裡的兩個檔案；再點一次返回卡片
-HintTrayCmpCheck	IDS_HINT_TRAY_CMP_CHECK	2274	逐字节比较两个文件的内容	Compare the two files byte by byte	逐位元組比較兩個檔案的內容
 GroupBy	IDS_GROUP_BY	2275	分组依据	Group by	分組依據
 GroupNone	IDS_GROUP_NONE	2276	（无）	(None)	（無）
 GroupByName	IDS_GROUP_NAME	2277	名称	Name	名稱
@@ -1481,29 +1424,6 @@ GroupCountOne	IDS_GROUP_COUNT_ONE	2301	%d 项	%d item	%d 項
 ToolbarGroup	IDS_TOOLBAR_GROUP	2302	分组	Group	分組
 ToolbarGroupActive	IDS_TOOLBAR_GROUP_ACTIVE	2303	分组：{g}	Group: {g}	分組：{g}
 GroupClear	IDS_GROUP_CLEAR	2304	取消分组	Remove grouping	取消分組
-DiffTitle	IDS_DIFF_TITLE	2305	文本对比	Text compare	文字對比
-DiffSideBySide	IDS_DIFF_SIDE_BY_SIDE	2306	并排	Side by side	並排
-DiffUnified	IDS_DIFF_UNIFIED	2307	统一	Unified	統一
-DiffOnlyChanges	IDS_DIFF_ONLY_CHANGES	2308	只看差异	Changes only	只看差異
-DiffIgnoreWs	IDS_DIFF_IGNORE_WS	2309	忽略空白	Ignore whitespace	忽略空白
-DiffIgnoreCase	IDS_DIFF_IGNORE_CASE	2310	忽略大小写	Ignore case	忽略大小寫
-DiffSwap	IDS_DIFF_SWAP	2311	交换	Swap	交換
-DiffHunkPos	IDS_DIFF_HUNK_POS	2312	第 {i} / {n} 处	{i} of {n}	第 {i} / {n} 處
-DiffIdentical	IDS_DIFF_IDENTICAL	2313	内容相同	No differences	內容相同
-DiffIdenticalOptions	IDS_DIFF_IDENTICAL_OPTIONS	2314	按当前选项内容相同	No differences with these options	按目前選項內容相同
-DiffComputing	IDS_DIFF_COMPUTING	2315	正在比较…	Comparing…	正在比較…
-DiffFolded	IDS_DIFF_FOLDED	2316	⋯  {n} 行相同，点击展开	⋯  {n} unchanged lines — click to expand	⋯  {n} 行相同，點選展開
-DiffNewer	IDS_DIFF_NEWER	2317	较新	Newer	較新
-DiffLines	IDS_DIFF_LINES	2318	{n} 行	{n} lines	{n} 行
-DiffBinary	IDS_DIFF_BINARY	2319	{name} 是二进制文件，无法按文本对比	{name} is a binary file and can’t be compared as text	{name} 是二進位檔案，無法按文字對比
-DiffTooLarge	IDS_DIFF_TOO_LARGE	2320	{name} 超过 8 MB，无法对比	{name} is larger than 8 MB	{name} 超過 8 MB，無法對比
-DiffReadFailed	IDS_DIFF_READ_FAILED	2321	无法读取 {name}	Can’t read {name}	無法讀取 {name}
-DiffCapped	IDS_DIFF_CAPPED	2322	差异过多，中间部分按整块显示	Too many changes — the middle is shown as one block	差異過多，中間部分按整塊顯示
-DiffPrevHunk	IDS_DIFF_PREV_HUNK	2323	上一处差异 (Shift+F7)	Previous change (Shift+F7)	上一處差異 (Shift+F7)
-DiffNextHunk	IDS_DIFF_NEXT_HUNK	2324	下一处差异 (F7)	Next change (F7)	下一處差異 (F7)
-TrayCmpViewDiff	IDS_TRAY_CMP_VIEW_DIFF	2325	不同 · 查看差异 ›	Different · View diff ›	不同 · 檢視差異 ›
-TrayCmpBinary	IDS_TRAY_CMP_BINARY	2326	不同 · 二进制文件	Different · binary	不同 · 二進位檔案
-TrayCompareTwo	IDS_TRAY_COMPARE_TWO	2327	对比这两个文件	Compare these two files	對比這兩個檔案
 GroupByTag	IDS_GROUP_TAG	2328	标签	Tag	標籤
 GroupUntagged	IDS_GROUP_UNTAGGED	2329	无标签	No tag	無標籤
 RestoreAll	IDS_RESTORE_ALL	2330	全部还原	Restore all items	全部還原
@@ -2304,10 +2224,6 @@ GlobalSearchNoFilteredResults	IDS_GLOBAL_SEARCH_NO_FILTERED_RESULTS	3502	当前�
 MediaPackUnused	IDS_MEDIA_PACK_UNUSED	3503	未使用	Not in use	未使用
 MediaPackLocalNotice	IDS_MEDIA_PACK_LOCAL_NOTICE	3504	正在使用本地 FFmpeg，不需要下载这个增强包。	Your own FFmpeg is in use, so this pack is not needed.	正在使用本機 FFmpeg，不需要下載這個增強包。
 MediaPackLocalNoticeInstalled	IDS_MEDIA_PACK_LOCAL_NOTICE_INSTALLED	3505	正在使用本地 FFmpeg，已安装的增强包不会被用到，可以卸载以释放空间。	Your own FFmpeg is in use. The installed pack is not used and can be removed to free space.	正在使用本機 FFmpeg，已安裝的增強包不會被用到，可以解除安裝以釋放空間。
-TrayShelfTitle	IDS_TRAY_SHELF_TITLE	3506	暂存区	Staging	暫存區
-TrayStripHint	IDS_TRAY_STRIP_HINT	3507	拖入文件，或	Drop files, or	拖入檔案，或
-TrayStripKbd	IDS_TRAY_STRIP_KBD	3508	Ctrl Shift S	Ctrl Shift S	Ctrl Shift S
-TrayStripHintShort	IDS_TRAY_STRIP_HINT_SHORT	3861	拖入文件	Drop files here	拖入檔案
 SettingsPageTabs	IDS_SETTINGS_PAGE_TABS	3862	标签页与窗口	Tabs & windows	標籤頁與視窗
 SettingsPageSystem	IDS_SETTINGS_PAGE_SYSTEM	3863	启动与集成	Startup & integration	啟動與整合
 SettingsPageFileOps	IDS_SETTINGS_PAGE_FILE_OPS	3864	文件操作	File operations	檔案操作
@@ -2315,7 +2231,7 @@ SettingsAppearanceIntro	IDS_SETTINGS_APPEARANCE_INTRO	3865	主题、颜色、背
 SettingsFileListIntro	IDS_SETTINGS_FILE_LIST_INTRO	3866	打开方式、显示哪些文件，以及列表里的各种提示。	How items open, which files show, and the hints in the list.	開啟方式、顯示哪些檔案，以及清單中的各種提示。
 SettingsTabsIntro	IDS_SETTINGS_TABS_INTRO	3867	启动时打开什么，新标签页和其他程序打开的文件夹去哪里。	What opens at startup, and where new tabs and folders from other apps go.	啟動時開啟什麼，新標籤頁和其他程式開啟的資料夾去哪裡。
 SettingsSystemIntro	IDS_SETTINGS_SYSTEM_INTRO	3868	开机启动、托盘，以及接管 Windows 里打开文件夹的方式。	Startup, the tray icon, and how Windows opens folders.	開機啟動、系統匣，以及接管 Windows 中開啟資料夾的方式。
-SettingsFileOpsIntro	IDS_SETTINGS_FILE_OPS_INTRO	3869	删除确认、暂存区和文件夹变化记录。	Delete confirmation, the staging tray and folder change history.	刪除確認、暫存區和資料夾變化記錄。
+SettingsFileOpsIntro	IDS_SETTINGS_FILE_OPS_INTRO	3869	删除确认、网络位置和文件夹变化记录。	Delete confirmation, network locations and folder change history.	刪除確認、網路位置和資料夾變化記錄。
 SettingsNavPersonal	IDS_SETTINGS_NAV_PERSONAL	3870	个性化	Personalize	個人化
 SettingsNavBrowse	IDS_SETTINGS_NAV_BROWSE	3871	浏览	Browsing	瀏覽
 SettingsNavSystem	IDS_SETTINGS_NAV_SYSTEM	3872	系统	System	系統
@@ -2333,7 +2249,6 @@ SettingsSecTabs	IDS_SETTINGS_SEC_TABS	3883	标签页	Tabs	標籤頁
 SettingsSecStartupTray	IDS_SETTINGS_SEC_STARTUP_TRAY	3884	启动与托盘	Startup & tray	啟動與系統匣
 SettingsSecExplorer	IDS_SETTINGS_SEC_EXPLORER	3885	资源管理器	File Explorer	檔案總管
 SettingsSecDelete	IDS_SETTINGS_SEC_DELETE	3886	删除	Deleting	刪除
-SettingsSecStaging	IDS_SETTINGS_SEC_STAGING	3887	暂存区	Staging tray	暫存區
 SettingsSecChanges	IDS_SETTINGS_SEC_CHANGES	3888	变化记录	Change history	變化記錄
 SettingsSecTips	IDS_SETTINGS_SEC_TIPS	3889	新手提示	Tips	新手提示
 AccentCustom	IDS_ACCENT_CUSTOM	3890	自定义	Custom	自訂
@@ -2344,57 +2259,8 @@ AccentSaturation	IDS_ACCENT_SATURATION	3894	饱和度	Saturation	飽和度
 AccentLightness	IDS_ACCENT_LIGHTNESS	3895	亮度	Lightness	亮度
 AccentCustomDone	IDS_ACCENT_CUSTOM_DONE	3896	收起	Done	收起
 SettingsChangeDaysDesc	IDS_SETTINGS_CHANGE_DAYS_DESC	3897	文件夹里标出多久以内的增删改	How far back folder changes are marked	資料夾裡標出多久以內的增刪改
-TrayDropCopyTitle	IDS_TRAY_DROP_COPY_TITLE	3509	复制暂存	Stage as copy	複製暫存
-TrayDropDefault	IDS_TRAY_DROP_DEFAULT	3510	默认	Default	預設
-TrayDropMoveTitle	IDS_TRAY_DROP_MOVE_TITLE	3511	移动暂存	Stage as move	移動暫存
-TrayDropOrShift	IDS_TRAY_DROP_OR_SHIFT	3512	或按住 Shift	or hold Shift	或按住 Shift
-TrayItemsFormat	IDS_TRAY_ITEMS_FORMAT	3513	{n} 项	{n} items	{n} 項
-TraySourcesFew	IDS_TRAY_SOURCES_FEW	3514	来自 {a}	From {a}	來自 {a}
-TraySourcesMany	IDS_TRAY_SOURCES_MANY	3515	来自 {a} 等 {n} 处	From {a} and more ({n} places)	來自 {a} 等 {n} 處
-TrayCopyToFormat	IDS_TRAY_COPY_TO_FORMAT	3516	复制到「{name}」	Copy to “{name}”	複製到「{name}」
-TrayMoveToFormat	IDS_TRAY_MOVE_TO_FORMAT	3517	移动到「{name}」	Move to “{name}”	移動到「{name}」
-TrayConflictsFormat	IDS_TRAY_CONFLICTS_FORMAT	3518	{n} 同名	{n} same name	{n} 同名
-TraySendTo	IDS_TRAY_SEND_TO	3519	送到	Send to	送到
-TrayChipTipCopy	IDS_TRAY_CHIP_TIP_COPY	3520	复制 {n} 项到 {name}	Copy {n} items to {name}	複製 {n} 項到 {name}
-TrayChipTipMove	IDS_TRAY_CHIP_TIP_MOVE	3521	移动 {n} 项到 {name}	Move {n} items to {name}	移動 {n} 項到 {name}
-TrayChipTipConflicts	IDS_TRAY_CHIP_TIP_CONFLICTS	3522	 · {n} 个同名	 · {n} with the same name	 · {n} 個同名
-TrayPickFolder	IDS_TRAY_PICK_FOLDER	3523	选择文件夹…	Choose folder…	選擇資料夾…
-TrayMenuPlacement	IDS_TRAY_MENU_PLACEMENT	3524	放置方式	Placement	放置方式
-TrayMenuSendHeader	IDS_TRAY_MENU_SEND_HEADER	3525	送到（不用打开目标文件夹）	Send to (no need to open the folder)	送到（不用開啟目標資料夾）
-TrayMenuClear	IDS_TRAY_MENU_CLEAR	3526	清空暂存区	Clear staging	清空暫存區
-TrayToastCopied	IDS_TRAY_TOAST_COPIED	3527	已复制 {n} 项到「{name}」	Copied {n} items to “{name}”	已複製 {n} 項到「{name}」
-TrayToastMoved	IDS_TRAY_TOAST_MOVED	3528	已移动 {n} 项到「{name}」	Moved {n} items to “{name}”	已移動 {n} 項到「{name}」
-TrayToastCleared	IDS_TRAY_TOAST_CLEARED	3529	已清空暂存区	Staging cleared	已清空暫存區
-TrayToastAlreadyThere	IDS_TRAY_TOAST_ALREADY_THERE	3530	这些文件本来就在「{name}」里	These items are already in “{name}”	這些檔案本來就在「{name}」裡
-TrayZipName	IDS_TRAY_ZIP_NAME	3531	暂存 {n} 项	Staged {n} items	暫存 {n} 項
-TrayStagedBadge	IDS_TRAY_STAGED_BADGE	3532	已暂存	Staged	已暫存
-TrayStagedTip	IDS_TRAY_STAGED_TIP	3533	已在暂存区 · 点击移出	In staging · click to remove	已在暫存區 · 點選移出
-TrayFanTip	IDS_TRAY_FAN_TIP	3534	按住拖到文件夹或其它应用	Drag to a folder or another app	按住拖到資料夾或其他應用程式
-TrayExpandTip	IDS_TRAY_EXPAND_TIP	3535	展开全部	Show all	展開全部
-TrayGhostCopy	IDS_TRAY_GHOST_COPY	3536	松开 · 暂存为复制	Release · stage as copy	放開 · 暫存為複製
-TrayGhostMove	IDS_TRAY_GHOST_MOVE	3537	松开 · 暂存为移动	Release · stage as move	放開 · 暫存為移動
-TrayNoTarget	IDS_TRAY_NO_TARGET	3538	这里不能放文件	Can't place files here	這裡不能放檔案
-TrayClipStrip	IDS_TRAY_CLIP_STRIP	3539	剪贴板 {n} 项 · 收入	Clipboard {n} · Stage	剪貼簿 {n} 項 · 收入
-TrayClipRow	IDS_TRAY_CLIP_ROW	3540	剪贴板里有 {n} 项	{n} on the clipboard	剪貼簿裡有 {n} 項
-TrayClipTake	IDS_TRAY_CLIP_TAKE	3541	收入暂存 →	Stage them →	收入暫存 →
-TrayCopiedOffer	IDS_TRAY_COPIED_OFFER	3542	已复制 {n} 项 · 暂存区可「收入」	Copied {n} · the tray can stage them	已複製 {n} 項 · 暫存區可「收入」
-TrayCutOffer	IDS_TRAY_CUT_OFFER	3543	已剪切 {n} 项 · 暂存区可「收入」	Cut {n} · the tray can stage them	已剪下 {n} 項 · 暫存區可「收入」
-CtxAddToTray	IDS_CTX_ADD_TO_TRAY	3544	加入暂存区	Add to staging tray	加入暫存區
-TraySelectFirst	IDS_TRAY_SELECT_FIRST	3545	先选中文件	Select files first	先選取檔案
-TrayCollapseTip	IDS_TRAY_COLLAPSE_TIP	3546	收起 · Esc	Collapse · Esc	收起 · Esc
-TrayFilterAll	IDS_TRAY_FILTER_ALL	3547	全部	All	全部
-TrayFilterImages	IDS_TRAY_FILTER_IMAGES	3548	图片	Images	圖片
-TrayFilterDocs	IDS_TRAY_FILTER_DOCS	3549	文档	Documents	文件
-TrayFilterOther	IDS_TRAY_FILTER_OTHER	3550	其他	Other	其他
-TrayGroupOpen	IDS_TRAY_GROUP_OPEN	3551	打开 ›	Open ›	開啟 ›
-TraySelectedFormat	IDS_TRAY_SELECTED_FORMAT	3552	已选 {n} 项	{n} selected	已選 {n} 項
-TrayNoneCheckedFormat	IDS_TRAY_NONE_CHECKED_FORMAT	3553	未勾选 · 对全部 {n} 项操作	Nothing checked · acts on all {n}	未勾選 · 對全部 {n} 項操作
-TrayCompareThese	IDS_TRAY_COMPARE_THESE	3554	⇄ 比较这两个	⇄ Compare these two	⇄ 比較這兩個
-TrayCompareNeedTwo	IDS_TRAY_COMPARE_NEED_TWO	3555	正好 2 项时才能比较	Check exactly 2 items to compare	正好 2 項時才能比較
-TrayCopyNToFormat	IDS_TRAY_COPY_N_TO_FORMAT	3556	复制 {n} 项到「{name}」	Copy {n} to “{name}”	複製 {n} 項到「{name}」
-TrayMoveNToFormat	IDS_TRAY_MOVE_N_TO_FORMAT	3557	移动 {n} 项到「{name}」	Move {n} to “{name}”	移動 {n} 項到「{name}」
-TrayHideWhenEmpty	IDS_TRAY_HIDE_WHEN_EMPTY	3558	暂存区为空时完全隐藏	Hide the staging tray when it is empty	暫存區為空時完全隱藏
-TrayHideWhenEmptyDesc	IDS_TRAY_HIDE_WHEN_EMPTY_DESC	3559	拖动文件经过窗口时它仍会出现	It still appears while you drag files over the window	拖曳檔案經過視窗時它仍會出現
+ClipboardCopiedCount	IDS_CLIPBOARD_COPIED_COUNT	3542	已复制 {n} 项	Copied {n}	已複製 {n} 項
+ClipboardCutCount	IDS_CLIPBOARD_CUT_COUNT	3543	已剪切 {n} 项	Cut {n}	已剪下 {n} 項
 OpElapsed	IDS_OP_ELAPSED	3560	已用时间	Elapsed	已用時間
 OpRemainingShort	IDS_OP_REMAINING_SHORT	3561	剩余	Remaining	剩餘
 OpAverageLead	IDS_OP_AVERAGE_LEAD	3562	平均 	Avg 	平均 
@@ -3731,10 +3597,8 @@ AiCtlKeyNextPane	IDS_AI_CTL_KEY_NEXT_PANE	4930	在各栏之间切换	Move betwee
 AiCtlKeyNextPane2	IDS_AI_CTL_KEY_NEXT_PANE2	4931	在两栏之间切换	Move between the panes	在兩欄之間切換
 AiCtlKeySidebar	IDS_AI_CTL_KEY_SIDEBAR	4932	收起或展开侧栏	Collapse or expand the sidebar	收起或展開側欄
 AiCtlKeyTabToWindow	IDS_AI_CTL_KEY_TAB_TO_WINDOW	4933	标签页移到新窗口	Move tab to a new window	分頁移到新視窗
-AiCtlKeyTray	IDS_AI_CTL_KEY_TRAY	4934	放进暂存托盘	Put on the staging tray	放進暫存托盤
 AiCtlKindFav	IDS_AI_CTL_KIND_FAV	4935	收藏夹	favorites	收藏夾
 AiCtlKindTag	IDS_AI_CTL_KIND_TAG	4936	标签	tags	標籤
-AiCtlKindTray	IDS_AI_CTL_KIND_TRAY	4937	托盘	tray	托盤
 AiCtlLayoutCustom	IDS_AI_CTL_LAYOUT_CUSTOM	4938	自定布局	Custom layout	自訂版面
 AiCtlLayoutFour	IDS_AI_CTL_LAYOUT_FOUR	4939	四宫格	Four panes	四宮格
 AiCtlLayoutSingle	IDS_AI_CTL_LAYOUT_SINGLE	4940	单栏	Single pane	單欄
@@ -3748,7 +3612,6 @@ AiCtlLineOverview	IDS_AI_CTL_LINE_OVERVIEW	4947	打开了窗口总览	Window ove
 AiCtlLineSort	IDS_AI_CTL_LINE_SORT	4948	按{by}排序	Sorted by {by}	按{by}排序
 AiCtlLineTag	IDS_AI_CTL_LINE_TAG	4949	给 {n} 项打上标签{name}	Tagged {n} items {name}	給 {n} 項加上標籤{name}
 AiCtlLineTagNew	IDS_AI_CTL_LINE_TAG_NEW	4950	新建标签{name}，打在 {n} 项上	New tag {name}, on {n} items	新增標籤{name}，加在 {n} 項上
-AiCtlLineTray	IDS_AI_CTL_LINE_TRAY	4951	{items}放进了暂存托盘	{items} put on the staging tray	{items}放進了暫存托盤
 AiCtlLineView	IDS_AI_CTL_LINE_VIEW	4952	视图换成了{view}	View is now {view}	檢視換成了{view}
 AiCtlMerged	IDS_AI_CTL_MERGED	4953	合并了 {n} 个窗口	Merged {n} windows	合併了 {n} 個視窗
 AiCtlNewWindowN	IDS_AI_CTL_NEW_WINDOW_N	4954	新窗口 {n}	Window {n}	新視窗 {n}
@@ -3795,7 +3658,6 @@ AiCtlStepSidebar	IDS_AI_CTL_STEP_SIDEBAR	4994	侧栏	Sidebar	側欄
 AiCtlStepSort	IDS_AI_CTL_STEP_SORT	4995	排序	Sort	排序
 AiCtlStepTabToWindow	IDS_AI_CTL_STEP_TAB_TO_WINDOW	4996	标签页移到新窗口	Move tab to a new window	分頁移到新視窗
 AiCtlStepTag	IDS_AI_CTL_STEP_TAG	4997	打标签	Tag	加標籤
-AiCtlStepTray	IDS_AI_CTL_STEP_TRAY	4998	放进暂存托盘	Put on the tray	放進暫存托盤
 AiCtlStepView	IDS_AI_CTL_STEP_VIEW	4999	切换视图	Change view	切換檢視
 AiCtlStepsLabel	IDS_AI_CTL_STEPS_LABEL	5000	做了 {n} 件事	Made {n} changes	做了 {n} 件事
 AiCtlStepsLayout	IDS_AI_CTL_STEPS_LAYOUT	5001	调整了布局 · {n} 步	Changed the layout · {n} steps	調整了版面 · {n} 步
@@ -3804,7 +3666,6 @@ AiCtlTagNew	IDS_AI_CTL_TAG_NEW	5003	{name}（新建）	{name} (new)	{name}（新
 AiCtlTagNewDone	IDS_AI_CTL_TAG_NEW_DONE	5004	新建标签「{name}」	New tag “{name}”	新增標籤「{name}」
 AiCtlTagOn	IDS_AI_CTL_TAG_ON	5005	打在 {n} 项上	on {n} items	加在 {n} 項上
 AiCtlThisPc	IDS_AI_CTL_THIS_PC	5006	此电脑	This PC	本機
-AiCtlTrayNow	IDS_AI_CTL_TRAY_NOW	5007	托盘里现在有 {n} 项	{n} items on the tray now	托盤裡現在有 {n} 項
 AiCtlUndoAll	IDS_AI_CTL_UNDO_ALL	5008	全部撤销	Undo all	全部復原
 AiCtlUndoneAll	IDS_AI_CTL_UNDONE_ALL	5009	都恢复了	Everything is back	都恢復了
 AiCtlUndoneKind	IDS_AI_CTL_UNDONE_KIND	5010	{kinds}恢复了	{kinds} restored	{kinds}恢復了
@@ -3922,7 +3783,6 @@ ActDomView	IDS_ACT_DOM_VIEW	5121	视图	View	檢視
 ActDomSelect	IDS_ACT_DOM_SELECT	5122	选择	Selection	選取
 ActDomFiles	IDS_ACT_DOM_FILES	5123	文件	Files	檔案
 ActDomTags	IDS_ACT_DOM_TAGS	5124	标签与收藏	Tags and favorites	標籤與收藏
-ActDomTray	IDS_ACT_DOM_TRAY	5125	暂存区	Staging tray	暫存區
 ActDomSearch	IDS_ACT_DOM_SEARCH	5126	搜索	Search	搜尋
 ActDomPreview	IDS_ACT_DOM_PREVIEW	5127	预览	Preview	預覽
 ActDomNetwork	IDS_ACT_DOM_NETWORK	5128	网络	Network	網路
@@ -3963,7 +3823,6 @@ ActGroupIntoFolder	IDS_ACT_GROUP_INTO_FOLDER	5163	合并到文件夹	New folder 
 ActDissolveFolder	IDS_ACT_DISSOLVE_FOLDER	5164	解散文件夹	Ungroup folder	解散資料夾
 ActTagPanel	IDS_ACT_TAG_PANEL	5165	添加标签…	Add tags…	新增標籤…
 ActClearTags	IDS_ACT_CLEAR_TAGS	5166	清除所有标签	Clear all tags	清除所有標籤
-ActStageToTray	IDS_ACT_STAGE_TO_TRAY	5167	加入暂存区	Add to staging tray	加入暫存區
 ActProject	IDS_ACT_PROJECT	5168	跳到项目	Go to a project	跳到專案
 ActQuickPreview	IDS_ACT_QUICK_PREVIEW	5169	快速预览	Quick Look	快速預覽
 ActMapDrive	IDS_ACT_MAP_DRIVE	5170	映射网络驱动器	Map network drive	對應網路磁碟機
@@ -4046,12 +3905,6 @@ ActTagEdit	IDS_ACT_TAG_EDIT	5246	改标签的名字或颜色	Rename or recolor a
 ActTagGroup	IDS_ACT_TAG_GROUP	5247	标签分组	Group a tag	標籤分組
 ActSmartViewSave	IDS_ACT_SMART_VIEW_SAVE	5248	保存为智能视图	Save as a smart view	儲存為智慧檢視
 ActAliasDisplay	IDS_ACT_ALIAS_DISPLAY	5249	别名显示方式	How aliases show	別名顯示方式
-ActTrayRemove	IDS_ACT_TRAY_REMOVE	5250	从暂存区移除	Remove from the tray	從暫存區移除
-ActTrayFindStale	IDS_ACT_TRAY_FIND_STALE	5251	找出暂存区里已不在的项	Find missing tray items	找出暫存區中已不存在的項目
-ActTraySendTo	IDS_ACT_TRAY_SEND_TO	5252	把暂存区发送到文件夹	Send the tray to a folder	把暫存區傳送到資料夾
-ActTrayZip	IDS_ACT_TRAY_ZIP	5253	把暂存区打包成压缩包	Zip the tray	把暫存區壓縮
-ActTrayCompare	IDS_ACT_TRAY_COMPARE	5254	比较暂存区的文件	Compare tray files	比較暫存區的檔案
-ActTrayTextDiff	IDS_ACT_TRAY_TEXT_DIFF	5255	比较两个文本文件	Compare two text files	比較兩個文字檔
 ActSearchOpen	IDS_ACT_SEARCH_OPEN	5256	搜索	Search	搜尋
 ActIndexStatus	IDS_ACT_INDEX_STATUS	5257	索引状态	Index status	索引狀態
 ActPreviewStep	IDS_ACT_PREVIEW_STEP	5258	预览上一个或下一个	Previous or next in preview	預覽上一個或下一個
@@ -4060,7 +3913,6 @@ ActNext	IDS_ACT_NEXT	5260	下一个	Next	下一個
 ActNetPlace	IDS_ACT_NET_PLACE	5261	固定或改名网络位置	Pin or rename a network place	釘選或重新命名網路位置
 ActKeymapRead	IDS_ACT_KEYMAP_READ	5262	查看快捷键	See shortcuts	檢視快速鍵
 ActKeymapSet	IDS_ACT_KEYMAP_SET	5263	改快捷键	Change a shortcut	變更快速鍵
-ActWhyNoTray	IDS_ACT_WHY_NO_TRAY	5264	暂存区是空的	The tray is empty	暫存區是空的
 ActWhyNoPreview	IDS_ACT_WHY_NO_PREVIEW	5265	预览没有打开	Preview isn't open	預覽沒有開啟
 ActWhyNotRecent	IDS_ACT_WHY_NOT_RECENT	5266	这里不是最近使用	Not in Recent	這裡不是最近使用
 ActWhyNoAliases	IDS_ACT_WHY_NO_ALIASES	5267	还没有别名	No aliases yet	還沒有別名
@@ -4083,7 +3935,6 @@ AiActLineRenamed	IDS_AI_ACT_LINE_RENAMED	5283	{from} 改名为 {to}	Renamed {fro
 AiActLineGrouped	IDS_AI_ACT_LINE_GROUPED	5284	{name} 放进了「{group}」组	Put {name} in the group {group}	{name} 放進了「{group}」群組
 AiActLineUngrouped	IDS_AI_ACT_LINE_UNGROUPED	5285	{name} 移出了分组	Took {name} out of its group	{name} 移出了群組
 AiActLineSwitched	IDS_AI_ACT_LINE_SWITCHED	5286	切换到了 {name}	Switched to {name}	切換到了 {name}
-AiActLineTrayRemoved	IDS_AI_ACT_LINE_TRAY_REMOVED	5287	从暂存区移除了 {items}	Removed {items} from the tray	從暫存區移除了 {items}
 AiActLineRecentRemoved	IDS_AI_ACT_LINE_RECENT_REMOVED	5288	从最近使用中移除了 {items}	Removed {items} from Recent	從最近使用中移除了 {items}
 AiActLineAlias	IDS_AI_ACT_LINE_ALIAS	5289	{name} 的别名设为 {alias}	Set the alias of {name} to {alias}	{name} 的別名設為 {alias}
 AiActLineAliasOff	IDS_AI_ACT_LINE_ALIAS_OFF	5290	去掉了 {name} 的别名	Removed the alias of {name}	移除了 {name} 的別名
@@ -4282,7 +4133,7 @@ AiMcpCount	IDS_AI_MCP_COUNT	5482	{n} 个	{n}	{n} 個
 AiMcpTagDefaultOn	IDS_AI_MCP_TAG_DEFAULT_ON	5483	默认打开	On by default	預設開啟
 AiMcpTagAsks	IDS_AI_MCP_TAG_ASKS	5484	每次问	Asks each time	每次問
 AiMcpDescView	IDS_AI_MCP_DESC_VIEW	5485	看 Pulse 现在的样子、查找文件、打开文件夹、切换视图和排序、选中项目。不改动任何文件。	See what Pulse shows, find files, open folders, switch views and sorting, select items. Changes no files.	看 Pulse 現在的樣子、尋找檔案、開啟資料夾、切換檢視和排序、選取項目。不變更任何檔案。
-AiMcpDescOrganize	IDS_AI_MCP_DESC_ORGANIZE	5486	标签、收藏、暂存托盘、标签页固定和颜色、快捷键、Pulse 的设置。直接做，AI 应用可以用 undo_last 撤销。	Tags, favorites, the tray, pinned and colored tabs, shortcuts, Pulse's settings. Done directly; the AI app can undo with undo_last.	標籤、收藏、暫存托盤、分頁固定和顏色、快速鍵、Pulse 的設定。直接做，AI 應用可以用 undo_last 復原。
+AiMcpDescOrganize	IDS_AI_MCP_DESC_ORGANIZE	5486	标签、收藏、标签页固定和颜色、快捷键、Pulse 的设置。直接做，AI 应用可以用 undo_last 撤销。	Tags, favorites, pinned and colored tabs, shortcuts, Pulse's settings. Done directly; the AI app can undo with undo_last.	標籤、收藏、分頁固定和顏色、快速鍵、Pulse 的設定。直接做，AI 應用可以用 undo_last 復原。
 AiMcpDescCreate	IDS_AI_MCP_DESC_CREATE	5487	新建文件夹、文件和压缩包。每次先在 Pulse 里问你，可以选「始终允许这个文件夹」。	New folders, files and archives. Pulse asks you first each time; you can choose “Always allow here”.	新增資料夾、檔案和壓縮檔。每次先在 Pulse 裡問你，可以選「一律允許這個資料夾」。
 AiMcpDescFiles	IDS_AI_MCP_DESC_FILES	5488	先在 Pulse 里给你看计划（什么去哪里、回收站够不够），你点了才做；永久删除要点两次。没有「始终允许」。	Pulse shows you the plan first (what goes where, whether the Recycle Bin has room) and acts only when you click; a permanent delete takes two clicks. No “always allow”.	先在 Pulse 裡給你看計畫（什麼去哪裡、資源回收筒夠不夠），你點了才做；永久刪除要點兩次。沒有「一律允許」。
 AiMcpDescExternal	IDS_AI_MCP_DESC_EXTERNAL	5489	Git 推送 / 拉取、第三方右键菜单、打开程序和脚本、云盘保留 / 释放、弹出驱动器。每次都问你。	Git push / pull, third-party context menu items, opening programs and scripts, keeping or freeing cloud files, ejecting drives. Asks you every time.	Git 推送 / 拉取、第三方右鍵選單、開啟程式和指令碼、雲端硬碟保留 / 釋放、退出磁碟機。每次都問你。

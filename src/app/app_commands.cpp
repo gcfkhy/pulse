@@ -22,7 +22,6 @@
 #include "tray_reveal.h"
 #include "group_wheel_ui.h"
 #include "media_sort.h"
-#include "text_diff.h"
 #include "global_search_controller.h"
 #include "../ui/lumatext_renderer.h"
 #include "../ui/fluent_menu.h"
@@ -717,341 +716,6 @@ void ShowTagPicker(AppState& s, POINT screen_pt, const std::vector<std::wstring>
         if (!tag_id.empty()) ToggleTagForSelection(s, tag_id, paths);
     }
     s.menu->SetFilterPlaceholder(l10n::Get(l10n::StringId::TabMenuSearch));
-}
-
-// Hands the files to the shell's "Send to > Compressed (zipped) folder"
-// target; Windows names the archive after the first item and writes it next
-// to it, with its own progress UI.
-static bool ZipViaShell(const std::vector<std::wstring>& paths) {
-    PWSTR sendto = nullptr;
-    if (FAILED(SHGetKnownFolderPath(FOLDERID_SendTo, 0, nullptr, &sendto)) || !sendto) return false;
-    const std::wstring dir = sendto;
-    CoTaskMemFree(sendto);
-    WIN32_FIND_DATAW fd{};
-    HANDLE find = FindFirstFileW((dir + L"\\*.ZFSendToTarget").c_str(), &fd);
-    if (find == INVALID_HANDLE_VALUE) return false;
-    const std::wstring target = dir + L"\\" + fd.cFileName;
-    FindClose(find);
-    IShellItem* item = nullptr;
-    if (FAILED(SHCreateItemFromParsingName(target.c_str(), nullptr, IID_PPV_ARGS(&item)))) return false;
-    IDropTarget* drop = nullptr;
-    const HRESULT hr = item->BindToHandler(nullptr, BHID_SFUIObject, IID_PPV_ARGS(&drop));
-    item->Release();
-    if (FAILED(hr) || !drop) return false;
-    ui::FileDataObject* data = ui::FileDataObject::Create(paths);
-    bool ok = false;
-    if (data) {
-        POINTL pt{ 0, 0 };
-        DWORD effect = DROPEFFECT_COPY;
-        if (SUCCEEDED(drop->DragEnter(data, MK_LBUTTON, pt, &effect)) && effect != DROPEFFECT_NONE) {
-            effect = DROPEFFECT_COPY;
-            ok = SUCCEEDED(drop->Drop(data, MK_LBUTTON, pt, &effect));
-        } else {
-            drop->DragLeave();
-        }
-        data->Release();
-    }
-    drop->Release();
-    return ok;
-}
-
-void TrayFindStale(AppState& s) {
-    for (const auto& batch : s.tray.batches()) {
-        for (const auto& item : batch.items) {
-            if (item.exists) continue;
-            const size_t slash = item.path.find_last_of(L"\\/");
-            const std::wstring name = slash == std::wstring::npos ? item.path : item.path.substr(slash + 1);
-            if (name.empty()) continue;
-            app::AdvancedSearchSpec spec = app::ParseSearchQuery(name);
-            spec.location = app::LocationScope::Indexed;
-            spec.current_folder.clear();
-            spec.custom_folder.clear();
-            NavigateTo(s, app::MakeSearchPath(app::CompileSearchQuery(spec)));
-            return;
-        }
-    }
-}
-
-void TrayRemoveStale(AppState& s) {
-    if (s.tray.RemoveMissing() > 0) SpawnTrayPuffs(s);
-    InvalidateRect(s.hwnd, nullptr, FALSE);
-}
-
-void TrayToggleCompare(AppState& s) {
-    s.trayCompare = !s.trayCompare;
-    InvalidateRect(s.hwnd, nullptr, FALSE);
-}
-
-static int CompareFileBytes(const std::wstring& a, const std::wstring& b) {
-    const DWORD share = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
-    HANDLE ha = CreateFileW(a.c_str(), GENERIC_READ, share, nullptr, OPEN_EXISTING,
-                            FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
-    HANDLE hb = CreateFileW(b.c_str(), GENERIC_READ, share, nullptr, OPEN_EXISTING,
-                            FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
-    int result = 4;
-    if (ha != INVALID_HANDLE_VALUE && hb != INVALID_HANDLE_VALUE) {
-        constexpr DWORD kChunk = 1u << 20;
-        std::vector<char> ba(kChunk), bb(kChunk);
-        for (;;) {
-            DWORD ra = 0, rb = 0;
-            if (!ReadFile(ha, ba.data(), kChunk, &ra, nullptr) ||
-                !ReadFile(hb, bb.data(), kChunk, &rb, nullptr)) {
-                result = 4;
-                break;
-            }
-            if (ra != rb || std::memcmp(ba.data(), bb.data(), ra) != 0) {
-                result = 3;
-                break;
-            }
-            if (ra == 0) {
-                result = 2;
-                break;
-            }
-        }
-    }
-    if (ha != INVALID_HANDLE_VALUE) CloseHandle(ha);
-    if (hb != INVALID_HANDLE_VALUE) CloseHandle(hb);
-    return result;
-}
-
-// The pair the compare views show: the two checked items of the open view,
-// else the whole tray when it holds exactly two.
-static std::vector<std::wstring> TrayComparePaths(const AppState& s) {
-    std::vector<std::wstring> paths;
-    if (s.trayView.compare && s.trayView.checked.size() == 2) {
-        for (const uint64_t id : s.trayView.checked)
-            for (const auto& batch : s.tray.batches())
-                for (const auto& item : batch.items)
-                    if (item.id == id) paths.push_back(item.path);
-        return paths;
-    }
-    for (const auto& batch : s.tray.batches())
-        for (const auto& item : batch.items) paths.push_back(item.path);
-    return paths;
-}
-
-void TrayStartContentCompare(AppState& s) {
-    const std::vector<std::wstring> paths = TrayComparePaths(s);
-    if (paths.size() != 2) return;
-    auto job = std::make_shared<TrayCompareJob>();
-    job->a = paths[0];
-    job->b = paths[1];
-    s.trayCmpJob = job;
-    const HWND hwnd = s.hwnd;
-    std::thread([job, hwnd] {
-        job->state.store(CompareFileBytes(job->a, job->b));
-        InvalidateRect(hwnd, nullptr, FALSE);
-    }).detach();
-    InvalidateRect(s.hwnd, nullptr, FALSE);
-}
-
-void TrayOpenTextDiff(AppState& s) {
-    const std::vector<std::wstring> paths = TrayComparePaths(s);
-    if (paths.size() != 2) return;
-    if (!s.textDiff) s.textDiff = std::make_unique<ui::TextDiffWindow>();
-    s.textDiff->Show(s.hwnd, paths[0], paths[1], s.darkMode, s.accentColor);
-}
-
-// Shelf ⋯ menu (pulse_tray_redesign.html moreMenu); also the tray's
-// right-click menu. ZIP and rename are shelf buttons now.
-void ShowTrayBatchMenu(AppState& s, POINT screen_pt) {
-    if (!EnsureMenu(s)) return;
-    const std::vector<std::wstring> paths = TrayLivePaths(s);
-    enum { kTag = 1, kCopyPaths, kOpenAll, kReveal, kClear, kDiff };
-    std::vector<ui::FluentMenuItem> items;
-    auto add = [&](int cmd, l10n::StringId id, const wchar_t* glyph, bool enabled, bool sep) {
-        ui::FluentMenuItem item;
-        item.command = cmd;
-        item.text = l10n::Get(id);
-        item.glyph = glyph;
-        item.enabled = enabled;
-        item.separator_after = sep;
-        items.push_back(std::move(item));
-    };
-    const bool any = !paths.empty();
-    size_t staged = 0;
-    for (const auto& batch : s.tray.batches()) staged += batch.items.size();
-    const bool two_text = paths.size() == 2 && staged == 2 &&
-                          diff::ProbeLooksText(paths[0]) && diff::ProbeLooksText(paths[1]);
-    add(kCopyPaths, l10n::StringId::TrayMenuCopyPaths, L"\xE8C8", any, false);
-    add(kTag, l10n::StringId::TrayMenuTag, L"\xE8EC", any, false);
-    add(kOpenAll, l10n::StringId::TrayMenuOpenAll, L"\xE8E5", any, false);
-    add(kReveal, l10n::StringId::TrayMenuReveal, L"\xE838", any, false);
-    add(kDiff, l10n::StringId::TrayCompareTwo, L"\xE8AB", two_text, true);
-    add(kClear, l10n::StringId::TrayMenuClear, L"\xE74D", !s.tray.batches().empty(), false);
-    // The tooltip would otherwise linger under the menu.
-    s.tooltipText.clear();
-    s.hoverSince = 0;
-    s.hoverRegion = 0;
-    InvalidateRect(s.hwnd, nullptr, FALSE);
-    UpdateWindow(s.hwnd);
-    s.menu->SetTheme(s.darkMode, s.accentColor);
-    const int cmd = s.menu->TrackPopup(screen_pt, std::move(items));
-    switch (cmd) {
-    case kDiff:
-        TrayOpenTextDiff(s);
-        break;
-    case kTag:
-        ShowTagPicker(s, screen_pt, &paths);
-        break;
-    case kCopyPaths: {
-        std::wstring text;
-        for (const auto& p : paths) {
-            if (!text.empty()) text += L"\r\n";
-            text += ClipboardPath(p);
-        }
-        ops::WriteClipboardText(text);
-        break;
-    }
-    case kOpenAll: {
-        if (paths.size() > 10) {
-            ui::ConfirmDialogSpec spec;
-            spec.title = l10n::Get(l10n::StringId::TrayMenuOpenAll);
-            spec.message = l10n::Get(l10n::StringId::TrayOpenAllConfirm);
-            const size_t at = spec.message.find(L"{n}");
-            if (at != std::wstring::npos) spec.message.replace(at, 3, std::to_wstring(paths.size()));
-            spec.confirm_text = l10n::Get(l10n::StringId::TrayMenuOpenAll);
-            spec.cancel_text = l10n::Get(l10n::StringId::Cancel);
-            if (!ui::ShowConfirmDialog(s.hwnd, spec, s.darkMode, s.accentColor)) break;
-        }
-        // The same open service as the list: long-path prefixes, the item's
-        // folder as working directory, and off the UI thread.
-        for (const auto& p : paths) s.ops.OpenWith(p);
-        break;
-    }
-    case kReveal: {
-        // Open the first item's folder and select every staged item living there.
-        const std::wstring parent = fs::ParentPath(paths.front());
-        if (parent.empty()) break;
-        std::vector<std::wstring> leaves;
-        for (const auto& p : paths) {
-            if (_wcsicmp(fs::ParentPath(p).c_str(), parent.c_str()) != 0) continue;
-            const size_t slash = p.find_last_of(L"\\/");
-            leaves.push_back(slash == std::wstring::npos ? p : p.substr(slash + 1));
-        }
-        NavigateTo(s, parent);
-        if (app::Tab* tab = ActiveTab(s)) {
-            tab->pending_selected_names = leaves;
-            tab->pending_selection_revision = tab->selection_revision;
-            if (!leaves.empty()) tab->pending_selected_name = leaves.front();
-            tab->pending_ensure_selection_visible = true;
-        }
-        break;
-    }
-    case kClear:
-        ClearTrayWithUndo(s);
-        break;
-    default:
-        break;
-    }
-    InvalidateRect(s.hwnd, nullptr, FALSE);
-}
-
-// Shelf ▾ menu: 放置方式 (the tray-wide mode) and 送到 targets that skip
-// opening the folder, then 选择文件夹….
-void ShowTrayReleaseMenu(AppState& s, POINT screen_pt) {
-    if (!EnsureMenu(s)) return;
-    enum { kCopy = 1, kMove, kPick, kDestBase = 100 };
-    std::vector<std::wstring> dests;
-    std::wstring current;
-    if (const app::Tab* tab = ActiveTab(s); tab && !fs::IsVirtualPath(tab->current_path))
-        current = ClipboardPath(fs::NormalizePath(tab->current_path));
-    for (const auto& d : TrayDestList(s))
-        if (current.empty() || _wcsicmp(d.c_str(), current.c_str()) != 0) dests.push_back(d);
-    std::vector<ui::FluentMenuItem> items;
-    auto header = [&](l10n::StringId id) {
-        ui::FluentMenuItem item;
-        item.text = l10n::Get(id);
-        item.enabled = false;
-        item.secondary = true;
-        items.push_back(std::move(item));
-    };
-    header(l10n::StringId::TrayMenuPlacement);
-    {
-        ui::FluentMenuItem copy;
-        copy.command = kCopy;
-        copy.text = l10n::Get(l10n::StringId::TrayReleaseCopy);
-        copy.shortcut = l10n::Get(l10n::StringId::TrayDropDefault);
-        copy.radio_group = true;
-        copy.radio = !s.trayMoveMode;
-        items.push_back(std::move(copy));
-        ui::FluentMenuItem move;
-        move.command = kMove;
-        move.text = l10n::Get(l10n::StringId::TrayReleaseMove);
-        move.shortcut = L"Shift";
-        move.radio_group = true;
-        move.radio = s.trayMoveMode;
-        move.separator_after = true;
-        items.push_back(std::move(move));
-    }
-    header(l10n::StringId::TrayMenuSendHeader);
-    for (size_t i = 0; i < dests.size(); ++i) {
-        ui::FluentMenuItem item;
-        item.command = kDestBase + static_cast<int>(i);
-        std::wstring label = dests[i];
-        while (label.size() > 3 && label.back() == L'\\') label.pop_back();
-        const size_t slash = label.find_last_of(L"\\/");
-        if (slash != std::wstring::npos && slash + 1 < label.size()) label = label.substr(slash + 1);
-        item.text = label;
-        item.glyph = L"\xE8B7";
-        item.tooltip = dests[i];
-        item.enabled = fs::IsUncPath(dests[i]) || GetFileAttributesW(dests[i].c_str()) != INVALID_FILE_ATTRIBUTES;
-        items.push_back(std::move(item));
-    }
-    {
-        ui::FluentMenuItem pick;
-        pick.command = kPick;
-        pick.text = l10n::Get(l10n::StringId::TrayPickFolder);
-        pick.glyph = L"\xE838";
-        items.push_back(std::move(pick));
-    }
-    s.tooltipText.clear();
-    s.hoverSince = 0;
-    s.hoverRegion = 0;
-    InvalidateRect(s.hwnd, nullptr, FALSE);
-    UpdateWindow(s.hwnd);
-    s.menu->SetTheme(s.darkMode, s.accentColor);
-    const bool move_now = TrayEffectiveMove(s);
-    const int cmd = s.menu->TrackPopup(screen_pt, std::move(items));
-    if (cmd == kCopy || cmd == kMove) {
-        s.trayMoveMode = cmd == kMove;
-    } else if (cmd == kPick) {
-        std::wstring folder;
-        if (PickFolder(s, folder, l10n::Get(l10n::StringId::TrayPickFolder).c_str(), L"tray_send") && !folder.empty())
-            TraySendTo(s, folder, move_now);
-    } else if (cmd >= kDestBase && cmd < kDestBase + static_cast<int>(dests.size())) {
-        TraySendTo(s, dests[static_cast<size_t>(cmd - kDestBase)], move_now);
-    }
-    InvalidateRect(s.hwnd, nullptr, FALSE);
-}
-
-// 送到: release into a folder without opening it; its chip flashes.
-void TraySendTo(AppState& s, const std::wstring& dir, bool move) {
-    ReleaseTrayTo(s, dir, move);
-    s.trayShelf.flash_path = ClipboardPath(fs::NormalizePath(dir));
-    s.trayShelf.flash_at = ui::motion::NowMs();
-    InvalidateRect(s.hwnd, nullptr, FALSE);
-}
-
-// Shelf ZIP: "暂存 N 项.zip" in the current folder, ring on the button.
-// Without the built-in compressor the shell's zipped-folder target does it.
-void TrayShelfZip(AppState& s) {
-    if (s.trayZip.id) return;
-    const app::Tab* tab = ActiveTab(s);
-    if (!tab || tab->current_path.empty() || fs::IsVirtualPath(tab->current_path) || tab->net_readonly) return;
-    std::vector<std::wstring> paths = TrayLivePaths(s);
-    if (paths.empty()) return;
-    std::wstring base = l10n::Get(l10n::StringId::TrayZipName);
-    if (const size_t at = base.find(L"{n}"); at != std::wstring::npos) base.replace(at, 3, std::to_wstring(paths.size()));
-    auto progress = std::make_shared<std::atomic<float>>(0.0f);
-    const uint64_t id = CompressPathsTo(s, std::move(paths), tab->current_path, base, progress);
-    if (!id) {
-        ZipViaShell(TrayLivePaths(s));
-        return;
-    }
-    s.trayZip.id = id;
-    s.trayZip.progress = std::move(progress);
-    InvalidateRect(s.hwnd, nullptr, FALSE);
 }
 
 #ifdef PULSE_WITH_SELFTEST
@@ -1766,8 +1430,8 @@ void DispatchMenuCommand(AppState& s, int cmd) {
         }
         break;
     }
-    case app::CmdCut: CollectToTray(s, true); break;
-    case app::CmdCopy: CollectToTray(s, false); break;
+    case app::CmdCut: CopySelectionToClipboard(s, true); break;
+    case app::CmdCopy: CopySelectionToClipboard(s, false); break;
     case app::CmdPaste: PasteIntoCurrent(s); break;
     case app::CmdDelete: DeleteSelected(s, (GetKeyState(VK_SHIFT) & 0x8000) != 0); break;
     case app::CmdRename: RenameSelected(s); break;
@@ -1780,7 +1444,6 @@ void DispatchMenuCommand(AppState& s, int cmd) {
     case app::CmdGroupIntoFolder: GroupSelectionIntoFolder(s); break;
     case app::CmdDissolveFolder: DissolveSelectedFolders(s); break;
     case app::CmdSetAlias: ShowAliasOverlay(s); break;
-    case app::CmdStageToTray: StageSelection(s); break;
     case app::CmdCloudKeep: RunCloudPin(s, fs::CloudPinAction::Keep); break;
     case app::CmdCloudFree: RunCloudPin(s, fs::CloudPinAction::Free); break;
     case app::CmdAdvancedSearch: ShowAdvancedSearch(s); break;
@@ -2037,7 +1700,7 @@ void AdaptItemMenu(AppState& s, std::vector<ui::FluentMenuItem>& items, const ap
         // features (pins, aliases, terminal, history, zip) need a real path.
         for (int command : {app::CmdOpenTerminal, app::CmdPinWorkspace, app::CmdPinQuickAccess,
                             app::CmdUnpinQuickAccess, app::CmdPinNetwork, app::CmdViewRecentChanges,
-                            app::CmdCompareSideBySide, app::CmdSetAlias, app::CmdStageToTray,
+                            app::CmdCompareSideBySide, app::CmdSetAlias,
                             app::CmdCompressZip, app::CmdOpenPath, app::CmdCloudKeep, app::CmdCloudFree})
             EraseCommand(items, command);
         return;
@@ -2225,22 +1888,6 @@ std::vector<ui::FluentMenuItem> BuildFinderItemMenu(
             [](const ui::FluentMenuItem& item) { return item.command == app::CmdCopyPath; });
         items.insert(at == items.end() ? items.end() : std::next(at), std::move(alias));
     }
-    // 加入暂存区: stage without the clipboard (after 复制路径 / 设置别名).
-    if (tab && tab->SelectedCount() > 0 && !IsRecycleTab(tab) && SelectionCapsOf(s).copy) {
-        ui::FluentMenuItem stage;
-        stage.command = app::CmdStageToTray;
-        stage.text = l10n::Get(l10n::StringId::CtxAddToTray);
-        stage.glyph = L"\xE7B8";  // package
-        stage.shortcut = app::ShownShortcut(L"Ctrl+Shift+S");
-        auto at = std::find_if(items.begin(), items.end(), [](const ui::FluentMenuItem& item) {
-            return item.command == app::CmdSetAlias || item.command == app::CmdCopyPath;
-        });
-        if (at != items.end() && at->command == app::CmdCopyPath) {
-            auto alias = std::next(at);
-            if (alias != items.end() && alias->command == app::CmdSetAlias) at = alias;
-        }
-        items.insert(at == items.end() ? items.end() : std::next(at), std::move(stage));
-    }
     // 复制到 / 移动到目标栏 (#58-14, moved here from the layout menu): split
     // only, right-clicked in a pane that is not the target; greyed when the
     // target cannot take files, as TransferToTarget would refuse.
@@ -2257,9 +1904,9 @@ std::vector<ui::FluentMenuItem> BuildFinderItemMenu(
                 {app::CmdMoveToTarget, l10n::StringId::MoveToTarget, ui::command_icons::kGlyphMoveToPane, L"Ctrl+Alt+X",
                  writable && caps.cut},
             };
-            // After 加入暂存区 / 设置别名 / 复制路径, whichever is last present.
+            // After 设置别名 / 复制路径, whichever is last present.
             auto at = items.end();
-            for (int command : {app::CmdCopyPath, app::CmdSetAlias, app::CmdStageToTray}) {
+            for (int command : {app::CmdCopyPath, app::CmdSetAlias}) {
                 auto found = std::find_if(items.begin(), items.end(),
                     [command](const ui::FluentMenuItem& item) { return item.command == command; });
                 if (found != items.end()) at = std::next(found);
@@ -2825,7 +2472,7 @@ void ShowBackgroundContextMenu(AppState& s, POINT screen_pt) {
     const bool seeded = s.context_menu.com_predicted();
 
     std::wstring undoLabel = s.ops.UndoLabel();
-    bool canPaste = !s.tray.batches().empty() || ClipboardHasFiles();
+    bool canPaste = ClipboardHasFiles();
     const auto recent_changes_path = app::RecentChangesMenuPath(*tab, true);
     auto base_items = app::BuildBackgroundMenu(canPaste, s.ops.CanUndo(), undoLabel);
     app::AppendRecentChangesCommand(base_items, recent_changes_path);
@@ -4512,7 +4159,7 @@ std::vector<ui::SelectionChipAction> ToolbarPinActions(AppState& s) {
         case app::CmdCompressZip: action.enabled = CanCompressSelection(s); break;
         case app::CmdUndo: action.enabled = s.ops.CanUndo(); break;
         // Same rules as the former fixed buttons: what is selected decides
-        // (a drive takes a rename only); paste needs files or a tray batch
+        // (a drive takes a rename only); paste needs files on the clipboard
         // and a folder that takes them. Worked out once, when asked for.
         case app::CmdCut: case app::CmdCopy: case app::CmdRename: case app::CmdDelete: {
             if (!caps_known) { caps = SelectionCapsOf(s); caps_known = true; }
@@ -4521,8 +4168,7 @@ std::vector<ui::SelectionChipAction> ToolbarPinActions(AppState& s) {
             break;
         }
         case app::CmdPaste:
-            action.enabled = CanCreateHere(tab) ? (!s.tray.batches().empty() || ClipboardHasFiles())
-                                                : CanPasteHere(tab) && ClipboardHasFiles();
+            action.enabled = CanCreateHere(tab) ? ClipboardHasFiles() : CanPasteHere(tab) && ClipboardHasFiles();
             break;
         case app::CmdSelectAll: case app::CmdInvertSelection: case app::CmdSelectWildcard:
             action.enabled = tab->snapshot && tab->EntryCount() > 0;
@@ -5805,8 +5451,6 @@ void ApplySettingsEffects(AppState& s, app::SettingsEffect effects) {
         s.compositor.RecreateTextFormats(s.scale);
         s.renderer.InvalidateTypography();
     }
-    if (app::HasEffect(effects, app::SettingsEffect::TrayDeckIcon))
-        s.renderer.SetTrayIconDip(static_cast<float>(s.appPrefs.tray_icon_size));
     if (app::HasEffect(effects, app::SettingsEffect::TrayVisibility))
         s.tray_controller.SetVisible(WantsTrayIcon(s, s.hidden_to_tray));
     if (app::HasEffect(effects, app::SettingsEffect::GlobalSearch))

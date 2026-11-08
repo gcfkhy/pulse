@@ -23,22 +23,6 @@ std::vector<uint32_t>& TagColorPalette(AppState& s);
 void AppendCustomTagColor(AppState& s, uint32_t rgb);
 void ShowTagPicker(AppState& s, POINT screen_pt,
                    const std::vector<std::wstring>* paths_override = nullptr);
-// Staging tray batch menu (right-click on the tray).
-void ShowTrayBatchMenu(AppState& s, POINT screen_pt);
-// Shelf ▾ menu: copy / move mode, 送到 targets, choose a folder.
-void ShowTrayReleaseMenu(AppState& s, POINT screen_pt);
-// 送到: release into dir without opening it (its chip flashes).
-void TraySendTo(AppState& s, const std::wstring& dir, bool move);
-// Shelf ZIP button: the staged items into the current folder.
-void TrayShelfZip(AppState& s);
-// Stale tray items: search everywhere for the first missing one / drop them all.
-void TrayFindStale(AppState& s);
-void TrayRemoveStale(AppState& s);
-// Two staged files: toggle the compare table / start the byte comparison.
-void TrayToggleCompare(AppState& s);
-void TrayStartContentCompare(AppState& s);
-// Opens the stand-alone text compare window for the two staged files.
-void TrayOpenTextDiff(AppState& s);
 void ShowCreateTagPicker(AppState& s, POINT screen_pt);
 #ifdef PULSE_WITH_SELFTEST
 struct CreateTagPickerChoice { int command = 0; std::wstring name; bool committed = false; };

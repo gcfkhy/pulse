@@ -49,7 +49,7 @@ enum class KeyKind : uint8_t {
 enum class KeyAction : uint8_t {
     GlobalSearch,
     Open, Back, Forward, Up, GoToPath, Refresh, MoveFocus,
-    QuickPreview, Copy, Cut, Paste, CopyPath, StageToTray, Undo, Rename, BatchRename, NewFolder, GroupIntoFolder,
+    QuickPreview, Copy, Cut, Paste, CopyPath, Undo, Rename, BatchRename, NewFolder, GroupIntoFolder,
     DissolveFolder, Delete,
     PermanentDelete, Properties, ContextMenu, ToggleTag, ClearTags, TagPanel,
     SelectAll, InvertSelection, SelectPattern,

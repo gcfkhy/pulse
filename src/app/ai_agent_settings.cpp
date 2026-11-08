@@ -187,10 +187,8 @@ void ToolChangeSettings(AppState& s, const app::ai::ModelToolCall& call, const j
                     const std::string_view id = d.id;
                     if (id == "row_height") st.appPrefs.row_height = it->from;
                     else if (id == "font_size") st.appPrefs.ui_font_scale = it->from;
-                    else if (id == "staging_icon_size") st.appPrefs.tray_icon_size = it->from;
                     st.appPrefs.Save();
                     ApplySettingsEffects(st, app::SettingsEffect::RowHeight);
-                    ApplySettingsEffects(st, app::SettingsEffect::TrayDeckIcon);
                 }
                 if (std::string_view(d.id) == "theme" && it->theme_raw < 0) {
                     st.appPrefs.theme_mode = it->theme_raw;   // the legacy session theme stays legacy

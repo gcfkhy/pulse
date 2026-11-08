@@ -41,7 +41,6 @@ MainRendererPtr MakeMainRenderer(RenderCaches& caches) {
 void MainRenderer::SetCompositor(Compositor* comp) {
     paneHeaderStroke_.reset();
     link_arrow_geometry_.reset();
-    tray_shadows_.clear();
     ClearTextWidthCache();
     sized_icon_formats_.clear();
     empty_state_svg_.reset();
@@ -114,7 +113,6 @@ void MainRenderer::SetIconNotifyWindow(HWND hwnd) {
 
 void MainRenderer::SetScale(float scale) {
     if (scale_ != scale) {
-        tray_shadows_.clear();
         preview_mono_format_.reset();
         sized_icon_formats_.clear();
         ClearTextWidthCache();
@@ -1251,7 +1249,6 @@ void MainRenderer::Render(const WindowViewModel& vm, const D2D1_RECT_F& rect,
         }
         if (peek) DrawSidebarPeek(vm, rect, theme);
         if (!embedded_) DrawStatusBar(vm, rect, theme);
-        if (!peek) DrawTrayCompareCard(vm, theme);
     }
 
     // A tab dragged from another window over the content (multi-window M6d):

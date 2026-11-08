@@ -115,10 +115,6 @@ const SetDef kSettingDefs[] = {
     {"open_folders_with_pulse", I::IntegrationMaster, 11, kSetSys, -1, SET_GET(s.appPrefs.integration_enabled),
      +[](AppState& s, int i) { if ((i != 0) != s.appPrefs.integration_enabled) s.settings.IntegrationAction(0); }, {}},
     // 文件操作
-    {"staging_icon_size", I::SettingsTrayIcon, 12, 0, -1, SET_GET(s.appPrefs.tray_icon_size),
-     +[](AppState& s, int i) { s.settings.TrayIconSize(i); },
-     {{{"small", I::SettingsTraySmall, 40}, {"standard", I::SettingsTrayStandard, 48}, {"large", I::SettingsTrayLarge, 56}}}},
-    SET_SW("staging_hide_when_empty", TrayHideWhenEmpty, 12, 0, 37, tray_hide_when_empty),
     SET_SW("change_tracking", SettingsChangeTracking, 12, 0, 8, change_tracking_enabled),
     {"change_days", I::SettingsChangeDays, 12, 0, -1, SET_GET(s.appPrefs.change_tracking_days),
      +[](AppState& s, int i) { static constexpr int days[] = {1, 3, 7}; s.settings.ChangeTrackingDays(days[i]); },

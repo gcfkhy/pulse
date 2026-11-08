@@ -109,21 +109,6 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
             return r;
         }
     }
-    if (vm.tray_deck.cmp_shown && tray_panel_rc_.bottom > tray_panel_rc_.top) {
-        const TrayCardGeom cg = TrayCompareCardGeometry(tray_panel_rc_, scale_, rect.right);
-        if (ContainsPt(cg.box, x, y)) {
-            r.region = HitTestResult::TrayShelf;
-            r.index = static_cast<int>(TrayShelfHit::Card);
-            const int content = vm.tray_deck.compare.content;
-            if (ContainsPt(cg.close, x, y)) {
-                r.index = static_cast<int>(TrayShelfHit::CardClose);
-            } else if (ContainsPt(cg.res, x, y) && (content == 0 || (content == 3 && vm.tray_deck.compare.text == 1))) {
-                r.index = static_cast<int>(TrayShelfHit::CardAction);
-                r.sub_index = content == 0 ? 1 : 2;
-            }
-            return r;
-        }
-    }
     if (vm.teach.visible) {
         const TeachBubbleLayout t = MakeTeachBubbleLayout(rect, status_height_, scale_);
         if (t.card.right - t.card.left >= 200.0f * scale_ && ContainsPt(t.card, x, y)) {
@@ -407,13 +392,6 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
                     return r;
                 }
                 for (int i = 0; i < 3; ++i) {
-                    if (ContainsPt(lay.tray_icon_row[i], x, y)) {
-                        r.region = HitTestResult::SettingsTrayIcon;
-                        r.index = i;
-                        return r;
-                    }
-                }
-                for (int i = 0; i < 3; ++i) {
                     if (ContainsPt(lay.language_segment[i], x, y)) {
                         r.region = HitTestResult::SettingsLanguage;
                         r.index = i;
@@ -485,9 +463,6 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
                 }
                 if (ContainsPt(lay.vertical_tabs_row, x, y)) {
                     r.region = HitTestResult::SettingsToggle; r.index = 23; return r;
-                }
-                if (ContainsPt(lay.tray_hide_row, x, y)) {
-                    r.region = HitTestResult::SettingsToggle; r.index = 37; return r;
                 }
                 if (ContainsPt(lay.hints_row, x, y)) {
                     r.region = HitTestResult::SettingsToggle; r.index = 24; return r;
@@ -1023,15 +998,6 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
             const auto& slot = slots[i];
             if (!ContainsPt(slot.rc, x, y)) continue;
             if (slot.kind == SidebarSlot::RailMore) continue; // decoration only
-            if (slot.kind == SidebarSlot::TrayRelease) {
-                r.region = HitTestResult::TrayRelease;
-                r.index = slot.batch;
-                return r;
-            }
-            if (slot.kind == SidebarSlot::TrayClear) {
-                r.region = HitTestResult::TrayClear;
-                return r;
-            }
             if (slot.kind == SidebarSlot::Rail) {
                 // Narrow rail: a folded section is one icon row; clicking it
                 // reopens the section.
@@ -1059,172 +1025,6 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
                     const D2D1_RECT_F title = painter_.SidebarSectionHeaderTitleRect(
                         slot.rc, group.header, !group.icon_glyph.empty());
                     if (ContainsPt(title, x, y)) r.sub_index = 1;
-                }
-                return r;
-            }
-            if (slot.kind == SidebarSlot::TrayPanel && !compact) {
-                // Shelf redesign: strip / drop halves / shelf controls.
-                using pulse::l10n::StringId;
-                const TrayDeckView& deck = vm.tray_deck;
-                const TrayShelfGeom g = TrayShelfGeometry(deck, slot.rc, scale_,
-                    [this](const std::wstring& t, bool compact_text) { return ShelfMeasure(t, compact_text); });
-                r.region = HitTestResult::TrayShelf;
-                r.index = static_cast<int>(TrayShelfHit::Panel);
-                auto zone = [&](const D2D1_RECT_F& rc, TrayShelfHit h, std::wstring tip = {}) {
-                    if (!ContainsPt(rc, x, y)) return false;
-                    r.index = static_cast<int>(h);
-                    r.label = std::move(tip);
-                    return true;
-                };
-                switch (static_cast<TrayStage>(deck.stage)) {
-                case TrayStage::Strip:
-                    r.index = static_cast<int>(TrayShelfHit::Strip);
-                    if (deck.clip_count > 0) zone(g.strip_clip, TrayShelfHit::Clip);
-                    break;
-                case TrayStage::Drop:
-                    if (!zone(g.half[1], TrayShelfHit::DropMove)) zone(g.half[0], TrayShelfHit::DropCopy);
-                    break;
-                case TrayStage::Open: {
-                    const TrayOpenGeom og = TrayOpenGeometry(deck, slot.rc, scale_,
-                        [this](const std::wstring& t, bool compact_text) { return ShelfMeasure(t, compact_text); });
-                    if (zone(og.collapse, TrayShelfHit::Collapse, pulse::l10n::Get(StringId::TrayCollapseTip))) break;
-                    bool done = false;
-                    for (size_t fi = 0; fi < og.filters.size() && !done; ++fi)
-                        if (zone(og.filters[fi], TrayShelfHit::Filter)) { r.sub_index = og.filter_id[fi]; done = true; }
-                    if (done) break;
-                    if (y >= og.footer.top) {
-                        if (deck.checked > 0 && zone(og.none_link, TrayShelfHit::SelNone)) break;
-                        if (deck.checked == 2 && zone(og.cmp, TrayShelfHit::Compare)) break;
-                        if (zone(og.dd, TrayShelfHit::ReleaseMenu)) break;
-                        zone(og.go, TrayShelfHit::Release);
-                        break;
-                    }
-                    if (!ContainsPt(og.list, x, y)) break;
-                    r.index = static_cast<int>(TrayShelfHit::List);
-                    for (size_t ri = 0; ri < og.rows.size(); ++ri) {
-                        const TrayOpenRow& row = deck.open_rows[ri];
-                        if (row.group_start && zone(og.head_open[ri], TrayShelfHit::GroupOpen, row.group_path)) {
-                            r.path = row.group_path;
-                            r.sub_index = static_cast<int>(ri);
-                            break;
-                        }
-                        if (row.out_t <= 0.0f && zone(og.rows[ri], TrayShelfHit::Row)) {
-                            r.sub_index = static_cast<int>(ri);
-                            r.path = row.path;
-                            break;
-                        }
-                    }
-                    break;
-                }
-                case TrayStage::Shelf: {
-                    if (deck.clip_count > 0 && zone(g.clip_row, TrayShelfHit::Clip)) break;
-                    if (zone(g.fan, TrayShelfHit::Fan, pulse::l10n::Get(StringId::TrayFanTip))) break;
-                    if (g.has_expand && zone(g.expand, TrayShelfHit::Expand, pulse::l10n::Get(StringId::TrayExpandTip))) break;
-                    if (zone(g.more, TrayShelfHit::More, pulse::l10n::Get(StringId::More))) break;
-                    if (zone(g.dd, TrayShelfHit::ReleaseMenu)) break;
-                    if (zone(g.go, TrayShelfHit::Release)) break;
-                    if (zone(g.zip, TrayShelfHit::Zip, pulse::l10n::Get(StringId::TrayMenuZip))) break;
-                    if (zone(g.rename, TrayShelfHit::Rename, pulse::l10n::Get(StringId::TrayMenuRename))) break;
-                    if (zone(g.pick, TrayShelfHit::Pick, pulse::l10n::Get(StringId::TrayPickFolder))) break;
-                    for (size_t ci = 0; ci < g.chips.size(); ++ci) {
-                        const int d = g.chip_dest[ci];
-                        const TrayDestView& dest = deck.dests[static_cast<size_t>(d)];
-                        std::wstring tip = pulse::l10n::Get(deck.move_mode ? StringId::TrayChipTipMove
-                                                                           : StringId::TrayChipTipCopy);
-                        if (size_t at = tip.find(L"{n}"); at != std::wstring::npos)
-                            tip.replace(at, 3, std::to_wstring(std::max(0, deck.total_count - deck.stale_count)));
-                        if (size_t at = tip.find(L"{name}"); at != std::wstring::npos)
-                            tip.replace(at, 6, dest.path);
-                        if (zone(g.chips[ci], TrayShelfHit::Chip, std::move(tip))) {
-                            r.sub_index = d;
-                            r.path = dest.path;
-                            break;
-                        }
-                    }
-                    break;
-                }
-                }
-                return r;
-            }
-            if (slot.kind == SidebarSlot::TrayPanel) {
-                // Card stack: only the top live card is interactive (the
-                // peeking layers are decoration); ghosts are inert. Footer
-                // pager buttons page through the stack.
-                if (!compact) {
-                    const TrayDeckView& deck = vm.tray_deck;
-                    if (deck.live_count > 0) {
-                        if (TrayDestRowH(deck, scale_) > 0.0f) {
-                            for (int d = 0; d < static_cast<int>(deck.dests.size()); ++d) {
-                                if (!ContainsPt(TrayDestChipRect(slot.rc, deck, scale_, d), x, y))
-                                    continue;
-                                r.region = HitTestResult::TrayDest;
-                                r.index = d;
-                                r.path = deck.dests[static_cast<size_t>(d)].path;
-                                return r;
-                            }
-                        }
-                        if (TrayStaleRowH(deck, scale_) > 0.0f) {
-                            for (int b = 0; b < 2; ++b) {
-                                if (!ContainsPt(TrayStaleButtonRect(slot.rc, deck, scale_, b), x, y))
-                                    continue;
-                                r.region = HitTestResult::TrayStale;
-                                r.index = b;
-                                return r;
-                            }
-                        }
-                        const D2D1_RECT_F deck_rc = TrayDeckArea(slot.rc, deck, scale_);
-                        const std::wstring index_text = TrayIndexText(deck);
-                        const TrayFooterGeom f = TrayFooterGeometry(deck_rc, scale_,
-                            deck.comparing ? 1 : deck.total_count, compositor_ ? MeasureTextWidth(
-                                compositor_->DwriteFactory(), compositor_->SmallFormat(),
-                                index_text) : 30.0f * scale_, deck.can_compare);
-                        if (deck.can_compare && ContainsPt(f.compare, x, y)) {
-                            r.region = HitTestResult::TrayCompare;
-                            r.index = 0;
-                            return r;
-                        }
-                        if (f.pager && ContainsPt(f.prev, x, y)) {
-                            r.region = HitTestResult::TrayPrev;
-                            return r;
-                        }
-                        if (f.pager && ContainsPt(f.next, x, y)) {
-                            r.region = HitTestResult::TrayNext;
-                            return r;
-                        }
-                        if (deck.comparing) {
-                            // Compare table: only the content cell is live (before it runs).
-                            const TrayCompareGeom cg = TrayCompareGeometry(deck_rc, scale_, deck.thumb_dip);
-                            const bool can_diff = deck.compare.content == 3 && deck.compare.text == 1;
-                            if ((deck.compare.content == 0 || can_diff) &&
-                                ContainsPt(TrayCompareCell(cg, 4, 2), x, y)) {
-                                r.region = HitTestResult::TrayCompare;
-                                r.index = can_diff ? 2 : 1;
-                            }
-                            return r;
-                        }
-                        const TrayStackGeom g = TrayStackGeometry(deck_rc, scale_, deck.thumb_dip);
-                        for (int c = 0; c < deck.live_count; ++c) {
-                            const TrayCardView& card = deck.cards[static_cast<size_t>(c)];
-                            if (card.ghost || card.depth > 0.5f) continue;
-                            bool close_zone = false;
-                            bool intent_zone = false;
-                            if (!TrayCardHit(g, card, deck.spread, x, y, &close_zone,
-                                             &intent_zone)) continue;
-                            if (intent_zone && !close_zone && card.batch >= 0) {
-                                r.region = HitTestResult::TrayIntent;
-                                r.index = card.batch;
-                                r.sub_index = c; // display index (hover identity)
-                            } else if (close_zone) {
-                                r.region = HitTestResult::TrayItemRemove;
-                                r.index = card.batch;
-                                r.sub_index = card.sub;
-                            } else {
-                                r.region = HitTestResult::TrayCard;
-                                r.index = c; // display index (hover identity)
-                            }
-                            return r;
-                        }
-                    }
                 }
                 return r;
             }
@@ -1730,13 +1530,8 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
                                 out.region = HitTestResult::ChangeBadge; out.index = idx; return out;
                             }
                         }
-                        const bool staged_pill = paneVm.view_mode == ViewMode::Details && !change && entry.badge.empty() &&
-                            paneVm.staged && !paneVm.staged->empty() &&
-                            paneVm.staged->contains(StagedPathHash(entry.path));
                         const float badgeW = change && !grid ? ChangeBadgeWidth(*change, scale_, compositor_) : !entry.badge.empty()
                             ? std::min(108.0f * scale_, painter_.MeasureTagWidth(entry.badge))
-                            : staged_pill ? std::min(108.0f * scale_, painter_.MeasureTagWidth(
-                                pulse::l10n::Get(pulse::l10n::StringId::TrayStagedBadge)))
                             : paneVm.view_mode == ViewMode::Details && !entry.is_dir &&
                                 paneVm.GitMarkAt(idx) != GitMark::None
                             ? std::min(108.0f * scale_, painter_.MeasureTagWidth(GitMarkText(paneVm.GitMarkAt(idx))))
@@ -1778,13 +1573,6 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
                         }
                         if (change && !grid && ContainsPt(trail.badge, x, y)) {
                             out.region = HitTestResult::ChangeBadge; out.index = idx; return out;
-                        }
-                        if (staged_pill && ContainsPt(trail.badge, x, y)) {
-                            out.region = HitTestResult::StagedBadge;
-                            out.index = idx;
-                            out.pane_index = paneIndex;
-                            out.path = entry.path;
-                            return out;
                         }
                         if (ContainsPt(trail.star, x, y)) {
                             out.region = HitTestResult::RowStar;

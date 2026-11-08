@@ -29,7 +29,7 @@ bool PostAiUiTask(HWND host, std::function<void(AppState*)> work);
 bool RunOnAiUiThread(HWND host, std::function<void(AppState*)> work, const std::atomic<bool>& cancelled);
 
 // pulse.get_context: the get_state snapshot (actions/action_state.h): tabs,
-// panes in screen order, up to 200 selected paths, tray, preview, dialog.
+// panes in screen order, up to 200 selected paths, preview, dialog.
 ToolOutcome GetContextTool(HWND host, const ToolCall& call);
 // pulse.reveal {paths[]}: opens the first item's folder (the client's reveal
 // tab when it still exists, else a tab already showing it, else a new one)

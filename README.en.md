@@ -2,7 +2,7 @@
 
 **A file manager for Windows that makes browsing, searching and organizing files feel effortless.**
 
-Tabs and multi-pane layouts, whole-disk indexed search with pinyin matching, Space-bar Quick Look, a staging tray and a customizable look — all in one workspace.
+Tabs and multi-pane layouts, whole-disk indexed search with pinyin matching, Space-bar Quick Look and a customizable look — all in one workspace.
 
 [Download the latest release](https://github.com/jimmgreen/pulse/releases/latest) · [Release notes](https://github.com/jimmgreen/pulse/releases) · [Report an issue](https://github.com/jimmgreen/pulse/issues) · [简体中文](README.md)
 
@@ -63,14 +63,6 @@ Rest the pointer on a file (0.5 s by default) to get a hover card with its thumb
 Settings → Supported formats lists every previewable format and checks whether the HEIF / HEVC / AV1 / WebP system extensions are installed.
 
 ![Markdown Quick Look in Pulse](docs/images/quicklook.png)
-
-## Staging tray and text compare
-
-Files you copy or cut (Ctrl+C / Ctrl+X) are collected in the staging tray at the bottom left. Gather them across folders and tabs, then drag them to the destination in one go — dropping copies by default, hold Shift to move.
-
-With two files staged you can compare location, modified time, size and content. For text files, "View diff" opens a compare window with side-by-side / unified views, inline change highlighting, differences-only mode, ignore whitespace and case, and F7 / Shift+F7 navigation.
-
-![Text compare from the Pulse staging tray](docs/images/diff.png)
 
 ## Fits into Windows
 

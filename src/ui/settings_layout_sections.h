@@ -352,9 +352,6 @@ float LayoutSettingsGeneral(SettingsLayout& l, const WindowViewModel& vm, float 
         section(I::SettingsSecDelete);
         l.confirm_delete_row=row(64);
 
-        section(I::SettingsSecStaging);
-        l.tray_icon_card=row(seg_h); segments(l.tray_icon_card,l.tray_icon_row,3,282);
-        l.tray_hide_row=row(64);
 
         section(I::SettingsSecChanges);
         l.change_tracking_row=row(64);

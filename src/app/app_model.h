@@ -521,67 +521,6 @@ void NormalizeGroupRuns(WindowTabs& tabs);
 bool SetTabGroup(WindowTabs& tabs, size_t index, int group);
 
 // ---------------------------------------------------------------------------
-// Staging tray: collect file paths into batches.
-// ---------------------------------------------------------------------------
-struct TrayItem {
-    uint64_t id = 0;
-    uint64_t inflight_task = 0;
-    bool inflight_move = false;
-    std::wstring inflight_source;
-    std::wstring path;
-    bool exists = true;
-    bool is_dir = false;
-    DWORD attrs = 0;
-    uint64_t size = 0;
-};
-
-struct TrayBatch {
-    uint64_t id = 0;
-    std::vector<TrayItem> items;
-    bool move_intent = false;
-    uint64_t total_size = 0;
-};
-
-class StagingTray {
-public:
-    const std::vector<TrayBatch>& batches() const { return batches_; }
-
-    // Collect selected full paths. move_intent = true for Ctrl+X.
-    void Collect(const std::vector<std::wstring>& paths, bool move_intent);
-    void RemoveBatch(size_t idx);
-    // Follow a rename done from the tray (batch rename) so the card stays live.
-    void ReplacePath(const std::wstring& from, const std::wstring& to);
-    // Re-probe local items (moved/deleted outside Pulse); true when any flag flipped.
-    bool RefreshExists();
-    // Apply a completed background probe without performing I/O on the caller.
-    void ApplyMetadata(const std::wstring& path, const WIN32_FILE_ATTRIBUTE_DATA& data);
-    // Drop every item whose file is gone; returns how many were removed.
-    size_t RemoveMissing();
-    // Flip a batch between copy and move on release (tray intent chip).
-    void SetMoveIntent(size_t idx, bool move_intent);
-    void RemoveItem(size_t batch_idx, size_t item_idx);
-    void RemoveDeleted(const std::vector<std::wstring>& paths);
-    void MarkPendingMove(uint64_t task_id, const std::vector<std::wstring>& paths,
-                         std::optional<size_t> batch = {});
-    void CompleteMove(uint64_t task_id, const std::vector<std::wstring>& moved);
-    void Clear();
-    void MarkInFlight(uint64_t task_id, const std::vector<uint64_t>& item_ids, bool move);
-    void CompleteTask(uint64_t task_id, const std::vector<std::wstring>& moved_sources);
-    bool IsInFlight(const std::wstring& path) const;
-
-    // For serialization.
-    void ToJson(std::wstring& out) const;
-    bool FromJson(const std::wstring& in);
-
-private:
-    std::vector<TrayBatch> batches_;
-    uint64_t next_id_ = 1;
-    std::map<uint64_t, std::vector<std::wstring>> inflight_sources_;
-    // The same paths keyed for lookup, counted across tasks.
-    std::unordered_map<std::wstring, size_t> inflight_keys_;
-};
-
-// ---------------------------------------------------------------------------
 // Sidebar data (quick access + drives).
 // ---------------------------------------------------------------------------
 struct SidebarEntry {

@@ -798,7 +798,7 @@ ArgRun SmartViewSave(AppState& s, const json::Value& args) {
     return r;
 }
 
-// ---- Items: recent, aliases, tray ---------------------------------------------------
+// ---- Items: recent, aliases ---------------------------------------------------
 
 std::vector<std::wstring> PathsArg(AppState& s, const json::Value& args, const char* key) {
     std::vector<std::wstring> out;
@@ -866,38 +866,6 @@ ArgRun AliasSet(AppState& s, const json::Value& args) {
         AliasStore& a = AliasStore::Instance();
         if (a.Find(path) == alias) a.Set(path, old);
         Redraw(st);
-    };
-    return r;
-}
-
-ArgRun TrayRemove(AppState& s, const json::Value& args) {
-    const json::Value* v = args.find("items");
-    const bool all = !v || (v->is_string() && v->as_string() == "all");
-    std::vector<std::wstring> want;
-    if (!all) want = PathsArg(s, args, "items");
-    std::vector<uint64_t> ids;
-    std::vector<std::pair<std::wstring, bool>> gone;  // path, move intent
-    for (const TrayBatch& batch : s.tray.batches())
-        for (const TrayItem& item : batch.items) {
-            bool hit = all;
-            for (const auto& w : want) hit = hit || SameText(w, item.path) || SameText(w, Leaf(item.path));
-            if (!hit || item.inflight_task) continue;
-            ids.push_back(item.id);
-            gone.push_back({item.path, batch.move_intent});
-        }
-    if (ids.empty()) return Fail(all ? "the tray is empty" : "none of these are on the tray", all ? I::ActWhyNoTray : I::AiActWhyNoItems);
-    RemoveTrayItems(s, ids);
-    std::vector<std::wstring> paths;
-    for (const auto& [p, _] : gone) paths.push_back(p);
-    ArgRun r;
-    r.ok = true;
-    r.arg = NameList(Leaves(paths));
-    SetLine(r, Fill(Text(I::AiActLineTrayRemoved), L"{items}", r.arg), r.arg);
-    r.undo = [gone](AppState& st) {
-        std::vector<std::wstring> copy, move;
-        for (const auto& [p, m] : gone) (m ? move : copy).push_back(p);
-        if (!copy.empty()) CollectPathsToTray(st, copy, false);
-        if (!move.empty()) CollectPathsToTray(st, move, true);
     };
     return r;
 }
@@ -1128,7 +1096,6 @@ constexpr std::pair<std::string_view, Runner> kRunners[] = {
     {"smartview.save", SmartViewSave},
     {"recent.remove", RecentRemove},
     {"alias.set", AliasSet},
-    {"tray.remove", TrayRemove},
     {"search.open", SearchOpen},
     {"index.status", IndexStatus},
     {"net.place", NetPlace},

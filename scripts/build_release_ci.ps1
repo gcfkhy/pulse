@@ -103,7 +103,7 @@ foreach ($mode in @('--service-start-only', '--shutdown-only', '--live-dedup-onl
 }
 $selftestCases = @('rename-editor', 'rename-editor-native', 'operation-toast',
     'filter-controls', 'rename-outside', 'address-editor', 'address-editor-native', 'release-panels-hidden', 'pr-shell', 'pin-reorder', 'snapshot-patch', 'list-columns',
-    'filename-render', 'filename-render-native', 'folder-views', 'pane-header-icons', 'folder-sizes', 'tray-stack')
+    'filename-render', 'filename-render-native', 'folder-views', 'pane-header-icons', 'folder-sizes')
 $selftestLogs = @{
     'folder-sizes' = 'bench_data/folder-sizes/results.log'
     'pane-header-icons' = 'bench_data/pane-header-icons/results.log'

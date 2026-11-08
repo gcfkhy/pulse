@@ -423,7 +423,7 @@ public:
     std::vector<FinishedTask> DrainFinishedTasks();
     std::vector<TaskResult> DrainTaskResults() { return DrainFinishedTasks(); }
 
-    // Session persistence of the undo stack (JSON, same style as StagingTray).
+    // Session persistence of the undo stack (JSON).
     std::wstring UndoToJson() const;
     bool UndoFromJson(const std::wstring& in);
 
