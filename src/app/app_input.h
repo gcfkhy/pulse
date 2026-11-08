@@ -47,6 +47,15 @@ bool PointInList(const AppState& s, int mx, int my);
 bool BlankClickDeselect(AppState& s, POINT client, bool maximize = false);
 bool RestoreBlankDeselect(AppState& s, POINT client, bool maximizing = false);
 void CancelFileClick(AppState& s);
+// OLE drag: scroll the list or column under the pointer when it rests at
+// the top or bottom, so a drop can reach a folder that is off screen.
+void UpdateDropAutoScroll(AppState& s, const ui::WindowViewModel& vm,
+                          const ui::HitTestResult& hit, POINT pt,
+                          const std::vector<std::wstring>& sources,
+                          DWORD keys, DWORD allowed, DWORD preferred);
+void TickDropAutoScroll(AppState& s);
+void UpdateDropScrollFrame(AppState& s);
+void StopDropAutoScroll(AppState& s);
 // 悬停选中 (single click mode): resting on a row selects it. True when it did.
 bool TickHoverSelect(AppState& s, ULONGLONG now);
 bool PointInHitItemName(AppState& s, const ui::WindowViewModel& vm,

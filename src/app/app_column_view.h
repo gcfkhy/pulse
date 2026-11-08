@@ -43,5 +43,11 @@ bool HandleColumnStripHWheel(AppState& s, const ui::WindowViewModel& vm,
 // Left/Right in the column view: go to the parent / enter the selected folder.
 bool HandleColumnArrowKey(AppState& s, bool right);
 void ToggleColumnLayout(AppState& s, int pane_index);
+// OLE drag: the list or column under `pt` that can still scroll, or false.
+bool LocateDropScrollBand(AppState& s, const ui::WindowViewModel& vm,
+                          const ui::HitTestResult& hit, POINT pt,
+                          app::Tab*& tab, int& column_id, D2D1_RECT_F& list, float& max_px);
+bool ApplyDropScroll(AppState& s, app::Tab& tab, int column_id, int pane_index,
+                     const ui::WindowViewModel& vm, float delta_px);
 
 } // namespace pulse

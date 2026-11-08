@@ -589,6 +589,245 @@ bool HandleColumnStripHWheel(AppState& s, const ui::WindowViewModel& vm,
                          -static_cast<float>(wheel_delta) / WHEEL_DELTA * kWheelPanDip);
 }
 
+namespace {
+
+constexpr float kDropScrollZoneDip = 24.0f;
+
+float DropScrollSpeed(float beyond, float scale) {
+    return std::clamp(beyond * 0.022f, 0.125f * scale, 3.75f * scale);
+}
+
+float DropOverflowY(float y, const D2D1_RECT_F& list, float zone) {
+    if (y < list.top + zone) return y - (list.top + zone);
+    if (y > list.bottom - zone) return y - (list.bottom - zone);
+    return 0.0f;
+}
+
+D2D1_RECT_F DropPaneBounds(AppState& s, const ui::WindowViewModel& vm, int pane_index) {
+    if (const D2D1_RECT_F* rect = SlotRect(vm, pane_index)) return *rect;
+    return s.renderer.ContentRect(static_cast<float>(s.compositor.Width()),
+                                  static_cast<float>(s.compositor.Height()));
+}
+
+int DropPaneIndexAt(const ui::WindowViewModel& vm, const ui::HitTestResult& hit, POINT pt) {
+    if (hit.pane_index >= 0) return hit.pane_index;
+    const float x = static_cast<float>(pt.x), y = static_cast<float>(pt.y);
+    for (int i = 0; i < static_cast<int>(vm.pane_slots.size()); ++i) {
+        const D2D1_RECT_F& rc = vm.pane_slots[static_cast<size_t>(i)].rect;
+        if (x >= rc.left && x < rc.right && y >= rc.top && y < rc.bottom) return i;
+    }
+    return vm.pane_slots.empty() ? 0 : -1;
+}
+
+const ui::ColumnStripColumnView* DropStripView(const ui::ColumnStripView& cs, int id) {
+    if (id == ui::kColumnStripChildId) return cs.child.path.empty() ? nullptr : &cs.child;
+    if (id < 0 || static_cast<size_t>(id) >= cs.ancestors.size()) return nullptr;
+    return &cs.ancestors[static_cast<size_t>(id)];
+}
+
+void RequestDropFrame(AppState& s) {
+    if (s.framePump.Running()) s.framePump.Arm();
+    else if (s.hwnd) InvalidateRect(s.hwnd, nullptr, FALSE);
+}
+
+} // namespace
+
+bool LocateDropScrollBand(AppState& s, const ui::WindowViewModel& vm,
+                          const ui::HitTestResult& hit, POINT pt,
+                          app::Tab*& tab, int& column_id, D2D1_RECT_F& list, float& max_px) {
+    tab = nullptr;
+    column_id = -1;
+    list = {};
+    max_px = 0.0f;
+    using R = ui::HitTestResult;
+    switch (hit.region) {
+    case R::Tab:
+    case R::TabClose:
+    case R::TabNew:
+    case R::TabGroup:
+    case R::SidebarHeader:
+    case R::SidebarItem:
+    case R::SidebarBlank:
+    case R::AddressBar:
+    case R::BreadcrumbSegment:
+    case R::ToolbarPin:
+    case R::FavoritesBarItem:
+    case R::Splitter:
+    case R::SettingsButton:
+        return false;
+    default:
+        break;
+    }
+    const int pane_index = DropPaneIndexAt(vm, hit, pt);
+    tab = TabAtSlot(s, pane_index);
+    const ui::PaneViewModel* pane = SlotPane(vm, pane_index);
+    if (!tab || !pane) return false;
+    const D2D1_RECT_F bounds = DropPaneBounds(s, vm, pane_index);
+    const float x = static_cast<float>(pt.x);
+    const float y = static_cast<float>(pt.y);
+    ui::ColumnStripLayout layout;
+    if (SlotLayout(s, vm, pane_index, layout)) {
+        for (const ui::ColumnStripSlot& slot : layout.columns) {
+            if (x < slot.rect.left || x >= slot.rect.right) continue;
+            if (slot.id >= 0 && slot.id != ui::kColumnStripChildId &&
+                layout.viewport.right > layout.viewport.left &&
+                (x < layout.viewport.left || x >= layout.viewport.right)) {
+                continue;
+            }
+            const ui::ColumnStripColumnView* view = DropStripView(pane->column_strip, slot.id);
+            if (!view) continue;
+            const float view_h = s.renderer.ColumnStripViewHeight(slot.rect);
+            list = D2D1::RectF(slot.rect.left, slot.rect.top + s.renderer.ColumnHeaderHeight(),
+                               slot.rect.right, slot.rect.top + s.renderer.ColumnHeaderHeight() + view_h);
+            if (y < bounds.top || y > list.bottom + 8.0f * s.scale) return false;
+            column_id = slot.id;
+            max_px = s.renderer.ColumnStripMaxScrollPx(*view, view_h);
+            return max_px > 0.5f;
+        }
+        if (x >= layout.body.left && x < layout.body.right && y >= bounds.top &&
+            y <= bounds.bottom) {
+            column_id = -1;
+            list = s.renderer.PaneListRect(*pane, bounds);
+            max_px = s.renderer.MaxScrollForPane(*pane, bounds);
+            return max_px > 0.5f;
+        }
+        return false;
+    }
+    list = s.renderer.PaneListRect(*pane, bounds);
+    if (x < list.left || x >= list.right || y < bounds.top || y > list.bottom + 8.0f * s.scale)
+        return false;
+    column_id = -1;
+    max_px = s.renderer.MaxScrollForPane(*pane, bounds);
+    return max_px > 0.5f;
+}
+
+bool ApplyDropScroll(AppState& s, app::Tab& tab, int column_id, int pane_index,
+                     const ui::WindowViewModel& vm, float delta_px) {
+    if (std::fabs(delta_px) < 0.05f) return false;
+    if (column_id < 0) {
+        if (s.pane && s.pane->ActiveTab() == &tab && s.scrollAnimating) CancelScrollAnimation(s);
+        const float before = tab.scroll_y;
+        const ui::PaneViewModel* pane = SlotPane(vm, pane_index);
+        const D2D1_RECT_F bounds = DropPaneBounds(s, vm, pane_index);
+        const float max_px = pane ? s.renderer.MaxScrollForPane(*pane, bounds) : 0.0f;
+        tab.scroll_y = std::clamp(tab.scroll_y + delta_px, 0.0f, max_px);
+        if (s.pane && s.pane->ActiveTab() == &tab) s.scrollTargetY = tab.scroll_y;
+        return tab.scroll_y != before;
+    }
+    app::ColumnStripColumn* col = StripColumn(tab, column_id);
+    const ui::PaneViewModel* pane = SlotPane(vm, pane_index);
+    ui::ColumnStripLayout layout;
+    if (!col || !pane || !SlotLayout(s, vm, pane_index, layout)) return false;
+    const ui::ColumnStripColumnView* view = DropStripView(pane->column_strip, column_id);
+    if (!view) return false;
+    for (const ui::ColumnStripSlot& slot : layout.columns) {
+        if (slot.id != column_id) continue;
+        const float view_h = s.renderer.ColumnStripViewHeight(slot.rect);
+        const float max_px = s.renderer.ColumnStripMaxScrollPx(*view, view_h);
+        const float shown = s.renderer.ColumnStripScrollPx(*view, view_h);
+        const float scale = s.scale > 0.0f ? s.scale : 1.0f;
+        col->auto_scroll = false;
+        const float next = std::clamp(shown + delta_px, 0.0f, max_px);
+        if (std::fabs(next - shown) < 0.5f) return false;
+        col->scroll_dip = next / scale;
+        return true;
+    }
+    return false;
+}
+
+void StopDropAutoScroll(AppState& s) {
+    if (s.dropAutoScroll && s.hwnd) KillTimer(s.hwnd, kTimerDropScroll);
+    s.dropAutoScroll = false;
+    s.dropScrollSources.clear();
+    s.dropScrollKeys = 0;
+    s.dropScrollAllowed = 0;
+    s.dropScrollPreferred = 0;
+}
+
+void UpdateDropAutoScroll(AppState& s, const ui::WindowViewModel& vm,
+                          const ui::HitTestResult& hit, POINT pt,
+                          const std::vector<std::wstring>& sources,
+                          DWORD keys, DWORD allowed, DWORD preferred) {
+    s.dropScrollSources = sources;
+    s.dropScrollKeys = keys;
+    s.dropScrollAllowed = allowed;
+    s.dropScrollPreferred = preferred;
+    app::Tab* tab = nullptr;
+    int column_id = -1;
+    D2D1_RECT_F list{};
+    float max_px = 0.0f;
+    const bool have = LocateDropScrollBand(s, vm, hit, pt, tab, column_id, list, max_px);
+    const float zone = kDropScrollZoneDip * (s.scale > 0.5f ? s.scale : 0.5f);
+    const float over = have ? DropOverflowY(static_cast<float>(pt.y), list, zone) : 0.0f;
+    const bool want = have && over != 0.0f && max_px > 0.5f;
+    if (want == s.dropAutoScroll || !s.hwnd) return;
+    if (!want) {
+        s.dropAutoScroll = false;
+        KillTimer(s.hwnd, kTimerDropScroll);
+        return;
+    }
+    s.dropAutoScroll = true;
+    s.dropScrollLast = std::chrono::steady_clock::now();
+    SetTimer(s.hwnd, kTimerDropScroll, 16, nullptr);
+    RequestDropFrame(s);
+}
+
+void TickDropAutoScroll(AppState& s) {
+    if (!s.dropAutoScroll || s.dropScrollSources.empty()) {
+        StopDropAutoScroll(s);
+        return;
+    }
+    RequestDropFrame(s);
+}
+
+void UpdateDropScrollFrame(AppState& s) {
+    if (!s.dropAutoScroll) return;
+    if (s.dropScrollSources.empty()) {
+        StopDropAutoScroll(s);
+        return;
+    }
+    POINT cursor{};
+    if (!s.hwnd || !GetCursorPos(&cursor) || !ScreenToClient(s.hwnd, &cursor)) {
+        StopDropAutoScroll(s);
+        return;
+    }
+    ui::WindowViewModel vm = BuildVm(s);
+    D2D1_RECT_F rect = D2D1::RectF(0, 0, static_cast<float>(s.compositor.Width()),
+                                   static_cast<float>(s.compositor.Height()));
+    ui::HitTestResult hit = s.renderer.HitTest(vm, rect, static_cast<float>(cursor.x),
+                                               static_cast<float>(cursor.y));
+    app::Tab* tab = nullptr;
+    int column_id = -1;
+    D2D1_RECT_F list{};
+    float max_px = 0.0f;
+    if (!LocateDropScrollBand(s, vm, hit, cursor, tab, column_id, list, max_px)) {
+        StopDropAutoScroll(s);
+        return;
+    }
+    const auto now = std::chrono::steady_clock::now();
+    const float elapsed = static_cast<float>(std::clamp(
+        std::chrono::duration<double, std::milli>(now - s.dropScrollLast).count(), 0.0, 50.0));
+    s.dropScrollLast = now;
+    const float zone = kDropScrollZoneDip * (s.scale > 0.5f ? s.scale : 0.5f);
+    const float over = DropOverflowY(static_cast<float>(cursor.y), list, zone);
+    if (over == 0.0f) {
+        s.dropAutoScroll = false;
+        if (s.hwnd) KillTimer(s.hwnd, kTimerDropScroll);
+        return;
+    }
+    const int pane_index = DropPaneIndexAt(vm, hit, cursor);
+    const float step = DropScrollSpeed(std::abs(over), s.scale > 0.5f ? s.scale : 0.5f) * elapsed;
+    const float delta = over < 0.0f ? -step : step;
+    if (!ApplyDropScroll(s, *tab, column_id, pane_index, vm, delta)) {
+        s.dropAutoScroll = false;
+        if (s.hwnd) KillTimer(s.hwnd, kTimerDropScroll);
+        return;
+    }
+    ResolveDropTarget(s, s.dropScrollSources, cursor, s.dropScrollKeys, s.dropScrollAllowed,
+                      s.dropScrollPreferred);
+    if (s.hwnd) InvalidateRect(s.hwnd, nullptr, FALSE);
+}
+
 bool HandleColumnArrowKey(AppState& s, bool right) {
     app::Tab* tab = ActiveTab(s);
     if (!tab || !Eligible(*tab)) return false;
