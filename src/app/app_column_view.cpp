@@ -352,8 +352,19 @@ bool HandleColumnStripMouseDown(AppState& s, const ui::WindowViewModel& vm,
         if (tab) ClickRow(s, *tab, hit.sub_index, hit.index);
         return true;
     }
-    case R::ColumnStripBlank:
+    case R::ColumnStripBlank: {
+        // Empty space in a column makes its folder the current one, nothing
+        // selected (as in Finder), so Ctrl+V / New folder land there.
+        app::Tab* tab = TabAtSlot(s, hit.pane_index);
+        const app::ColumnStripColumn* col = tab ? StripColumn(*tab, hit.sub_index) : nullptr;
+        if (!col || col->path.empty()) return true;
+        const std::wstring folder = col->path;  // col is invalidated by navigation
+        if (!SamePath(folder, tab->current_path)) {
+            NavigateTo(s, folder);
+            s.stripClickTick = GetTickCount64();
+        }
         return true;
+    }
     case R::ColumnStripNav:
         // The arrow that just ran out of travel disappears under the pointer.
         if (StepStrip(s, vm, hit.pane_index, hit.index)) RefreshScrolledHover(s);
