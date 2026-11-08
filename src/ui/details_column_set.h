@@ -18,14 +18,16 @@ inline constexpr uint32_t kDetailsColumnSize = 1u << 4;
 inline constexpr uint32_t kDetailsColumnCreated = 1u << 5;
 inline constexpr uint32_t kDetailsColumnAccessed = 1u << 6;
 inline constexpr uint32_t kDetailsColumnStatus = 1u << 7;
-// Photo / video folders only (分级, 时长); off unless ticked, or while the list
-// is sorted by that column.
+// Photo / video folders only (分级, 时长); chosen by default but drawn only where
+// the folder offers them, and shown even when unticked while the list is
+// sorted by that column.
 inline constexpr uint32_t kDetailsColumnRating = 1u << 8;
 inline constexpr uint32_t kDetailsColumnDuration = 1u << 9;
 inline constexpr uint32_t kDetailsColumnsMedia = kDetailsColumnRating | kDetailsColumnDuration;
 
 inline constexpr uint32_t kDetailsColumnsDefault =
-    kDetailsColumnModified | kDetailsColumnType | kDetailsColumnSize | kDetailsColumnStatus;
+    kDetailsColumnModified | kDetailsColumnType | kDetailsColumnSize | kDetailsColumnStatus |
+    kDetailsColumnsMedia;
 inline constexpr uint32_t kDetailsColumnsAll = kDetailsColumnsDefault |
     kDetailsColumnCreated | kDetailsColumnAccessed | kDetailsColumnsMedia;
 

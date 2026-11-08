@@ -8164,13 +8164,13 @@ void TestOptionalColumns() {
                                                  cloud.DividerX(1) + 30.0f * scale, cloud_extra);
     Check(status_widths[0] > 1.0f && status_widths[1] <= 1.0f,
           L"cloud status: the divider after status resizes modified, status keeps its fitted width");
-    // 分级 / 时长: photo and video folders only; the sort key is shown even when not ticked.
-    r.SetDetailsColumns(ui::kDetailsColumnsDefault | ui::kDetailsColumnsMedia);
+    // 分级 / 时长: photo and video folders only, chosen by default; the sort key is shown even when not ticked.
+    r.SetDetailsColumns(ui::kDetailsColumnsDefault);
     const ui::DetailsExtraColumns media_extra{false, ui::kDetailsColumnsMedia, 0};
     const auto media = r.DetailsColumns(pane(1400.0f), {}, false, {}, media_extra);
     const auto media_none = r.DetailsColumns(pane(1400.0f), {}, false, {}, {});
     const auto media_search = r.DetailsColumns(pane(1400.0f), {}, true, {}, media_extra);
-    r.SetDetailsColumns(ui::kDetailsColumnsDefault);
+    r.SetDetailsColumns(ui::kDetailsColumnsDefault & ~ui::kDetailsColumnsMedia);
     const auto forced = r.DetailsColumns(pane(1400.0f), {}, false, {},
                                          ui::DetailsExtraColumns{false, ui::kDetailsColumnsMedia, ui::kDetailsColumnDuration});
     const auto unticked = r.DetailsColumns(pane(1400.0f), {}, false, {}, media_extra);
@@ -8313,7 +8313,9 @@ void TestOptionalColumns() {
     // Prefs: global choice, default when missing, garbage normalized.
     AppPrefs prefs;
     prefs.persist = false;
-    Check(prefs.details_columns == ui::kDetailsColumnsDefault, L"optional columns: default prefs keep the classic set");
+    Check(prefs.details_columns == ui::kDetailsColumnsDefault &&
+              (prefs.details_columns & ui::kDetailsColumnsMedia) == ui::kDetailsColumnsMedia,
+          L"optional columns: default prefs use the default set, 分级 / 时长 included");
     prefs.details_columns = ui::kDetailsColumnModified | ui::kDetailsColumnCreated;
     prefs.folder_sorts.Set(L"C:\\Photos", {ui::SortColumn::Created, ui::SortDirection::Desc});
     AppPrefs reloaded;
@@ -8398,21 +8400,26 @@ void TestOptionalColumns() {
     // 分级 / 时长: the header menu offers them only for photo and video folders.
     const auto media_menu = BuildDetailsColumnMenu(ui::kDetailsColumnsDefault, 0xFFFFFFFFu, false, true);
     Check(media_menu.size() == menu.size() + 2 &&
-          media_menu[5].command == kDetailsColumnToggleBase + static_cast<int>(K::Rating) && !media_menu[5].checked &&
-          media_menu[6].command == kDetailsColumnToggleBase + static_cast<int>(K::Duration) && !media_menu[6].checked &&
+          media_menu[5].command == kDetailsColumnToggleBase + static_cast<int>(K::Rating) && media_menu[5].checked &&
+          media_menu[6].command == kDetailsColumnToggleBase + static_cast<int>(K::Duration) && media_menu[6].checked &&
           media_menu[7].command == kDetailsColumnToggleBase + static_cast<int>(K::Size) &&
           media_menu[9].command == kDetailsColumnsReset && !media_menu[9].enabled,
           L"media columns: the header menu lists 分级 and 时长 for photo and video folders only");
+    const uint32_t media_off = ui::kDetailsColumnsDefault & ~ui::kDetailsColumnsMedia;
     const uint32_t with_duration = ApplyDetailsColumnCommand(
-        ui::kDetailsColumnsDefault, kDetailsColumnToggleBase + static_cast<int>(K::Duration));
-    Check(with_duration == (ui::kDetailsColumnsDefault | ui::kDetailsColumnDuration) &&
+        media_off, kDetailsColumnToggleBase + static_cast<int>(K::Duration));
+    Check(with_duration == (media_off | ui::kDetailsColumnDuration) &&
           ui::NormalizeDetailsColumns(with_duration) == with_duration &&
           ApplyDetailsColumnCommand(with_duration, kDetailsColumnToggleBase + static_cast<int>(K::Duration)) ==
-              ui::kDetailsColumnsDefault &&
-          (ui::kDetailsColumnsDefault & ui::kDetailsColumnsMedia) == 0 &&
+              media_off &&
+          ApplyDetailsColumnCommand(ui::kDetailsColumnsDefault, kDetailsColumnToggleBase + static_cast<int>(K::Duration)) ==
+              (ui::kDetailsColumnsDefault & ~ui::kDetailsColumnDuration) &&
+          (ui::kDetailsColumnsDefault & ui::kDetailsColumnsMedia) == ui::kDetailsColumnsMedia &&
           BuildDetailsColumnMenu(with_duration, 0xFFFFFFFFu, false, true)[6].checked &&
-          BuildDetailsColumnMenu(with_duration, 0xFFFFFFFFu, false, true)[9].enabled,
-          L"media columns: 时长 toggles, survives normalising, and stays off by default");
+          !BuildDetailsColumnMenu(with_duration, 0xFFFFFFFFu, false, true)[5].checked &&
+          BuildDetailsColumnMenu(with_duration, 0xFFFFFFFFu, false, true)[9].enabled &&
+          ApplyDetailsColumnCommand(media_off, kDetailsColumnsReset) == ui::kDetailsColumnsDefault,
+          L"media columns: 时长 toggles, survives normalising, is on by default, and Reset turns both back on");
     Check(format::PlayingTime(0).empty() && format::PlayingTime(222000) == L"3:42" &&
           format::PlayingTime(3723000) == L"1:02:03" && format::RatingStars(0).empty() &&
           format::RatingStars(3) == std::wstring(3, L'\x2605') && format::RatingStars(9).size() == 5,
@@ -8420,11 +8427,22 @@ void TestOptionalColumns() {
     AppPrefs legacy;
     legacy.persist = false;
     legacy.FromJson(L"{\"details_columns\":28}");
+    AppPrefs saved_v2;
+    saved_v2.persist = false;
+    saved_v2.FromJson(L"{\"details_columns\":28,\"details_columns_v\":2}");
     AppPrefs current;
     current.persist = false;
-    current.FromJson(L"{\"details_columns\":28,\"details_columns_v\":2}");
-    Check(legacy.details_columns == (28u | ui::kDetailsColumnStatus) && current.details_columns == 28u,
-          L"cloud status: masks saved before v2 get status once, newer masks are kept");
+    current.FromJson(L"{\"details_columns\":28,\"details_columns_v\":3}");
+    Check(legacy.details_columns == (28u | ui::kDetailsColumnStatus | ui::kDetailsColumnsMedia) &&
+              saved_v2.details_columns == (28u | ui::kDetailsColumnsMedia) && current.details_columns == 28u,
+          L"cloud status / media columns: masks saved before v2 get status and before v3 get 分级 / 时长, once; newer masks are kept");
+    AppPrefs saved;
+    saved.persist = false;
+    saved.details_columns = 28u;
+    AppPrefs round_trip;
+    round_trip.persist = false;
+    Check(round_trip.FromJson(saved.ToJson()) && round_trip.details_columns == 28u,
+          L"media columns: unticking them is saved and not re-enabled on the next load");
 
     // Sort menu: the new dates appear for folders, not for search results.
     BackgroundViewOptions folder_options;
