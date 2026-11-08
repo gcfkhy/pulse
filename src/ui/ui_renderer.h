@@ -358,7 +358,7 @@ public:
         if (motion_now < mtime_flash_until_) active = true;
         if (motion_now < splitter_motion_until_) active = true;
         if (motion_now < spring_ring_until_) active = true;
-        // Sidebar pill/plate, toolbar plates, column cascade, details sweep:
+        // Sidebar pill/plate, toolbar plates, details sweep:
         // their last frame asked for another (RequestMotionFrame).
         if (motion_frame_wanted_) active = true;
         // Decoration only: loading placeholders shimmer (and must appear on

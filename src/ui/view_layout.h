@@ -140,6 +140,9 @@ struct ViewLayoutParams {
     float icon_dip;  // icon grids: thumbnail width in DIP (0 = the mode's preset)
     // Icon grids shown as a photo wall: its rows (for this item count), else null.
     const WallRows* wall = nullptr;
+    // Details view insets the list 8/22 DIP for the gutter and scrollbar.
+    // Column view keeps the current folder as wide as the ancestor columns.
+    bool details_inset = true;
 };
 
 struct ViewLayoutMetrics {

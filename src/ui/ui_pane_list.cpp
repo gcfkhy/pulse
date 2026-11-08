@@ -555,8 +555,12 @@ D2D1_RECT_F MainRenderer::FilterEditRect(const D2D1_RECT_F& pane_bounds, float e
 MainRenderer::DetailsColumnLayout MainRenderer::DetailsColumns(
     const D2D1_RECT_F& pane_bounds, const PaneViewModel& vm) const {
     if (vm.column_strip.Active() && !vm.is_search) {
-        // Column view: one name column, like the columns beside it.
-        DetailsColumnLayout name_only = DetailsColumns(pane_bounds, DetailsColumnWidths{}, false, {});
+        // Same inner width as ancestor columns (6 DIP pad), so opening a
+        // folder does not shrink the names that were already on screen.
+        DetailsColumnLayout name_only;
+        const float pad = 6.0f * scale_;
+        name_only.left = pane_bounds.left + pad;
+        name_only.right = std::max(name_only.left, pane_bounds.right - pad);
         name_only.count = 1;
         name_only.kinds[0] = ColumnKind::Name;
         name_only.widths[0] = std::max(0.0f, name_only.right - name_only.left);
@@ -865,9 +869,14 @@ ViewLayoutParams MainRenderer::ListRowHeightDip(const PaneViewModel& vm, const D
         params.wall = PaneWallRows(vm, std::max(1.0f, pane_bounds.right - pane_bounds.left), scale_);
         return params;
     }
-    const float base = ListRowHeightDip(vm);
-    if (vm.view_mode != ViewMode::Details || !vm.is_search || vm.content_results) return base;
-    return DetailsColumns(pane_bounds, vm).two_line ? std::max(base, kDetailsTwoLineMinRowDip) : base;
+    ViewLayoutParams params(ListRowHeightDip(vm));
+    if (vm.view_mode == ViewMode::Details && vm.column_strip.Active() && !vm.is_search)
+        params.details_inset = false;
+    if (vm.view_mode == ViewMode::Details && vm.is_search && !vm.content_results &&
+        DetailsColumns(pane_bounds, vm).two_line) {
+        params.row_height_dip = std::max(params.row_height_dip, kDetailsTwoLineMinRowDip);
+    }
+    return params;
 }
 
 int MainRenderer::ManualColumnSlot(ColumnKind kind, bool search_view) noexcept {
@@ -4462,8 +4471,10 @@ void MainRenderer::DrawList(const PaneViewModel& vm, float x, float y, float w, 
         ? &nav_enter_[static_cast<size_t>(pane_index)] : nullptr;
     if (nav) {
         if (nav->path != vm.path) {
-            const bool animate = !nav->path.empty() && !vm.is_search && motion::SystemAnimationsEnabled() &&
-                                 !IsHighContrast();
+            // Column view already shows the folder in the strip; listing it as
+            // the current pane should not play the folder-enter slide.
+            const bool animate = !nav->path.empty() && !vm.is_search && !vm.column_strip.Active() &&
+                                 motion::SystemAnimationsEnabled() && !IsHighContrast();
             const auto under = [](const std::wstring& child, const std::wstring& parent) {
                 if (parent.empty() || child.size() <= parent.size()) return false;
                 if (_wcsnicmp(child.c_str(), parent.c_str(), parent.size()) != 0) return false;
@@ -4497,6 +4508,7 @@ void MainRenderer::DrawList(const PaneViewModel& vm, float x, float y, float w, 
     const auto [startIdx, endIdx] = layout.VisibleRange();
     const DetailsColumnLayout detailsColumns = AnimateColumns(DetailsColumns(viewport, vm), pane_index);
     const bool detailsView = vm.view_mode == ViewMode::Details;
+    const bool stripList = detailsView && vm.column_strip.Active();
     D2D1_COLOR_F zebraColor = theme.text;
     zebraColor.a = (theme.bg.r < 0.5f) ? 0.035f : 0.025f;
     FileItemSelectionPainter selection_painter(dc, theme, scale_, pane_focused,
@@ -4547,7 +4559,7 @@ void MainRenderer::DrawList(const PaneViewModel& vm, float x, float y, float w, 
         for (int i = startIdx; i >= 0 && i <= endIdx; ++i) {
             if (vm.SourceIndex(i) != vm.hover_index) continue;
             const D2D1_RECT_F cell = layout.ItemRect(i);
-            const float inset = 4.0f * scale_;
+            const float inset = (stripList ? 6.0f : 4.0f) * scale_;
             const D2D1_RECT_F target = D2D1::RectF(cell.left + inset, cell.top + scale_,
                 std::max(cell.left + inset, cell.right - inset),
                 std::max(cell.top + scale_, cell.bottom - scale_));
@@ -4931,12 +4943,13 @@ void MainRenderer::DrawList(const PaneViewModel& vm, float x, float y, float w, 
                 ? std::wstring(l10n::Get(l10n::StringId::TargetUnavailable).c_str()) : e.link_destination;
             D2D1_RECT_F artwork = iconRect;
 
-            const float inset = 4.0f * scale_;
+            const float inset = (stripList ? 6.0f : 4.0f) * scale_;
             if (draw_shapes && detailsView && list_zebra_ && (i & 1) && !selected && !hover && !IsHighContrast()) {
                 MakeBrush(dc, zebraColor, brFillInput_);
-                FillRoundedRect(dc, brFillInput_.get(), bg.left + inset, bg.top,
+                FillRoundedRect(dc, brFillInput_.get(), bg.left + inset, bg.top + (stripList ? scale_ : 0.0f),
                     std::max(0.0f, bg.right - bg.left - inset * 2),
-                    std::max(0.0f, bg.bottom - bg.top), theme.radius_control * scale_);
+                    std::max(0.0f, bg.bottom - bg.top - (stripList ? 2.0f * scale_ : 0.0f)),
+                    theme.radius_control * scale_);
             }
             // Folder compare: status tint + a colored bar in the left gutter.
             const uint8_t compare_mark = vm.compare_marks &&
@@ -4957,8 +4970,71 @@ void MainRenderer::DrawList(const PaneViewModel& vm, float x, float y, float w, 
                     (bg.top + bg.bottom - bar_h) * 0.5f, 2.5f * scale_, bar_h, 1.25f * scale_);
             }
             // A check box already marks the row: no selection bar beside it.
-            if (draw_shapes && selected)
-                selection_painter.Selected(bg, !(item_checks_ && (detailsView || iconGrid) && !morph_item && !morphing));
+            // Column view uses the ancestor-column plate (solid, full inner
+            // width) so the same folder does not shrink when it becomes a parent.
+            if (draw_shapes && selected) {
+                if (stripList && !IsHighContrast()) {
+                    const D2D1_RECT_F plate = D2D1::RectF(
+                        bg.left + 6.0f * scale_, bg.top + 1.0f * scale_,
+                        bg.right - 6.0f * scale_, bg.bottom - 1.0f * scale_);
+                    MakeBrush(dc, WithAlpha(theme.accent, 0.26f), brFillSelected_);
+                    FillRoundedRect(dc, brFillSelected_.get(), plate.left, plate.top,
+                                    plate.right - plate.left, plate.bottom - plate.top,
+                                    theme.radius_control * scale_);
+                    MakeBrush(dc, theme.accent, brAccent_);
+                    const float bar_h = (plate.bottom - plate.top) * 0.5f;
+                    FillRoundedRect(dc, brAccent_.get(), plate.left + 1.0f * scale_,
+                                    plate.top + (plate.bottom - plate.top - bar_h) * 0.5f,
+                                    3.0f * scale_, bar_h, 1.5f * scale_);
+                } else {
+                    selection_painter.Selected(bg, !(item_checks_ && (detailsView || iconGrid) &&
+                                                    !morph_item && !morphing));
+                }
+            }
+            // Same icon / name / chevron metrics as DrawColumnStripColumn, so
+            // this folder's listing does not jump when it becomes an ancestor.
+            if (stripList && !morph_item) {
+                const float pad = 6.0f * scale_;
+                const float icon = 16.0f * scale_;
+                const D2D1_RECT_F sc = D2D1::RectF(bg.left + pad, bg.top + 1.0f * scale_,
+                                                   bg.right - pad, bg.bottom - 1.0f * scale_);
+                const float ix = sc.left + 8.0f * scale_;
+                const float iy = std::round(bg.top + (bg.bottom - bg.top - icon) * 0.5f);
+                if (draw_shapes) {
+                    const std::wstring full = e.path.empty() ? JoinDirName(vm.path, e.name) : e.path;
+                    const D2D1_RECT_F dest = D2D1::RectF(ix, iy, ix + icon, iy + icon);
+                    if (!icon_cache_.Draw(dc, dest, full, e.name, e.is_dir, e.attrs, hidden_alpha)) {
+                        if (e.is_dir) DrawFolderIcon(ix, iy, icon, theme, hidden_alpha);
+                        else DrawFileIcon(ix, iy, icon, theme, hidden_alpha);
+                    }
+                    if (e.link_kind != fs::LinkKind::None || e.is_link ||
+                        (!e.is_dir && IsShortcutName(e.name)))
+                        DrawLinkOverlay(ix, iy, icon, theme, hidden_alpha);
+                    if (IsProtectedSystemEntry(e.attrs)) DrawProtectedBadge(dc, dest, scale_, theme);
+                    if (src == vm.drop_target_index) {
+                        dc->DrawRoundedRectangle(
+                            D2D1::RoundedRect(sc, theme.radius_control * scale_, theme.radius_control * scale_),
+                            brAccent_.get(), 2.0f * scale_);
+                    }
+                }
+                if (draw_text) {
+                    const D2D1_COLOR_F name_color =
+                        IsHighContrast() ? theme.text : HiddenEntryNameColor(e.attrs, theme, theme.text);
+                    MakeBrush(dc, cut ? WithAlpha(name_color, 0.55f) : name_color, brText_);
+                    const float tx = ix + icon + 8.0f * scale_;
+                    const float chevron_w = e.is_dir ? 18.0f * scale_ : 0.0f;
+                    DrawTextEndEllipsis(compositor_, compositor_->FileNameFormat(), brText_.get(), e.name,
+                                        tx, bg.top,
+                                        std::max(0.0f, sc.right - tx - chevron_w - 4.0f * scale_),
+                                        bg.bottom - bg.top);
+                    if (e.is_dir) {
+                        DrawIconText(sc.right - chevron_w - 2.0f * scale_, bg.top, chevron_w,
+                                     bg.bottom - bg.top, kIconChevronRight, L">",
+                                     theme.text_secondary, 0.55f);
+                    }
+                }
+                continue;
+            }
             if (draw_shapes && mtime_on && mtime.flash && !morph_item && !IsHighContrast() && !e.path.empty() &&
                 e.modified_value && e.modified_value + 3 * kMtimeSecond > mtime_clock.now &&
                 e.modified_value < mtime_clock.now + 2 * kMtimeSecond) {
@@ -5261,7 +5337,7 @@ void MainRenderer::DrawList(const PaneViewModel& vm, float x, float y, float w, 
             const size_t totalTags = tagIndices ? tagIndices->size() : (tagDots ? tagDots->size() : 0);
             const int tagDotCount = static_cast<int>(std::min<size_t>(3, totalTags));
             // Column view rows: name and a chevron on folders, no row actions.
-            const bool stripRow = vm.view_mode == ViewMode::Details && vm.column_strip.Active();
+            const bool stripRow = stripList;
             const bool stripChevron = stripRow && e.is_dir;
             const bool showRowActions = vm.view_mode == ViewMode::Details && !stripRow &&
                 src != vm.rename_index &&
@@ -5361,7 +5437,8 @@ void MainRenderer::DrawList(const PaneViewModel& vm, float x, float y, float w, 
                 list_mark ? nameX + kListAliasMarkDip * scale_ : nameX, textY, textH, nameColRight - ai_reserve, cell.top, cell.bottom, scale_,
                 has_alias ? alias_line : shown_name, tagDotCount, badgeW, showStar, showNewTab, showMore,
                 compositor_, compositor_->DwriteFactory(), nameFormat, change != nullptr,
-                vm.view_mode == ViewMode::Details ? (e.is_dir ? 3 : 2) : 0, name_matches, row_actions_);
+                stripRow ? 0 : (vm.view_mode == ViewMode::Details ? (e.is_dir ? 3 : 2) : 0),
+                name_matches, row_actions_);
             if (src == vm.rename_index) {
                 // The rename frame is drawn after every row (below): it can be
                 // wider than its own cell.
