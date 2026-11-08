@@ -259,7 +259,8 @@ ViewLayout::ViewLayout(ViewMode mode, D2D1_RECT_F viewport, size_t item_count,
       scale_(std::max(0.5f, scale)) {
     const float row_height_dip = params.row_height_dip;
     const float icon_dip = IsZoomIconMode(mode_) ? params.icon_dip : 0.0f;
-    if (mode_ == ViewMode::Details) viewport_ = DetailsContentRect(viewport_, scale_);
+    if (mode_ == ViewMode::Details && params.details_inset)
+        viewport_ = DetailsContentRect(viewport_, scale_);
     const float width = std::max(1.0f, viewport_.right - viewport_.left);
     const float height = std::max(1.0f, viewport_.bottom - viewport_.top);
     auto grid = [&](float cell_w, float cell_h, float icon, bool fixed_pixel_tier = false,

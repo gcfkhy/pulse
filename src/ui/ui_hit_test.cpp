@@ -1741,7 +1741,8 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
                             showActions, showActions && paneVm.hover_index == idx && entry.is_dir,
                             showActions && rowHot,
                             compositor_, compositor_->DwriteFactory(), compositor_->FileNameFormat(), change != nullptr,
-                            paneVm.view_mode == ViewMode::Details ? (entry.is_dir ? 3 : 2) : 0,
+                            paneVm.column_strip.Active() ? 0
+                                : (paneVm.view_mode == ViewMode::Details ? (entry.is_dir ? 3 : 2) : 0),
                             NameMatchRanges(entry.name, NameHighlightTerms(paneVm.filter_text,
                                 paneVm.is_search ? paneVm.search_query : L"")),
                             row_actions_);

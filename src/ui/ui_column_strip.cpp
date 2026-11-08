@@ -51,21 +51,16 @@ std::vector<StripDivider> StripDividers(const ColumnStripLayout& strip, const D2
 
 // Column view motion (animation phase 4a, pulse_motion_v2). Drawing only:
 // hit-testing keeps the settled layout and scroll.
-//  - the selected folder's contents cascade in: each row fades in and slides
-//    8 dip from the left, 9 ms after the one above (capped at 10 rows);
 //  - one hover plate glides between rows and columns (Plate spring);
 //  - a column's highlight glides to the new row (Snappy spring);
 //  - a column's auto scroll eases to its new place (Smooth spring).
+// Clicking a column lists the folder in place; rows do not cascade in.
 // State per renderer and pane lives here; frames come from the renderer's
 // frame pump (RequestMotionFrame), asked for only while something moves.
-constexpr float kCascadeSlideDip = 8.0f, kCascadeRowMs = 160.0f, kCascadeStaggerMs = 9.0f;
-constexpr int kCascadeRows = 10;
 constexpr float kStripHoverFadeInMs = 90.0f, kStripHoverFadeOutMs = 120.0f;
 
 struct StripColumnMotion {
     std::wstring path;
-    uint64_t born = 0;        // rows of this path first drawn (cascade start)
-    bool had_rows = false;
     bool scroll_init = false;
     float scroll_shown = 0.0f, scroll_vel = 0.0f;
     uint64_t scroll_last = 0;
@@ -266,8 +261,8 @@ ColumnStripLayout MainRenderer::DrawColumnStrip(const WindowViewModel& vm, const
         pm.hscroll_init = false;
     }
     const bool has_viewport = strip.viewport.right > strip.viewport.left;
-    // Per column: which folder it shows, when its rows came, and the scroll
-    // it is drawn at. Columns that went away are forgotten.
+    // Per column: which folder it shows and the scroll it is drawn at.
+    // Columns that went away are forgotten.
     for (auto it = pm.columns.begin(); it != pm.columns.end();) {
         const bool present = std::any_of(strip.columns.begin(), strip.columns.end(),
                                          [&](const ColumnStripSlot& s) { return s.id == it->first; });
@@ -281,18 +276,11 @@ ColumnStripLayout MainRenderer::DrawColumnStrip(const WindowViewModel& vm, const
         StripColumnMotion& cm = pm.columns[slot.id];
         cm.highlight.SetAnimationsEnabled(animate);
         if (!cm.seen || cm.path != column->path) {
-            // Another folder in this column: its rows cascade in once they
-            // are there (child column), its scroll lands without easing.
+            // Another folder in this column: its rows appear in place, its
+            // scroll lands without easing.
             cm.seen = true;
             cm.path = column->path;
-            cm.had_rows = false;
-            cm.born = 0;
             cm.scroll_init = false;
-        }
-        const bool rows_now = StripRowCount(*column) > 0;
-        if (rows_now && !cm.had_rows) {
-            cm.had_rows = true;
-            cm.born = (animate && slot.id == kColumnStripChildId) ? motion_now_ : 0;
         }
         const float view_h = ColumnStripViewHeight(slot.rect);
         StepStripScroll(cm, ColumnStripScrollPx(*column, view_h), view_h, motion_now_, animate, pm.moving);
@@ -498,11 +486,6 @@ void MainRenderer::DrawColumnStripColumn(const WindowViewModel& vm, const PaneVi
     } else {
         cm.highlight.Hide();
     }
-    const uint64_t cascade_age = cm.born ? motion_now_ - cm.born : ~uint64_t{0};
-    if (cm.born && cascade_age < static_cast<uint64_t>(kCascadeRowMs + kCascadeStaggerMs * kCascadeRows) + 20)
-        pm.moving = true;
-    D2D1_MATRIX_3X2_F base_transform{};
-    dc->GetTransform(&base_transform);
     for (int row = first; row <= last; ++row) {
         const int source = (*column.rows)[static_cast<size_t>(row)];
         if (source < 0 || static_cast<size_t>(source) >= entries.size()) continue;
@@ -511,20 +494,19 @@ void MainRenderer::DrawColumnStripColumn(const WindowViewModel& vm, const PaneVi
         const D2D1_RECT_F cell = D2D1::RectF(rc.left + pad, top + 1.0f * scale_,
                                              rc.right - pad, top + row_height_ - 1.0f * scale_);
         const bool highlighted = row == column.highlight_row;
+        const bool row_hovered = hover_col && vm.hover_control_index == row;
         // The pane's gliding plate draws the hover (high contrast: here).
-        const bool hovered = hc && hover_col && vm.hover_control_index == row;
-        // Cascade: fade in and slide from the left, row by row.
-        float fade = 1.0f;
-        if (cm.born) {
-            const float t = static_cast<float>(cascade_age) -
-                            kCascadeStaggerMs * static_cast<float>((std::min)(row - first, kCascadeRows));
-            const float p = std::clamp(t / kCascadeRowMs, 0.0f, 1.0f);
-            const float ease = 1.0f - (1.0f - p) * (1.0f - p) * (1.0f - p);
-            fade = ease;
-            if (fade <= 0.0f) continue;
-            if (ease < 1.0f)
-                dc->SetTransform(base_transform *
-                                 D2D1::Matrix3x2F::Translation(-kCascadeSlideDip * scale_ * (1.0f - ease), 0.0f));
+        const bool hovered = hc && row_hovered;
+        // Same zebra as the current-folder list, so ancestor columns keep
+        // the stripes after the next folder becomes current.
+        if (list_zebra_ && (row & 1) && !highlighted && !row_hovered && !hc) {
+            D2D1_COLOR_F zebra = theme.text;
+            zebra.a = (theme.bg.r < 0.5f) ? 0.035f : 0.025f;
+            MakeBrush(dc, zebra, brFillInput_);
+            FillRoundedRect(dc, brFillInput_.get(), cell.left, cell.top,
+                            std::max(0.0f, cell.right - cell.left),
+                            std::max(0.0f, cell.bottom - cell.top),
+                            theme.radius_control * scale_);
         }
         const bool own_highlight = highlighted && !glide_highlight;
         if (own_highlight || hovered) {
@@ -551,7 +533,7 @@ void MainRenderer::DrawColumnStripColumn(const WindowViewModel& vm, const PaneVi
         const float iy = std::round(top + (row_height_ - icon) * 0.5f);
         const std::wstring full = JoinDirName(column.path, entry.name);
         const D2D1_RECT_F dest = D2D1::RectF(ix, iy, ix + icon, iy + icon);
-        const float hidden_alpha = HiddenEntryAlpha(entry.attrs) * fade;
+        const float hidden_alpha = HiddenEntryAlpha(entry.attrs);
         // Nothing to open into: the empty-folder icon, and no chevron below.
         const bool empty_folder = entry.is_dir && column.empty_sources.contains(source);
         if (empty_folder) {
@@ -566,7 +548,7 @@ void MainRenderer::DrawColumnStripColumn(const WindowViewModel& vm, const PaneVi
         if (IsProtectedSystemEntry(entry.attrs)) DrawProtectedBadge(dc, dest, scale_, theme);
         const D2D1_COLOR_F name_color =
             IsHighContrast() ? theme.text : HiddenEntryNameColor(entry.attrs, theme, theme.text);
-        MakeBrush(dc, WithAlpha(name_color, name_color.a * fade), brText_);
+        MakeBrush(dc, name_color, brText_);
         const float tx = ix + icon + 8.0f * scale_;
         const float chevron_w = entry.is_dir && !empty_folder ? 18.0f * scale_ : 0.0f;
         DrawTextEndEllipsis(compositor_, compositor_->FileNameFormat(), brText_.get(), entry.name,
@@ -574,9 +556,8 @@ void MainRenderer::DrawColumnStripColumn(const WindowViewModel& vm, const PaneVi
                             row_height_);
         if (entry.is_dir && !empty_folder) {
             DrawIconText(cell.right - chevron_w - 2.0f * scale_, top, chevron_w, row_height_,
-                         kIconChevronRight, L">", WithAlpha(theme.text_secondary, theme.text_secondary.a * fade), 0.55f);
+                         kIconChevronRight, L">", theme.text_secondary, 0.55f);
         }
-        if (fade < 1.0f) dc->SetTransform(base_transform);
     }
     dc->PopAxisAlignedClip();
     MakeBrush(dc, theme.text, brText_);
