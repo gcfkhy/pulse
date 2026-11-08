@@ -187,6 +187,7 @@ void ClearDropFeedback(AppState& s) {
     s.springStart = 0;
     s.springTab = -1;
     s.springTabStart = 0;
+    StopDropAutoScroll(s);
     // A drop target's plate on a column row (SetColumnDropHover) goes too.
     if (s.hoverRegion == static_cast<int>(ui::HitTestResult::ColumnStripRow)) {
         s.hoverRegion = static_cast<int>(ui::HitTestResult::None);
@@ -383,6 +384,7 @@ static DWORD ResolveDropTargetImpl(AppState& s, const std::vector<std::wstring>&
     ui::WindowViewModel vm = BuildVm(s);
     D2D1_RECT_F rect = D2D1::RectF(0, 0, (float)s.compositor.Width(), (float)s.compositor.Height());
     ui::HitTestResult hit = s.renderer.HitTest(vm, rect, (float)pt.x, (float)pt.y);
+    UpdateDropAutoScroll(s, vm, hit, pt, sources, key_state, allowed, preferred_effect);
     // Near either end of a long path in the 地址栏: page it that way.
     if ((hit.region == ui::HitTestResult::AddressBar || hit.region == ui::HitTestResult::BreadcrumbSegment) &&
         s.renderer.DragScrollBreadcrumb(vm, rect.right, (float)pt.x)) {

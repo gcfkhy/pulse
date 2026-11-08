@@ -79,6 +79,8 @@ namespace pulse {
 constexpr UINT kTimerUi = 1;
 // Scrolls the list while a marquee is dragged past its edge.
 constexpr UINT_PTR kTimerMarqueeScroll = 0x4D51;
+// Scrolls the list / a column while an OLE drag rests at its edge.
+constexpr UINT_PTR kTimerDropScroll = 0x4453;
 // Repaints when an owner-drawn caret (Settings > 快捷键 search) blinks.
 constexpr UINT_PTR kTimerDrawnCaret = 0x4342;
 
@@ -841,6 +843,12 @@ struct AppState : AppCoreOwner {
     // kTimerMarqueeScroll only keeps them coming when the pump is unavailable.
     bool marqueeAutoScroll = false;
     std::chrono::steady_clock::time_point marqueeScrollLast{};
+    bool dropAutoScroll = false;
+    std::chrono::steady_clock::time_point dropScrollLast{};
+    std::vector<std::wstring> dropScrollSources;
+    DWORD dropScrollKeys = 0;
+    DWORD dropScrollAllowed = 0;
+    DWORD dropScrollPreferred = 0;
     // Pointer moved since the band was last applied; Render applies it once
     // per frame instead of once per mouse message.
     bool marqueeSelectionDirty = false;

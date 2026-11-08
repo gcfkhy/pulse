@@ -57,6 +57,15 @@ void TickMarqueeAutoScroll(AppState& s);
 // Render, once per frame: advances edge auto-scroll by elapsed time and
 // applies a band the pointer or scrolling changed since the last frame.
 void UpdateMarqueeFrame(AppState& s);
+// OLE drag: scroll the list or column under the pointer when it rests at
+// the top or bottom, so a drop can reach a folder that is off screen.
+void UpdateDropAutoScroll(AppState& s, const ui::WindowViewModel& vm,
+                          const ui::HitTestResult& hit, POINT pt,
+                          const std::vector<std::wstring>& sources,
+                          DWORD keys, DWORD allowed, DWORD preferred);
+void TickDropAutoScroll(AppState& s);
+void UpdateDropScrollFrame(AppState& s);
+void StopDropAutoScroll(AppState& s);
 void HandleListRowClick(AppState& s, int index, bool ctrl, bool shift);
 void FinishListRowClick(AppState& s);
 void CancelRenameClick(AppState& s);

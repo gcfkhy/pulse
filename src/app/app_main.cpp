@@ -493,7 +493,8 @@ static thread_local const RECT* t_paint_damage = nullptr;
 // Motion the app runs itself (scrolling, layout, theme): it moves pixels the
 // partial-redraw damage does not know about.
 static bool AppMotion(const AppState& s) {
-    return s.scrollAnimating || s.marqueeAutoScroll || s.themeReveal.start || s.paneLayoutMotion.start;
+    return s.scrollAnimating || s.marqueeAutoScroll || s.dropAutoScroll || s.themeReveal.start ||
+           s.paneLayoutMotion.start;
 }
 
 void Render(AppState& s) {
@@ -538,6 +539,7 @@ void Render(AppState& s) {
     const bool app_motion = AppMotion(s);  // before this frame's scroll step
     if (s.scrollAnimating) UpdateSmoothScroll(s);
     UpdateMarqueeFrame(s);
+    UpdateDropScrollFrame(s);
     UpdateProcessMetrics(s);
     ui::WindowViewModel vm = BuildVm(s);
     pulse::app::startup_trace::Mark("frame_vm");
@@ -2188,8 +2190,8 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
             return 0;
         }
         if (!IsWindowVisible(hwnd) || IsIconic(hwnd) ||
-            (!s->scrollAnimating && !s->marqueeAutoScroll && !s->themeReveal.start && !s->paneLayoutMotion.start &&
-             !s->renderer.TickMotion(GetTickCount64()))) {
+            (!s->scrollAnimating && !s->marqueeAutoScroll && !s->dropAutoScroll && !s->themeReveal.start &&
+             !s->paneLayoutMotion.start && !s->renderer.TickMotion(GetTickCount64()))) {
             s->framePump.Disarm();  // WM_PAINT re-arms once shown again
             return 0;
         }
@@ -2244,6 +2246,10 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
         }
         if (s && wParam == kTimerMarqueeScroll) {
             TickMarqueeAutoScroll(*s);
+            return 0;
+        }
+        if (s && wParam == kTimerDropScroll) {
+            TickDropAutoScroll(*s);
             return 0;
         }
         if (s && wParam == kTimerDrawnCaret) {
