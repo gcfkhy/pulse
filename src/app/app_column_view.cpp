@@ -395,6 +395,29 @@ bool SelectColumnStripRow(AppState& s, const ui::HitTestResult& hit) {
     return active && active->SelectedCount() > 0;
 }
 
+bool ColumnStripDropFolder(AppState& s, const ui::HitTestResult& hit, std::wstring& folder,
+                           int* folder_row) {
+    using R = ui::HitTestResult;
+    if (folder_row) *folder_row = -1;
+    if (hit.region != R::ColumnStripRow && hit.region != R::ColumnStripBlank) return false;
+    app::Tab* tab = TabAtSlot(s, hit.pane_index);
+    const app::ColumnStripColumn* col = tab ? StripColumn(*tab, hit.sub_index) : nullptr;
+    if (!col || col->path.empty()) return false;
+    folder = col->path;
+    if (hit.region != R::ColumnStripRow || !col->rows || !col->rows_snapshot || hit.index < 0 ||
+        static_cast<size_t>(hit.index) >= col->rows->size()) {
+        return true;
+    }
+    const int source = (*col->rows)[static_cast<size_t>(hit.index)];
+    if (source < 0 || static_cast<size_t>(source) >= col->rows_snapshot->size()) return true;
+    const fs::DirEntry& entry = (*col->rows_snapshot)[static_cast<size_t>(source)];
+    if (!entry.is_dir || entry.change_record_only || !entry.recycle_path.empty()) return true;
+    if (!folder.ends_with(L"\\")) folder += L"\\";
+    folder += entry.name;
+    if (folder_row) *folder_row = hit.index;
+    return true;
+}
+
 bool UpdateColumnStripResize(AppState& s, int x) {
     if (s.stripHScrolling) {
         app::Tab* tab = TabAtSlot(s, s.stripResizePane);

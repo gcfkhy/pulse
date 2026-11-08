@@ -190,6 +190,12 @@ void ClearDropFeedback(AppState& s) {
     s.springStart = 0;
     s.springTab = -1;
     s.springTabStart = 0;
+    // A drop target's plate on a column row (SetColumnDropHover) goes too.
+    if (s.hoverRegion == static_cast<int>(ui::HitTestResult::ColumnStripRow)) {
+        s.hoverRegion = static_cast<int>(ui::HitTestResult::None);
+        s.hoverControlIndex = -1;
+        s.hoverSubIndex = -1;
+    }
     InvalidateRect(s.hwnd, nullptr, FALSE);
 }
 
@@ -305,6 +311,27 @@ static DWORD ResolveDropTargetImpl(AppState& s, const std::vector<std::wstring>&
                                    POINT pt, DWORD key_state, DWORD allowed,
                                    DWORD preferred_effect);
 
+// Moves the column view's hover plate onto the folder row a drag targets, and
+// off a column row it no longer does.
+static void SetColumnDropHover(AppState& s, const ui::HitTestResult& hit, int row) {
+    const int region = static_cast<int>(ui::HitTestResult::ColumnStripRow);
+    if (row >= 0) {
+        if (s.hoverRegion == region && s.hoverPaneIndex == hit.pane_index &&
+            s.hoverSubIndex == hit.sub_index && s.hoverControlIndex == row) return;
+        s.hoverRegion = region;
+        s.hoverPaneIndex = hit.pane_index;
+        s.hoverSubIndex = hit.sub_index;
+        s.hoverControlIndex = row;
+    } else if (s.hoverRegion == region) {
+        s.hoverRegion = static_cast<int>(ui::HitTestResult::None);
+        s.hoverControlIndex = -1;
+        s.hoverSubIndex = -1;
+    } else {
+        return;
+    }
+    InvalidateRect(s.hwnd, nullptr, FALSE);
+}
+
 DWORD ResolveDropTarget(AppState& s, const std::vector<std::wstring>& sources,
                         POINT pt, DWORD key_state, DWORD allowed,
                         DWORD preferred_effect) {
@@ -390,6 +417,13 @@ static DWORD ResolveDropTargetImpl(AppState& s, const std::vector<std::wstring>&
     if (!tab) return DROPEFFECT_NONE;
 
     std::wstring destName;
+    int column_row = -1;
+    // The column row a drag rests on shows the hover plate (no mouse moves
+    // arrive during DoDragDrop).
+    struct ColumnDropHover {
+        AppState& s; const ui::HitTestResult& hit; int& row;
+        ~ColumnDropHover() { SetColumnDropHover(s, hit, row); }
+    } column_hover{s, hit, column_row};
     const bool file_row = hit.region == ui::HitTestResult::Row && hit.index >= 0 &&
         tab->snapshot && hit.index < (int)tab->EntryCount() && !tab->EntryAt(hit.index).is_dir;
     const std::wstring launch_program = file_row ? DropLaunchProgramAt(*tab, hit.index) : std::wstring();
@@ -446,6 +480,18 @@ static DWORD ResolveDropTargetImpl(AppState& s, const std::vector<std::wstring>&
         s.dropBadgeY = (float)pt.y;
         InvalidateRect(s.hwnd, nullptr, FALSE);
         return effect;
+    } else if (std::wstring column_folder; ColumnStripDropFolder(s, hit, column_folder, &column_row)) {
+        // Column view: a folder row takes the drop, anywhere else in a column
+        // its folder does (an ancestor column = a folder up the path).
+        s.springRow = -1;
+        if (ui::DropIntoOwnFolder(sources, column_folder)) {
+            column_row = -1;
+            InvalidateRect(s.hwnd, nullptr, FALSE);
+            return DROPEFFECT_NONE;
+        }
+        s.dropDestDir = column_folder;
+        s.dropPaneIndex = hit.pane_index;
+        destName = BaseName(column_folder);
     } else if (on_strip_tab) {
         s.springRow = -1;
         const app::Tab* view = s.window_tabs.items[static_cast<size_t>(hit.index)]->ActiveFolder();
