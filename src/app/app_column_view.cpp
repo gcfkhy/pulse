@@ -104,6 +104,9 @@ void RebuildRows(app::ColumnStripColumn& col, const app::Tab& tab) {
 
 void SyncColumn(AppState& s, const app::Tab& tab, app::ColumnStripColumn& col) {
     if (col.path.empty()) return;
+    // A copy / move / delete (or a watch) marked the folder dirty: list it
+    // again. GetOrStart clears the mark when it starts that listing.
+    if (col.requested && col.generation == 0 && s.store.IsDirty(col.path)) col.requested = false;
     if (!col.requested) RequestColumn(s, tab, col);
     RebuildRows(col, tab);
 }
