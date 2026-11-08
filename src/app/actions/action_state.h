@@ -1,7 +1,7 @@
 // action_state.h - What the AI sees of a window, what it selects, and what it
 // waits for.
 //
-//   StateSnapshot   get_state: tabs, panes in screen order, selection, tray,
+//   StateSnapshot   get_state: tabs, panes in screen order, selection,
 //                   preview, a modal dialog, panels, the running file task
 //   Selector        {"pane":2,"extensions":["pdf"],"modified":"today"}: the
 //                   rows of one pane that meet every condition; only rows the
@@ -36,7 +36,6 @@ namespace pulse::app::actions {
 // The focused pane lists up to this many selected paths; other panes names.
 inline constexpr size_t kStateFocusedPaths = 200;
 inline constexpr size_t kStateOtherNames = 20;
-inline constexpr size_t kStateTrayNames = 10;
 inline constexpr size_t kSelectionNames = 20;
 
 // get_state. Paths are shown without the \\?\ prefix.

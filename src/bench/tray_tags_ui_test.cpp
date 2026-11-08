@@ -17,23 +17,6 @@ LRESULT CALLBACK TrayTagsWindow(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
 void Pump(HWND hwnd) { MSG msg{}; while (PeekMessageW(&msg, hwnd, 0, 0, PM_REMOVE)) { TranslateMessage(&msg); DispatchMessageW(&msg); } }
-struct Probe {
-    std::atomic<int> calls{0}, entered{0}, exited{0}, mode{0};
-    std::atomic<bool> release{false}, wrong_thread{false};
-    DWORD ui = GetCurrentThreadId();
-    DWORD Query(const std::wstring&, WIN32_FILE_ATTRIBUTE_DATA& data, const std::atomic<bool>& cancel) {
-        ++calls; ++entered;
-        if (GetCurrentThreadId() == ui) wrong_thread = true;
-        if (mode == 0) while (!release && !cancel) Sleep(1);
-        if (mode == 3) while (!release) Sleep(1); // deliberately ignores cancellation
-        ++exited;
-        if (cancel) return ERROR_CANCELLED;
-        if (mode == 2) return ERROR_ACCESS_DENIED;
-        data.dwFileAttributes = FILE_ATTRIBUTE_NORMAL; data.nFileSizeLow = 7;
-        data.ftLastWriteTime.dwLowDateTime = 1234;
-        return ERROR_SUCCESS;
-    }
-};
 }
 bool RunTrayTagsUiTest() {
     using namespace pulse;
@@ -52,12 +35,9 @@ bool RunTrayTagsUiTest() {
         if (h != INVALID_HANDLE_VALUE) { DWORD written = 0; WriteFile(h, "private", 7, &written, nullptr); CloseHandle(h); files.push_back(path); }
         return h != INVALID_HANDLE_VALUE ? path : std::wstring();
     };
-    const std::wstring initial[]{file(L"pair-a.txt"), file(L"pair-b.txt"), file(L"pair-c.txt"), file(L"pair-d.txt")};
-    check(!initial[0].empty() && !initial[1].empty() && !initial[2].empty() && !initial[3].empty(), "private comparison files created");
     auto owner = std::make_unique<AppState>(); auto& s = *owner;
     s.isolatedTest = true; s.shot.active = true;
     s.appPrefs.persist = s.searchHistory.persist = s.ctxMenuPrefs.persist = s.places.persist = false;
-    s.appPrefs.tray_dests.clear();
     WNDCLASSW wc{}; wc.lpfnWndProc = TrayTagsWindow; wc.hInstance = GetModuleHandleW(nullptr); wc.lpszClassName = L"PulseTrayTagsPrivateTest";
     RegisterClassW(&wc);
     s.hwnd = CreateWindowExW(0, wc.lpszClassName, L"", WS_POPUP, 0, 0, 1000, 640, nullptr, nullptr, wc.hInstance, nullptr);
@@ -76,61 +56,7 @@ bool RunTrayTagsUiTest() {
         LayoutOf(s) = panes == 1 ? app::LayoutPreset::Single : app::LayoutPreset::TwoVertical;
         Root(s) = app::MakePresetTree(LayoutOf(s), used); LiveLayout(s).focused_index = 0; s.pane = used.front();
     };
-    setup(1, std::make_shared<std::vector<fs::DirEntry>>());
-    auto probe = std::make_shared<Probe>();
-    s.trayMetadata = std::make_unique<app::TrayCompareMetadata>([probe](const auto& path, auto& data, const auto& cancel) { return probe->Query(path, data, cancel); });
-    s.tray.Collect({initial[0], initial[1]}, false); s.trayCompare = true;
-    const auto begin = GetTickCount64();
-    auto vm = BuildVm(s, false);
-    check(GetTickCount64() - begin < 1000 && vm.tray_deck.comparing && vm.tray_deck.compare.content == 1,
-        "real BuildVm returns pending without blocking on slow metadata");
     auto wait = [&](const auto& predicate) { const auto deadline = GetTickCount64() + 3000; while (!predicate() && GetTickCount64() < deadline) { Pump(s.hwnd); Sleep(1); } return predicate(); };
-    check(wait([&] { return probe->entered.load() != 0; }), "background query entered controlled slow provider");
-    for (int i = 0; i < 30; ++i) BuildVm(s, false);
-    check(probe->calls == 1 && !probe->wrong_thread, "hit-test VM rebuilds reuse pending pair and never query on UI thread");
-    s.tray.Clear(); s.tray.Collect({initial[2], initial[3]}, false); BuildVm(s, false);
-    check(wait([&] { return probe->entered >= 2; }), "pair change cancels old query and admits latest pair");
-    probe->release = true;
-    check(wait([&] { return BuildVm(s, false).tray_deck.compare.content == 0; }), "new pair receives ready metadata without old result overwrite");
-    s.trayCompare = false; BuildVm(s, false); probe->release = false;
-    const auto before_close = probe->entered.load();
-    s.trayCompare = true; BuildVm(s, false);
-    check(wait([&] { return probe->entered > before_close; }), "comparison reopened with a slow active query");
-    s.trayCompare = false; BuildVm(s, false);
-    check(wait([&] { return probe->entered == probe->exited; }), "closing comparison cancels its active query");
-    const auto closed_calls = probe->calls.load(); for (int i = 0; i < 30; ++i) BuildVm(s, false);
-    check(probe->calls == closed_calls, "closed comparison stops further metadata discovery");
-    probe->mode = 2;
-    s.trayCompare = true; BuildVm(s, false);
-    check(wait([&] { return BuildVm(s, false).tray_deck.compare.content == 4; }), "metadata read failure remains visible as unreadable");
-    const auto calls = probe->calls.load(); for (int i = 0; i < 30; ++i) BuildVm(s, false);
-    check(probe->calls == calls, "failed pair uses bounded retry instead of repaint retries");
-    s.trayCompare = false; BuildVm(s, false); s.trayMetadata.reset(); s.tray.Clear();
-    check(wait([&] { return probe.use_count() == 1; }), "cancelled metadata worker released its owned state before next fixture");
-    std::vector<std::shared_ptr<Probe>> retired;
-    for (int i = 0; i < 4; ++i) {
-        auto blocked = std::make_shared<Probe>(); blocked->mode = 3;
-        auto metadata = std::make_unique<app::TrayCompareMetadata>([blocked](const auto& path, auto& data, const auto& cancel) { return blocked->Query(path, data, cancel); });
-        metadata->Read({{1, 2}, {initial[0], initial[1]}}, nullptr);
-        check(wait([&] { return blocked->entered > 0; }), "noncooperating provider admitted within global bound");
-        const auto close = GetTickCount64(); metadata.reset();
-        check(GetTickCount64() - close < 500, "closing owner does not join noncooperating metadata provider");
-        retired.push_back(blocked);
-    }
-    app::TrayCompareMetadata limited;
-    const auto limited_result = limited.Read({{1, 2}, {initial[0], initial[1]}}, nullptr);
-    check(limited_result.status == app::TrayMetadataSnapshot::Status::Error && limited_result.error == ERROR_BUSY,
-        "retired workers count toward global admission limit");
-    for (const auto& blocked : retired) blocked->release = true;
-    check(wait([&] { for (const auto& blocked : retired) if (blocked.use_count() != 1) return false; return true; }),
-        "private blocked providers released after nonblocking-close assertions");
-    {
-        app::TrayCompareMetadata native;
-        app::TrayMetadataSnapshot value;
-        check(wait([&] { value = native.Read({{1, 2}, {initial[0], initial[1]}}, nullptr); return value.status != app::TrayMetadataSnapshot::Status::Pending; }) &&
-            value.status == app::TrayMetadataSnapshot::Status::Ready && value.files[0].nFileSizeLow == 7 && value.files[1].nFileSizeLow == 7,
-            "production native metadata provider reads private files off UI thread");
-    }
     if (ready) {
         s.worker.Start([](app::WorkResult) {});
         int case_number = 0;

@@ -391,9 +391,6 @@ std::wstring GetPulseDataDir() {
 }
 
 std::wstring SessionToJson(const SessionSnapshot& snap) {
-    std::wstring trayJson;
-    snap.tray.ToJson(trayJson);
-
     std::wostringstream f;
     f << L"{\n";
     f << L"  \"version\":" << kSessionVersion << L",\n";
@@ -424,7 +421,6 @@ std::wstring SessionToJson(const SessionSnapshot& snap) {
       << L",\n";
     f << L"  \"detailsPreviewOnly\":" << (snap.details_preview_only ? L"true" : L"false") << L",\n";
     f << L"  \"detailsPreview\":" << (snap.details_preview ? L"true" : L"false") << L",\n";
-    f << L"  \"tray\":" << trayJson << L",\n";
     f << L"  \"undo\":" << (snap.undo_json.empty() ? L"[]" : snap.undo_json) << L",\n";
     f << L"  \"activeTab\":" << snap.active_layout_tab << L",\n";
     f << L"  \"tabGroups\":" << TabGroupsToJson(snap.tab_groups) << L",\n";
@@ -612,9 +608,7 @@ bool ParseSessionJson(const std::wstring& json, SessionSnapshot& snap) {
                 static_cast<float>(columnEdges[i]) / 10000.0f;
     }
 
-    // Both hold nested arrays (each tray batch has its own "items" list).
-    if (const std::wstring tray = top.Array(L"tray"); !tray.empty())
-        snap.tray.FromJson(tray);
+    // An old session's "tray" array (the removed staging tray) is ignored.
     if (std::wstring undo = top.Array(L"undo"); !undo.empty())
         snap.undo_json = std::move(undo);
 

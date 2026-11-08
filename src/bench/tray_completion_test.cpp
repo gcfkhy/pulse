@@ -1,4 +1,7 @@
-#include "../app/app_model.h"
+// Move task completion: confirmed move roots across success, partial
+// cancellation, skips, merges, shutdown and the elevated helper report.
+// (Written for the staging tray, which was removed; the ops checks remain.)
+#include <windows.h>
 #include "../ops/ops_manager.h"
 #include "../ops/confirmed_move_roots.h"
 #include <filesystem>
@@ -38,46 +41,6 @@ int RunTrayCompletionTest() {
         fs::create_directories(path.parent_path());
         std::ofstream file(path); file << "test";
     };
-    const auto a = root / L"model/a.txt", b = root / L"model/b.txt";
-    write(a); write(b);
-    app::StagingTray tray;
-    tray.Collect({a.wstring(), b.wstring()}, true);
-    const auto batch_id = tray.batches()[0].id;
-    const auto aid = tray.batches()[0].items[0].id, bid = tray.batches()[0].items[1].id;
-    tray.MarkInFlight(0, {aid, bid}, true);
-    check(!tray.IsInFlight(a.wstring()), "rejected submit reserves nothing");
-    tray.MarkInFlight(10, {aid, bid}, true);
-    tray.MarkInFlight(11, {aid}, true);
-    check(tray.batches()[0].items.size() == 2 && tray.batches()[0].items[0].inflight_task == 10,
-          "submit retains rows and cannot overwrite their task");
-    tray.Collect({a.wstring()}, true);
-    check(tray.batches()[1].id != batch_id && tray.batches()[1].items[0].id != aid && tray.IsInFlight(a.wstring()),
-          "new same-path batch has distinct identity and sees existing reservation");
-    tray.CompleteTask(10, {a.wstring()});
-    check(tray.batches().size() == 2 && tray.batches()[0].items.size() == 1 &&
-          tray.batches()[0].items[0].id == bid && tray.batches()[0].total_size == 4 &&
-          tray.batches()[1].items.size() == 1 && !tray.IsInFlight(b.wstring()),
-          "partial success consumes only bound item and releases failed item");
-    tray.MarkInFlight(12, {bid}, true);
-    tray.CompleteTask(12, {});
-    check(tray.batches()[0].items[0].id == bid && !tray.batches()[0].items[0].inflight_task,
-          "zero success cancel or skip preserves identity and clears reservation");
-    tray.MarkInFlight(13, {bid}, false);
-    tray.CompleteTask(13, {b.wstring()});
-    check(tray.batches()[0].items[0].id == bid, "copy submission never consumes staged item");
-    tray.MarkInFlight(14, {bid}, true);
-    tray.Clear();
-    tray.Collect({b.wstring()}, true);
-    const auto replacement = tray.batches()[0].items[0].id;
-    check(replacement != bid && tray.IsInFlight(b.wstring()), "clear does not erase live task reservation or reuse identity");
-    tray.CompleteTask(14, {b.wstring()});
-    check(tray.batches()[0].items[0].id == replacement && !tray.IsInFlight(b.wstring()),
-          "late completion cannot consume recollected item");
-    tray.MarkInFlight(15, {replacement}, true);
-    tray.ReplacePath(b.wstring(), (root / L"renamed.txt").wstring());
-    tray.CompleteTask(15, {b.wstring()});
-    check(tray.batches().empty(), "completion matches immutable submitted path after display rename");
-
     ops::OpsManager manager;
     manager.Start([] {}, false); // Private transfer worker, no shared Shell service.
     auto run = [&](ops::OpRequest request, ops::ConflictChoice choice) {

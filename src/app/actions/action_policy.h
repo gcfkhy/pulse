@@ -8,8 +8,8 @@
 //   Plan     Move / Delete / PermanentDelete: the file steps of
 //            action_files.h show the user a plan card first (P4c): the first
 //            batch's for moves, the Recycle Bin card, the red two-click card
-//            for a permanent delete; other moves (tray.send_to) stay with
-//            the flow tools that have their own cards
+//            for a permanent delete; other moves stay with the flow
+//            tools that have their own cards
 //   Locked   UserOnly and the assistant's own limits: Pulse shows the user
 //            why and where to change it themselves
 #pragma once

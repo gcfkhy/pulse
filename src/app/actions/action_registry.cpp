@@ -1,7 +1,7 @@
 // action_registry.cpp - The action table and what each action does now.
 //
 // P1 wires the actions the palette offers first (navigation, tabs, windows,
-// view, selection, the common file commands, the tray, settings); the rest of
+// view, selection, the common file commands, settings); the rest of
 // the inventory joins in P4. Rows only call what their menu row or key calls.
 #include "action_registry.h"
 #include "../window_arrange_ui.h"
@@ -526,16 +526,6 @@ void ExportAliases(AppState& s) {
     if (PickJsonFile(s.hwnd, true, L"aliases.json", file)) AliasStore::Instance().ExportTo(file);
 }
 
-bool TrayEmpty(AppState& s) {
-    for (const auto& b : s.tray.batches())
-        if (!b.items.empty()) return false;
-    return true;
-}
-
-void FillTray(AppState& s, ActionView& v) {
-    if (TrayEmpty(s)) Off(v, I::ActWhyNoTray);
-}
-
 void FillComputeSize(AppState& s, ActionView& v) {
     const Tab* tab = ActiveTab(s);
     if (!tab || tab->SelectedCount() != 1) { Off(v, I::ActWhySelectOne); return; }
@@ -787,9 +777,6 @@ constexpr Def kDefs[] = {
      kNoRun, FillFolder},
     {"alias.manage", I::ManageAliasesEllipsis, I::ActDomTags, L"\xE8EC", P::None, kNoKey,
      CmdManageAliases, kNoRun, kAlways},
-    // 暂存区
-    {"tray.add", I::ActStageToTray, I::ActDomTray, L"\xE7B8", P::None, L"Ctrl+Shift+S", CmdStageToTray,
-     kNoRun, FillSelection},
     // 搜索
     {"search.advanced", I::AdvancedSearch, I::ActDomSearch, L"\xF5B7", P::None, L"Ctrl+Shift+F",
      CmdAdvancedSearch, kNoRun, kAlways},
@@ -843,18 +830,6 @@ constexpr Def kDefs[] = {
     {"alias.display", I::ActAliasDisplay, I::ActDomTags, L"\xE8EC", P::None, kNoKey, 0, kNoRun, FillAliasDisplay},
     {"alias.export", I::ExportAliasesEllipsis, I::ActDomTags, L"\xEDE1", P::None, kNoKey, 0, ExportAliases,
      FillAliases},
-    // P4: 暂存区
-    {"tray.remove", I::ActTrayRemove, I::ActDomTray, L"\xE711", P::None, kNoKey, 0, kNoRun, FillTray, nullptr, true},
-    {"tray.find_stale", I::ActTrayFindStale, I::ActDomTray, L"\xE721", P::None, kNoKey, 0,
-     +[](AppState& s) { TrayFindStale(s); }, FillTray},
-    {"tray.compare", I::ActTrayCompare, I::ActDomTray, L"\xF5B5", P::None, kNoKey, 0,
-     +[](AppState& s) { TrayToggleCompare(s); }, FillTray},
-    {"tray.text_diff", I::ActTrayTextDiff, I::ActDomTray, L"\xE8A5", P::None, kNoKey, 0,
-     +[](AppState& s) { TrayOpenTextDiff(s); }, FillTray},
-    {"tray.zip", I::ActTrayZip, I::ActDomTray, L"\xF012", P::None, kNoKey, 0, +[](AppState& s) { TrayShelfZip(s); },
-     FillTray},
-    {"tray.send_to", I::ActTraySendTo, I::ActDomTray, L"\xE8DE", P::None, kNoKey, 0,
-     +[](AppState& s) { ShowTrayReleaseMenu(s, BelowAddress(s)); }, FillTray},
     // P4: 搜索与预览
     {"search.open", I::ActSearchOpen, I::ActDomSearch, L"\xE721", P::None, kNoKey, 0, kNoRun, kAlways, nullptr,
      true},
@@ -944,7 +919,7 @@ constexpr std::pair<std::string_view, const wchar_t*> kSettingGlyphs[] = {
     {"folders_first", L"\xE8CB"}, {"alias_mark", L"\xE8AC"}, {"tree_sticky", L"\xE840"}, {"mtime_marks", L"\xE916"},
     {"mtime_range", L"\xEC92"}, {"startup_open", L"\xE81C"}, {"new_tab_open", L"\xECCD"},
     {"external_open", L"\xE8AD"}, {"tray_icon", L"\xECAA"}, {"open_folders_with_pulse", L"\xEC50"},
-    {"staging_icon_size", L"\xED1E"}, {"change_days", L"\xE9D5"},
+    {"change_days", L"\xE9D5"},
     {"menu_acrylic", L"\xE700"}, {"hover_select", L"\xE815"}, {"item_checkboxes", L"\xE73A"},
     {"show_hidden", L"\xED1A"}, {"show_protected", L"\xEA18"}, {"smart_dates", L"\xE787"},
     {"zebra_rows", L"\xE7BC"}, {"size_bars", L"\xE9D2"}, {"tag_name_color", L"\xE8EC"},
@@ -953,7 +928,7 @@ constexpr std::pair<std::string_view, const wchar_t*> kSettingGlyphs[] = {
     {"mtime_flash", L"\xE945"}, {"onedrive_status", L"\xE753"}, {"svn_status", L"\xE8AB"},
     {"vertical_tabs", L"\xE8A0"}, {"pinned_tab_names", L"\xE718"}, {"double_click_closes_tab", L"\xEA39"},
     {"close_window_with_last_tab", L"\xE89F"}, {"launch_at_signin", L"\xEC57"}, {"start_in_tray", L"\xE896"},
-    {"keep_running", L"\xE9F5"}, {"explorer_tag_menu", L"\xE838"}, {"staging_hide_when_empty", L"\xE8F6"},
+    {"keep_running", L"\xE9F5"}, {"explorer_tag_menu", L"\xE838"},
     {"change_tracking", L"\xE823"}, {"lan_discovery", L"\xE701"}, {"network_recent", L"\xE81C"},
     {"hidden_shares", L"\xED1A"}, {"confirm_delete", L"\xE897"}, {"global_search", L"\xE721"},
     {"pinyin_search", L"\xE721"},

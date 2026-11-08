@@ -1051,12 +1051,6 @@ void SettingsController::UiFontSize(int index) {
         SaveAndApply(SettingsEffect::UiFontSize);
 }
 
-void SettingsController::TrayIconSize(int index) {
-    static constexpr int values[] = {40, 48, 56};
-    if (prefs_ && SelectValue(index, values, prefs_->tray_icon_size))
-        SaveAndApply(SettingsEffect::TrayDeckIcon);
-}
-
 void SettingsController::DoubleCtrlGap(int index) {
     static constexpr int values[] = {200, 300, 400};
     if (prefs_ && SelectValue(index, values, prefs_->global_search_double_ctrl_ms))
@@ -1406,9 +1400,6 @@ void SettingsController::ToggleUi(int index) {
         SaveAndApply(SettingsEffect::MenuMaterial);
     } else if (index == 23) {
         prefs_->vertical_tabs = !prefs_->vertical_tabs;
-        SaveAndApply(SettingsEffect::None);
-    } else if (index == 37) {
-        prefs_->tray_hide_when_empty = !prefs_->tray_hide_when_empty;
         SaveAndApply(SettingsEffect::None);
     } else if (index == 24) {
         prefs_->show_hints = !prefs_->show_hints;

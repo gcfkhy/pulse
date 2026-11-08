@@ -77,7 +77,6 @@ enum class AiIcon : uint8_t {
     Split,
     NewWindow,
     Desktop,
-    Tray,
     Star,
     Keyboard,
     Tiles,

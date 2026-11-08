@@ -114,7 +114,6 @@ struct AppCore {
     uint64_t recycle_ignore_items = 0;
     bool recycle_info_guard = false;
 
-    app::StagingTray tray;
     app::PlacesCatalog places;
     app::ContextMenuPrefs ctxMenuPrefs;
     // Explorer COM/static menu session, caches, and delayed refresh state.
@@ -227,9 +226,6 @@ struct AppCore {
     // Cut state mirrored into list rows (ui.md §5.2 rule 6: 55% opacity).
     std::vector<std::wstring> cutPaths;
     DWORD pendingCutClipboardSequence = 0;
-    // Clipboard value CollectPathsToTray wrote for tray batch trayClipboardBatchId.
-    DWORD trayClipboardSequence = 0;
-    uint64_t trayClipboardBatchId = 0;
     std::vector<std::wstring> pendingCutClipboardPaths;
     std::vector<std::wstring> completedCutClipboardPaths;
 

@@ -238,9 +238,6 @@ void ClearDropFeedback(AppState& s) {
     s.dropParent = false;
     s.dropBreadcrumb = -1;
     s.dropSidebar = -1;
-    s.dropTray = false;
-    s.dragFilesOver = false;
-    s.dropTrayMove = false;
     s.dropQuickAccess = false;
     s.dropFavorite = -1;
     s.dropFavoriteAdd = false;
@@ -331,6 +328,10 @@ static DWORD FolderDropEffect(DWORD key_state, const std::vector<std::wstring>& 
 // released over that same folder are not a target, as in Explorer.
 static std::wstring g_drag_device_dir;
 
+// Pulse's own drag-out is running (StartDragOut): its sources are never an
+// archive manager's temporary extraction (#55).
+static bool g_internal_drag = false;
+
 // A phone folder that takes a drop: the shell copies into it (MTP), run in
 // the host by DropExecute. False for a phone's root, a read-only storage, an
 // iPhone and folders whose shell item is not known yet.
@@ -354,7 +355,6 @@ static DWORD RejectDropTarget(AppState& s) {
     s.dropParent = false;
     s.dropBreadcrumb = -1;
     s.dropSidebar = -1;
-    s.dropTray = false;
     s.dropQuickAccess = false;
     s.dropFavorite = -1;
     s.dropFavoriteAdd = false;
@@ -408,8 +408,8 @@ DWORD ResolveDropTarget(AppState& s, const std::vector<std::wstring>& sources,
         return RejectDropTarget(s);
     if (!ShellItemDrag(sources)) return effect;
     // A phone's items: copied or moved into a folder by the shell, never
-    // staged, starred, pinned, tagged, opened with an app or as a pane title.
-    const bool folder = !s.dropDestDir.empty() && !s.dropTray && !s.dropQuickAccess &&
+    // starred, pinned, tagged, opened with an app or as a pane title.
+    const bool folder = !s.dropDestDir.empty() && !s.dropQuickAccess &&
         !s.dropFavoriteAdd && FavoritesBarDropGroup().empty() && !s.dropHeader &&
         s.dropLaunchProgram.empty() && s.dropToolbarApp < 0 && !s.dropToolbarPin &&
         (!fs::IsVirtualPath(s.dropDestDir) || DeviceDropFolder(s.dropDestDir));
@@ -426,7 +426,6 @@ static DWORD ResolveDropTargetImpl(AppState& s, const std::vector<std::wstring>&
     s.dropParent = false;
     s.dropBreadcrumb = -1;
     s.dropSidebar = -1;
-    s.dropTray = false;
     s.dropQuickAccess = false;
     s.dropFavorite = -1;
     s.dropFavoriteAdd = false;
@@ -436,16 +435,6 @@ static DWORD ResolveDropTargetImpl(AppState& s, const std::vector<std::wstring>&
     s.dropLaunchShortcut.clear();
     s.dropBadge = l10n::Get(l10n::StringId::DragHintReleaseCancel);
     s.dropBadgeMove = false;
-    s.dropBadgeX = float(pt.x);
-    s.dropBadgeY = float(pt.y);
-    // Files from outside (or another pane) are over the window: the shelf
-    // opens its 复制暂存 / 移动暂存 halves. Shift picks the move half anywhere.
-    const bool shift = (key_state & MK_SHIFT) != 0;
-    if (!s.trayDragOut && !sources.empty() && !ShellItemDrag(sources)) {
-        if (!s.dragFilesOver) InvalidateRect(s.hwnd, nullptr, FALSE);
-        s.dragFilesOver = true;
-        s.dropTrayMove = shift && (allowed & DROPEFFECT_MOVE) != 0;
-    }
     if (sources.empty() || !(allowed & (DROPEFFECT_COPY | DROPEFFECT_MOVE | DROPEFFECT_LINK)))
         return DROPEFFECT_NONE;
 
@@ -763,31 +752,6 @@ static DWORD ResolveDropTargetImpl(AppState& s, const std::vector<std::wstring>&
         destName = BaseName(tab->current_path);
         s.springRow = -1;
     }
-    // Tray zone: bottom card of the sidebar = staging, not a move.
-    D2D1_RECT_F sb = s.renderer.SidebarRect(rect.right, rect.bottom);
-    if (s.dropDestDir.empty() && pt.x < sb.right && !s.trayDragOut) {
-        ui::WindowViewModel trayVm = BuildVm(s);
-        D2D1_RECT_F trayRc = s.renderer.StagingTrayRect(trayVm, rect.right, rect.bottom);
-        if (pt.x >= trayRc.left && pt.x < trayRc.right &&
-            pt.y >= trayRc.top && pt.y < trayRc.bottom) {
-            if (!(allowed & DROPEFFECT_COPY)) return DROPEFFECT_NONE;
-            s.dropTray = true;
-            s.springRow = -1;
-            // Left half stages a copy batch, right half a move batch; Shift
-            // flips the half under the cursor. The source is never touched
-            // here, so the OLE effect stays COPY.
-            const bool right_half = pt.x >= (trayRc.left + trayRc.right) * 0.5f;
-            const bool stage_move = (right_half != shift) && (allowed & DROPEFFECT_MOVE) != 0;
-            s.dropTrayMove = stage_move;
-            s.dropBadge = l10n::Get(stage_move ? l10n::StringId::TrayGhostMove
-                                               : l10n::StringId::TrayGhostCopy).c_str();
-            s.dropBadgeMove = stage_move;
-            s.dropBadgeX = (float)pt.x;
-            s.dropBadgeY = (float)pt.y;
-            InvalidateRect(s.hwnd, nullptr, FALSE);
-            return DROPEFFECT_COPY; // staging never moves the source
-        }
-    }
     if (s.dropDestDir.empty()) {
         if (!hit.path.empty() && fs::IsVirtualPath(hit.path))
             s.dropBadge = l10n::Get(l10n::StringId::DragHintNoTarget);
@@ -863,10 +827,6 @@ static DWORD ResolveDropTargetImpl(AppState& s, const std::vector<std::wstring>&
     return effect;
 }
 
-// Pulse's own drag-out is running (StartDragOut): its sources are never an
-// archive manager's temporary extraction (#55).
-static bool g_internal_drag = false;
-
 // Alt-drop (or Ctrl+Shift, Explorer's keys): a shortcut to each item in
 // `dest`, named "<name> - 快捷方式.lnk" and numbered when that is taken;
 // nothing is copied or moved. True when at least one was created.
@@ -924,14 +884,10 @@ DWORD DropExecute(AppState& s, const std::vector<std::wstring>& sources,
                          POINT pt, DWORD key_state, DWORD allowed,
                          DWORD preferred_effect) {
     // Resolve once more for the final position.
-    // Tray drag-out is copy-only: the staged originals stay where they are.
-    if (s.trayDragOut) allowed &= DROPEFFECT_COPY;
     DWORD effect = ResolveDropTarget(s, sources, pt, key_state, allowed, preferred_effect);
     std::wstring dest = s.dropDestDir;
     const std::wstring launch_program = s.dropLaunchProgram;
     const std::wstring launch_shortcut = s.dropLaunchShortcut;
-    bool tray = s.dropTray;
-    const bool tray_move = s.dropTrayMove;
     const bool header = s.dropHeader;
     const int header_pane = s.dropPaneIndex;
     const bool pin_quick_access = s.dropQuickAccess;
@@ -1038,11 +994,6 @@ DWORD DropExecute(AppState& s, const std::vector<std::wstring>& sources,
         effect = FolderDropEffect(key_state, sources, dest, allowed, preferred_effect);
     }
 
-    if (tray) {
-        // Staging leaves the clipboard alone; the half sets the release mode.
-        StagePaths(s, sources, tray_move);
-        return DROPEFFECT_COPY;
-    }
     if (dest.starts_with(L"pulse:tags:")) {
         std::vector<std::wstring> tag_ids;
         if (!TagViewDropTags(s, dest, &tag_ids)) return DROPEFFECT_NONE;
@@ -1096,7 +1047,7 @@ DWORD DropExecute(AppState& s, const std::vector<std::wstring>& sources,
     // resolved later (#55). Such items are copied unless the user or the
     // source asks for a move, and staged before this returns.
     const std::wstring temp_dir =
-        g_internal_drag || s.trayDragOut ? std::wstring() : app::TempDirectory();
+        g_internal_drag ? std::wstring() : app::TempDirectory();
     const std::wstring stage_root = app::DropStageRoot();
     const bool from_temp = !temp_dir.empty() && !sources.empty() &&
         std::all_of(sources.begin(), sources.end(), [&](const std::wstring& p) {
@@ -1126,7 +1077,6 @@ DWORD DropExecute(AppState& s, const std::vector<std::wstring>& sources,
         }
     } else submit(sources);
     if (!submitted) return DROPEFFECT_NONE;
-    if (s.trayDragOut) RememberTrayDest(s, dest);
     // Dropped into the folder a pane shows: the new rows get selected there.
     {
         const app::Pane* pane = PaneAtSlot(s, header_pane);
@@ -1200,139 +1150,6 @@ void StartDragOut(AppState& s) {
         RefreshActiveTab(s, RefreshReason::OperationCompleted);
     }
     InvalidateRect(s.hwnd, nullptr, FALSE);
-}
-
-// Drags every staged item that still exists out of the tray (other apps,
-// panes, sidebar folders). Always a copy, so the tray keeps its items.
-// `only` limits the drag to those item ids (open view rows).
-static void StartTrayDragOut(AppState& s, const std::vector<uint64_t>* only = nullptr) {
-    std::vector<std::wstring> paths;
-    for (const auto& batch : s.tray.batches())
-        for (const auto& item : batch.items) {
-            if (only && std::find(only->begin(), only->end(), item.id) == only->end()) continue;
-            if (GetFileAttributesW(item.path.c_str()) != INVALID_FILE_ATTRIBUTES)
-                paths.push_back(ClipboardPath(item.path));
-        }
-    if (paths.empty()) return;
-    CancelScrollAnimation(s);
-    s.trayDragOut = true;
-    ui::DoFileDragDrop(paths, DROPEFFECT_COPY, [&s] { return s.springEntered; }, {}, s.darkMode);
-    s.trayDragOut = false;
-    s.springEntered = false;
-    ClearDropFeedback(s);
-    InvalidateRect(s.hwnd, nullptr, FALSE);
-}
-
-// Open view row click: toggle the check of the staged item shown at path.
-static void ToggleTrayOpenCheck(AppState& s, const std::wstring& path) {
-    if (path.empty()) return;
-    for (const auto& b : s.tray.batches())
-        for (const auto& item : b.items) {
-            if (_wcsicmp(ClipboardPath(item.path).c_str(), path.c_str()) != 0) continue;
-            auto& checked = s.trayView.checked;
-            const auto at = std::find(checked.begin(), checked.end(), item.id);
-            if (at != checked.end()) checked.erase(at);
-            else if (item.exists) checked.push_back(item.id);
-            if (checked.size() != 2) s.trayView.compare = false;
-            return;
-        }
-}
-
-// Staging shelf press. The fan drags the whole
-// stack out; the main button releases into the current folder; ▾ and ⋯ open
-// their menus; chips send without opening the folder.
-static void HandleTrayShelfPress(AppState& s, HWND hwnd, const ui::HitTestResult& hit, int mx, int my) {
-    POINT sp{mx, my};
-    ClientToScreen(hwnd, &sp);
-    const bool move = TrayEffectiveMove(s);
-    switch (static_cast<ui::TrayShelfHit>(hit.index)) {
-    case ui::TrayShelfHit::Fan:
-        // DragDetect returns at once on release, so a plain click is a no-op.
-        if (DragDetect(hwnd, sp)) StartTrayDragOut(s);
-        break;
-    case ui::TrayShelfHit::Release:
-        if (const app::Tab* tab = ActiveTab(s); tab && !tab->current_path.empty())
-            ReleaseTrayTo(s, tab->current_path, move);
-        break;
-    case ui::TrayShelfHit::ReleaseMenu:
-        ShowTrayReleaseMenu(s, sp);
-        break;
-    case ui::TrayShelfHit::More:
-        ShowTrayBatchMenu(s, sp);
-        break;
-    case ui::TrayShelfHit::Zip:
-        TrayShelfZip(s);
-        break;
-    case ui::TrayShelfHit::Rename: {
-        const std::vector<std::wstring> paths = TrayLivePaths(s);
-        if (!paths.empty()) ShowBatchRenamePaths(s, paths);
-        break;
-    }
-    case ui::TrayShelfHit::Chip:
-        if (!hit.path.empty()) TraySendTo(s, hit.path, move);
-        break;
-    case ui::TrayShelfHit::Clip:
-        TakeTrayClip(s);
-        break;
-    case ui::TrayShelfHit::Expand:
-        s.trayView = {};
-        s.trayView.open = true;
-        s.trayView.opened_at = ui::motion::SystemAnimationsEnabled() ? ui::motion::NowMs() : 0;
-        break;
-    case ui::TrayShelfHit::Collapse:
-        s.trayView.open = false;
-        s.trayView.compare = false;
-        break;
-    case ui::TrayShelfHit::Filter:
-        if (hit.sub_index >= 0 && hit.sub_index < 4) {
-            s.trayView.filter = hit.sub_index;
-            s.trayView.scroll = 0.0f;
-        }
-        break;
-    case ui::TrayShelfHit::Row:
-        // Dragging a row takes the checked items along when it is one of
-        // them, else just that row; a click toggles its check.
-        if (DragDetect(hwnd, sp)) {
-            std::vector<uint64_t> ids;
-            for (const auto& b : s.tray.batches())
-                for (const auto& item : b.items)
-                    if (!hit.path.empty() && _wcsicmp(ClipboardPath(item.path).c_str(), hit.path.c_str()) == 0)
-                        ids.push_back(item.id);
-            const auto& checked = s.trayView.checked;
-            if (!ids.empty() && std::find(checked.begin(), checked.end(), ids.front()) != checked.end()) ids = checked;
-            if (!ids.empty()) StartTrayDragOut(s, &ids);
-        } else {
-            ToggleTrayOpenCheck(s, hit.path);
-        }
-        break;
-    case ui::TrayShelfHit::GroupOpen:
-        if (!hit.path.empty()) NavigateTo(s, hit.path);
-        break;
-    case ui::TrayShelfHit::SelNone:
-        s.trayView.checked.clear();
-        s.trayView.compare = false;
-        break;
-    case ui::TrayShelfHit::Compare:
-        s.trayView.compare = !s.trayView.compare;
-        s.trayView.compare_at = ui::motion::SystemAnimationsEnabled() ? ui::motion::NowMs() : 0;
-        break;
-    case ui::TrayShelfHit::CardClose:
-        s.trayView.compare = false;
-        break;
-    case ui::TrayShelfHit::CardAction:
-        if (hit.sub_index == 2) TrayOpenTextDiff(s);
-        else TrayStartContentCompare(s);
-        break;
-    case ui::TrayShelfHit::Pick: {
-        std::wstring folder;
-        if (PickFolder(s, folder, l10n::Get(l10n::StringId::TrayPickFolder).c_str(), L"tray_send") && !folder.empty())
-            TraySendTo(s, folder, move);
-        break;
-    }
-    default:
-        break;
-    }
-    InvalidateRect(hwnd, nullptr, FALSE);
 }
 
 float MaxScrollForActivePane(AppState& s, ui::PaneViewModel* out) {
@@ -2040,48 +1857,6 @@ LRESULT HandleMouseMove(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                     SetCursor(LoadCursorW(nullptr, horizontal ? IDC_SIZEWE : IDC_SIZENS));
                 return 0;
             }
-        }
-
-        // Press-and-hold on the top staging-tray card: the card follows the
-        // pointer; releasing decides between a fling to the back and a spring.
-        if (s->trayDrag.pending || s->trayDrag.active) {
-            if ((GetKeyState(VK_LBUTTON) & 0x8000) == 0) {
-                ReleaseTrayDrag(*s, false);
-                if (GetCapture() == hwnd) ReleaseCapture();
-                return 0;
-            }
-            const float sc = std::max(0.5f, s->scale);
-            const float dx = static_cast<float>(mx - s->trayDrag.x0) / sc;
-            const float dy = static_cast<float>(my - s->trayDrag.y0) / sc;
-            if (!s->trayDrag.active && std::abs(dx) + std::abs(dy) > 3.0f)
-                s->trayDrag.active = true;
-            const ULONGLONG now = ui::motion::NowMs();
-            const float dt = static_cast<float>(std::max<ULONGLONG>(1, now - s->trayDrag.last_t));
-            const float inst = static_cast<float>(mx - s->trayDrag.last_x) / sc / dt;
-            s->trayDrag.vx = s->trayDrag.vx * 0.4f + inst * 0.6f;
-            s->trayDrag.last_x = mx;
-            s->trayDrag.last_t = now;
-            s->trayDrag.dx = dx;
-            s->trayDrag.dy = dy;
-            if (s->trayDrag.active) {
-                // Leaving the sidebar, or pulling well above the tray, turns the
-                // gesture into a real drag-out; the card springs back meanwhile.
-                RECT crc{};
-                GetClientRect(hwnd, &crc);
-                const float w = static_cast<float>(crc.right);
-                const float h = static_cast<float>(crc.bottom);
-                const D2D1_RECT_F sb = s->renderer.SidebarRect(w, h);
-                const D2D1_RECT_F trayRc = s->renderer.StagingTrayRect(BuildVm(*s), w, h);
-                if (static_cast<float>(mx) >= sb.right ||
-                    static_cast<float>(my) < trayRc.top - 16.0f * s->scale) {
-                    ReleaseTrayDrag(*s, false);
-                    if (GetCapture() == hwnd) ReleaseCapture();
-                    StartTrayDragOut(*s);
-                    return 0;
-                }
-            }
-            InvalidateRect(hwnd, nullptr, FALSE);
-            return 0;
         }
 
         if (s->stripResizing || s->stripHScrolling) {
@@ -3192,38 +2967,6 @@ LRESULT HandleLButtonDown(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARA
             InvalidateRect(hwnd, nullptr, FALSE);
             return 0;
         }
-        if (hit.region == ui::HitTestResult::TrayShelf) {
-            HandleTrayShelfPress(*s, hwnd, hit, mx, my);
-            return 0;
-        }
-        if (hit.region == ui::HitTestResult::StagedBadge) {
-            // "已暂存" pill on a row: take that item off the shelf.
-            if (!hit.path.empty()) UnstagePath(*s, hit.path);
-            InvalidateRect(hwnd, nullptr, FALSE);
-            return 0;
-        }
-        if (hit.region == ui::HitTestResult::TrayCard && hit.index == 0) {
-            const auto top = TrayDeckEntries(s->tray, static_cast<size_t>(TrayStackTop(*s)), 1);
-            if (!top.empty()) {
-                s->trayDrag = AppState::TrayDrag{};
-                s->trayDrag.pending = true;
-                s->trayDrag.path = top.front().item->path;
-                s->trayDrag.x0 = mx;
-                s->trayDrag.y0 = my;
-                s->trayDrag.last_x = mx;
-                s->trayDrag.last_t = ui::motion::NowMs();
-                SetCapture(hwnd);
-                return 0;
-            }
-        }
-        if (hit.region == ui::HitTestResult::TrayPrev) {
-            TrayStepBack(*s);
-            return 0;
-        }
-        if (hit.region == ui::HitTestResult::TrayNext) {
-            ThrowTrayTop(*s, -1.0f, -30.0f, -10.0f);
-            return 0;
-        }
         if (HandleColumnStripMouseDown(*s, vm, hit, mx)) {
             InvalidateRect(hwnd, nullptr, FALSE);
             return 0;
@@ -3527,9 +3270,8 @@ LRESULT HandleLButtonDown(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARA
             default: s->settings.FolderSort(hit.index); break;
             }
             InvalidateRect(hwnd, nullptr, FALSE);
-        } else if (hit.region == ui::HitTestResult::SettingsTrayIcon || hit.region == ui::HitTestResult::SettingsDoubleCtrlGap) {
-            if (hit.region == ui::HitTestResult::SettingsTrayIcon) s->settings.TrayIconSize(hit.index);
-            else s->settings.DoubleCtrlGap(hit.index);
+        } else if (hit.region == ui::HitTestResult::SettingsDoubleCtrlGap) {
+            s->settings.DoubleCtrlGap(hit.index);
             InvalidateRect(hwnd, nullptr, FALSE);
         } else if (hit.region == ui::HitTestResult::SettingsWallpaperLook ||
                    hit.region == ui::HitTestResult::SettingsWallpaperBlur ||
@@ -3664,10 +3406,10 @@ LRESULT HandleLButtonDown(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARA
                    hit.region == ui::HitTestResult::ToolbarSelAction ||
                    hit.region == ui::HitTestResult::ToolbarPin) {
             // One branch on purpose: this else-if chain is at MSVC's nesting limit (C1061).
-            if (hit.region == ui::HitTestResult::Copy) CollectToTray(*s, false);
+            if (hit.region == ui::HitTestResult::Copy) CopySelectionToClipboard(*s, false);
             else RunToolbarAction(*s, hit.region == ui::HitTestResult::ToolbarPin, hit.index);
         } else if (hit.region == ui::HitTestResult::Cut) {
-            CollectToTray(*s, true);
+            CopySelectionToClipboard(*s, true);
         } else if (hit.region == ui::HitTestResult::Paste) {
             PasteIntoCurrent(*s);
         } else if (hit.region == ui::HitTestResult::Rename) {
@@ -3678,55 +3420,10 @@ LRESULT HandleLButtonDown(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARA
                    hit.region == ui::HitTestResult::GroupSelect) {
             ClickGroupHeader(*s, hit.pane_index, hit.index,
                              hit.region == ui::HitTestResult::GroupSelect);
-        } else if (hit.region == ui::HitTestResult::TrayCompare) {
-            if (hit.index == 0) TrayToggleCompare(*s);
-            else if (hit.index == 2) TrayOpenTextDiff(*s);
-            else TrayStartContentCompare(*s);
-        } else if (hit.region == ui::HitTestResult::TrayStale) {
-            if (hit.index == 0) TrayFindStale(*s);
-            else TrayRemoveStale(*s);
-        } else if (hit.region == ui::HitTestResult::TrayDest) {
-            // Recent destination chip: copy the whole tray there; Shift moves.
-            SendTrayToDest(*s, hit.path, (GetKeyState(VK_SHIFT) & 0x8000) != 0);
-        } else if (hit.region == ui::HitTestResult::TrayRelease) {
-            ReleaseTrayBatch(*s, (size_t)hit.index);
         } else if (hit.region == ui::HitTestResult::CompareDiffToggle) {
             ToggleCompareDiffOnly(*s);
         } else if (hit.region == ui::HitTestResult::CompareExit) {
             SetFolderCompare(*s, false);
-        } else if (hit.region == ui::HitTestResult::TrayIntent) {
-            const auto& batches = s->tray.batches();
-            if (hit.index >= 0 && hit.index < static_cast<int>(batches.size())) {
-                const bool to_move = !batches[(size_t)hit.index].move_intent;
-                s->tray.SetMoveIntent((size_t)hit.index, to_move);
-                InvalidateRect(hwnd, nullptr, FALSE);
-            }
-        } else if (hit.region == ui::HitTestResult::TrayClose) {
-            s->tray.RemoveBatch((size_t)hit.index);
-            InvalidateRect(hwnd, nullptr, FALSE);
-        } else if (hit.region == ui::HitTestResult::TrayItemRemove) {
-            // Dismiss: the card tumbles off in a puff of smoke.
-            const auto& batches = s->tray.batches();
-            if (hit.index >= 0 && hit.index < static_cast<int>(batches.size()) &&
-                hit.sub_index >= 0 &&
-                hit.sub_index < static_cast<int>(batches[(size_t)hit.index].items.size())) {
-                MarkTrayExit(*s, { batches[(size_t)hit.index].items[(size_t)hit.sub_index].path },
-                             false);
-                SpawnTrayPuffs(*s);
-            }
-            s->tray.RemoveItem((size_t)hit.index, (size_t)hit.sub_index);
-            InvalidateRect(hwnd, nullptr, FALSE);
-        } else if (hit.region == ui::HitTestResult::TrayClear) {
-            // Clear: the visible cards tumble off one after another.
-            std::vector<std::wstring> all;
-            for (const auto& b : s->tray.batches())
-                for (const auto& item : b.items) all.push_back(item.path);
-            if (!all.empty()) {
-                MarkTrayExit(*s, all, true);
-                SpawnTrayPuffs(*s);
-            }
-            s->tray.Clear();
-            InvalidateRect(hwnd, nullptr, FALSE);
         } else if (hit.region == ui::HitTestResult::RowFolderSize && hit.index >= 0) {
             s->fileClick.Begin(FileClickIdentityFor(*s, hit.index), static_cast<uint32_t>(GetMessageTime()), false, false);
             if (app::Tab* tab = ActiveTab(*s)) {
@@ -4141,7 +3838,6 @@ LRESULT HandleLButtonDown(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARA
         } else if (hit.region == ui::HitTestResult::StatusHintAction) {
             // Re-derived at click time, so the action always matches the current state.
             switch (CurrentStatusHintAction(*s)) {
-            case StatusHintAction::Tray: StageSelection(*s); break;
             case StatusHintAction::Compare: DispatchMenuCommand(*s, app::CmdCompareToggle); break;
             case StatusHintAction::DiffOnly:
             case StatusHintAction::ShowAll: DispatchMenuCommand(*s, app::CmdCompareDiffOnly); break;
@@ -4433,12 +4129,6 @@ LRESULT HandleLButtonUp(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                 } else {
                     s->settings.EndMenuDrag();
                 }
-                if (GetCapture() == hwnd) ReleaseCapture();
-                InvalidateRect(hwnd, nullptr, FALSE);
-                return 0;
-            }
-            if (s->trayDrag.pending || s->trayDrag.active) {
-                ReleaseTrayDrag(*s, true);
                 if (GetCapture() == hwnd) ReleaseCapture();
                 InvalidateRect(hwnd, nullptr, FALSE);
                 return 0;
@@ -4784,10 +4474,6 @@ LRESULT HandleCaptureChanged(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LP
             s->columnResizeIndex = -1;
             s->columnResizePane = -1;
             if (reinterpret_cast<HWND>(lParam) != hwnd) EndPaneSizeDrag(*s);
-            if (s->trayDrag.pending || s->trayDrag.active) {
-                // Capture lost mid-gesture: the card springs back home.
-                ReleaseTrayDrag(*s, false);
-            }
             EndColumnStripResize(*s);
             s->fileClick.CaptureChanged();
             if (s->starDragPending || s->starDragActive) {
@@ -4978,18 +4664,6 @@ LRESULT HandleRButtonUp(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             shown = true;
         } else if (hit.region == ui::HitTestResult::BreadcrumbSegment && !hit.path.empty()) {
             ShowBreadcrumbMenu(*s, hit.path, sp);
-            shown = true;
-        } else if (hit.region == ui::HitTestResult::TrayShelf &&
-                   static_cast<ui::TrayShelfHit>(hit.index) != ui::TrayShelfHit::Strip &&
-                   !s->tray.batches().empty()) {
-            ShowTrayBatchMenu(*s, sp);
-            shown = true;
-        } else if (hit.region == ui::HitTestResult::TrayCard ||
-                   hit.region == ui::HitTestResult::TrayIntent ||
-                   hit.region == ui::HitTestResult::TrayItemRemove ||
-                   hit.region == ui::HitTestResult::TrayPrev ||
-                   hit.region == ui::HitTestResult::TrayNext) {
-            ShowTrayBatchMenu(*s, sp);
             shown = true;
         } else if (hit.region == ui::HitTestResult::Row && hit.index >= 0) {
             app::Tab* tab = ActiveTab(*s);
@@ -5200,26 +4874,6 @@ LRESULT HandleMouseWheel(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             return 0;
         }
         const D2D1_RECT_F sidebarRc = s->renderer.SidebarRect(wheelRect.right, wheelRect.bottom);
-        // Tray stack first: the panel lives inside the sidebar rect, so the
-        // sidebar branch below would swallow every wheel event over it.
-        // Wheel down sends the top card to the back, wheel up brings the
-        // last one back on top (cyclic).
-        if (TrayItemTotalCount(s->tray) > 0) {
-            const D2D1_RECT_F tray_rc = s->renderer.StagingTrayRect(
-                wheelVm, wheelRect.right, wheelRect.bottom);
-            if (pt.x >= tray_rc.left && pt.x < tray_rc.right &&
-                pt.y >= tray_rc.top && pt.y < tray_rc.bottom) {
-                // Shelf redesign: the open view's list scrolls (FillTrayOpen
-                // clamps it); the other layers just keep the sidebar still.
-                if (s->trayView.open) {
-                    const float steps = static_cast<float>(GET_WHEEL_DELTA_WPARAM(wParam)) /
-                                        static_cast<float>(WHEEL_DELTA);
-                    s->trayView.scroll = std::max(0.0f, s->trayView.scroll - steps * 48.0f);
-                    InvalidateRect(hwnd, nullptr, FALSE);
-                }
-                return 0;
-            }
-        }
         if (pt.x >= sidebarRc.left && pt.x < sidebarRc.right &&
             pt.y >= sidebarRc.top && pt.y < sidebarRc.bottom &&
             // SidebarRect covers the hover-peek overlay, so it scrolls too.
@@ -5249,8 +4903,6 @@ LRESULT HandleMouseWheel(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             InvalidateRect(hwnd, nullptr, FALSE);
             return 0;
         }
-        // Tray deck: wheel over the panel pages the icon window (handled above,
-        // ahead of the sidebar branch that contains it).
         // A marquee belongs to the focused pane: the wheel scrolls it there.
         const bool marquee = s->listSelection.BandActive() || s->listSelection.PendingBand();
         if (wheelHit.pane_index >= 0 && !marquee) {
@@ -5395,33 +5047,6 @@ LRESULT HandleKeyDown(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
             return 0;
         }
 
-        // Open tray view: Esc collapses (the compare
-        // card first), Del takes the checked items off the tray, Enter
-        // releases them into this folder. Without checks Del / Enter keep
-        // acting on the list.
-        if (s->trayView.open && !ctrl && !alt && !s->addressSearching && !s->filterEditing &&
-            s->renameIndex < 0 && (GetFocus() == hwnd || GetFocus() == nullptr)) {
-            if (wParam == VK_ESCAPE) {
-                if (s->trayView.compare) s->trayView.compare = false;
-                else s->trayView.open = false;
-                InvalidateRect(hwnd, nullptr, FALSE);
-                return 0;
-            }
-            if (wParam == VK_DELETE && !shift && !s->trayView.checked.empty()) {
-                s->trayView.removing = s->trayView.checked;
-                s->trayView.remove_at = ui::motion::NowMs();
-                s->trayView.compare = false;
-                if (!ui::motion::SystemAnimationsEnabled()) s->trayView.remove_at -= 320;
-                InvalidateRect(hwnd, nullptr, FALSE);
-                return 0;
-            }
-            if (wParam == VK_RETURN && !s->trayView.checked.empty()) {
-                if (tab && !tab->current_path.empty()) ReleaseTrayTo(*s, tab->current_path, TrayEffectiveMove(*s));
-                InvalidateRect(hwnd, nullptr, FALSE);
-                return 0;
-            }
-        }
-
         auto switchToTab = [&](std::optional<size_t> target) {
             if (!target || *target == s->window_tabs.active) return;
             if (s->renameIndex >= 0) HideRenameOverlay(*s, false);
@@ -5529,16 +5154,14 @@ LRESULT HandleKeyDown(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
             ShowOmnibar(*s, OmnibarMode::Path);
         } else if (wParam == VK_F4) {
             ShowOmnibar(*s, OmnibarMode::Path);
-        } else if (ctrl && shift && wParam == L'S') {
-            StageSelection(*s);  // 加入暂存区: the clipboard is left alone
         } else if (ctrl && shift && wParam == L'C') {
             // As the 复制路径 rows that show this key: the selection, or the
             // folder when nothing is selected (background menu).
             DispatchMenuCommand(*s, app::CmdCopyPath);
         } else if (ctrl && wParam == L'C') {
-            CollectToTray(*s, false);
+            CopySelectionToClipboard(*s, false);
         } else if (ctrl && wParam == L'X') {
-            CollectToTray(*s, true);
+            CopySelectionToClipboard(*s, true);
         } else if (ctrl && wParam == L'V') {
             PasteIntoCurrent(*s);
         } else if (ctrl && !alt && ((!shift && wParam == L'Y') || (shift && wParam == L'Z'))) {

@@ -124,7 +124,7 @@ ToolOutcome FindActionsTool(HWND host, const ToolCall& call, const Settings& set
     const bool none = rows.size() == 0;
     out.data.set("actions", std::move(rows));
     if (none) out.data.set("note", "nothing matched; try other words (Chinese or English) or domain settings");
-    // 「“移动” → file.move_to、file.copy_to、tray.send_to」 under 查找动作.
+    // 「“移动” → file.move_to、file.copy_to」 under 查找动作.
     if (domain == "settings") {
         out.summary = L"\n" + Fill(Text(I::AiMcpSumSettings), L"{n}", std::to_wstring(count));
     } else {

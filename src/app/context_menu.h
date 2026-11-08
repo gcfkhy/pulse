@@ -128,7 +128,7 @@ enum MenuCmd : int {
     CmdUnpinNetwork = 3904,     // Network view: remove the selected pins
     CmdCompressZip = 3905,      // toolbar 压缩: the selection into a .zip beside it
     CmdToggleFolderSizes = 3906, // toolbar 文件夹大小: size folders on their own (AppPrefs::folder_size_auto)
-    CmdStageToTray = 3907,      // 加入暂存区 (Ctrl+Shift+S): the selection onto the staging tray
+    // 3907 was CmdStageToTray (the removed staging tray).
     CmdCloudKeep = 3908,        // Cloud Files selection: 始终保留在此设备上 (fs/cloud_pin.h)
     CmdCloudFree = 3909,        // Cloud Files selection: 释放空间
     CmdGroupIntoFolder = 3910,  // 2+ items: 合并到文件夹 (macOS New Folder with Selection)

@@ -149,7 +149,6 @@ void AppPrefs::ResetToDefaults() {
     address_search_current = false;
     address_search_content = false;
     content_scope = 0;
-    tray_icon_size = 48;
     show_hints = true;
     status_hints_learned = false;
     auto_check_updates = true;
@@ -255,8 +254,6 @@ std::wstring AppPrefs::ToJson() const {
     out += favorites_bar ? L"true" : L"false";
     out += L",\n  \"favorites_bar_icon_only\":";
     out += favorites_bar_icon_only ? L"true" : L"false";
-    out += L",\n  \"tray_hide_when_empty\":";
-    out += tray_hide_when_empty ? L"true" : L"false";
     out += L",\n  \"sidebar_collapsed\":";
     out += sidebar_collapsed ? L"true" : L"false";
     out += L",\n  \"folder_sort_mode\":";
@@ -371,8 +368,6 @@ std::wstring AppPrefs::ToJson() const {
     out += L",\n  \"address_search_current\":" + std::to_wstring(address_search_current);
     out += L",\n  \"address_search_content\":" + std::to_wstring(address_search_content);
     out += L",\n  \"content_scope\":" + std::to_wstring(content_scope);
-    out += L",\n  \"tray_icon_size\":";
-    out += std::to_wstring(tray_icon_size);
     out += L",\n  \"show_hints\":";
     out += show_hints ? L"true" : L"false";
     out += L",\n  \"status_hints_learned\":";
@@ -502,12 +497,6 @@ std::wstring AppPrefs::ToJson() const {
         pulse::json::Escape(last_seen_version, escaped);
         out += escaped;
     }
-    out += L"\",\n  \"tray_dests\":\"";
-    {
-        std::wstring escaped;
-        pulse::json::Escape(tray_dests, escaped);
-        out += escaped;
-    }
     out += L"\"";
     folder_views.AppendJson(out);
     folder_sorts.AppendJson(out);
@@ -567,7 +556,6 @@ bool AppPrefs::FromJson(const std::wstring& json) {
     tab_max_rows = std::clamp(pulse::json::ExtractInt(json, L"tab_max_rows", 3), 2, 4);
     favorites_bar = pulse::json::ExtractBool(json, L"favorites_bar", false);
     favorites_bar_icon_only = pulse::json::ExtractBool(json, L"favorites_bar_icon_only", false);
-    tray_hide_when_empty = pulse::json::ExtractBool(json, L"tray_hide_when_empty", false);
     sidebar_collapsed = pulse::json::ExtractBool(json, L"sidebar_collapsed", false);
     folder_sort_mode = pulse::json::ExtractInt(json, L"folder_sort_mode", 0);
     if (folder_sort_mode < 0 || folder_sort_mode > 2) folder_sort_mode = 0;
@@ -675,7 +663,6 @@ bool AppPrefs::FromJson(const std::wstring& json) {
     content_scope = pulse::json::ExtractInt(json, L"content_scope", 0);
     if (content_scope < 0 || content_scope > 2) content_scope = 0;
     if (row_height < 24 || row_height > 48) row_height = 34;
-    tray_icon_size = pulse::json::ExtractInt(json, L"tray_icon_size", 48);
     show_hints = pulse::json::ExtractBool(json, L"show_hints", true);
     status_hints_learned = pulse::json::ExtractBool(json, L"status_hints_learned", false);
     auto_check_updates = pulse::json::ExtractBool(json, L"auto_check_updates", true);
@@ -716,7 +703,6 @@ bool AppPrefs::FromJson(const std::wstring& json) {
         for (const auto& kept : toolbar_apps) pinned = pinned || _wcsicmp(kept.c_str(), app.c_str()) == 0;
         if (pinned) toolbar_app_breaks.push_back(std::move(app));
     }
-    if (tray_icon_size < 32 || tray_icon_size > 64) tray_icon_size = 48;
     {
         // Continuous values; migrate the former 0/1/2 levels when absent.
         static constexpr int kLookLevels[] = {25, 50, 75};
@@ -765,7 +751,6 @@ bool AppPrefs::FromJson(const std::wstring& json) {
     duplicate_scan_folder = pulse::json::ExtractString(json, L"duplicate_scan_folder");
     duplicate_scan_drive = pulse::json::ExtractString(json, L"duplicate_scan_drive");
     last_seen_version = pulse::json::ExtractString(json, L"last_seen_version");
-    tray_dests = pulse::json::ExtractString(json, L"tray_dests");
     return true;
 }
 

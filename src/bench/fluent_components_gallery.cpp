@@ -167,8 +167,6 @@ bool DrawGallery(Compositor& compositor, bool dark, bool high_contrast,
     painter.DrawSidebarItem({.bounds = Rect(662, 352, 250, 38), .text = L"Projects",
                              .detail = L"12 folders", .glyph = L"\xE8B7",
                              .state = State(true), .badge_count = 12});
-    painter.DrawTrayCard({Rect(662, 406, 250, 76), L"3 staged files", L"Release to current folder",
-                          3, false, State(true)});
 
     // 思考强度's stepped slider, the knob on 中 (third of four stops).
     painter.DrawStepSlider({Rect(662, 498, 250, 34), 4, 2.0f, State()});
@@ -304,12 +302,6 @@ bool DrawCompositeGallery(Compositor& compositor, bool dark, bool high_contrast,
     painter.DrawBadge({Rect(18, 482, 8, 8), {}, BadgeKind::Warning,
                        HexColor(0xFFB900), HexColor(0x000000), true, true});
     painter.DrawText(L"Design review", Rect(38, 472, 130, 28), compositor.TextFormat(), theme.text);
-
-    painter.DrawStagingTrayPanel({.bounds = Rect(10, 510, 216, 126), .title = L"Staging tray",
-                                  .helper = L"Drop files here to collect", .count_label = L"2",
-                                  .item_count = 2, .expanded = true});
-    painter.DrawStagingItem({Rect(20, 560, 196, 28), L"hero_banner.png", State(), false});
-    painter.DrawStagingItem({Rect(20, 594, 196, 28), L"schema_v2.json", State(true), false});
 
     painter.DrawPaneHeader({Rect(236, 88, 764, 48), L"Workspace A", L"14 items, 1 selected",
                             {}, State(), State()});

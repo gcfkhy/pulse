@@ -53,7 +53,7 @@ Format support depends on enhancement packs and system components. Check Setting
 - **Whole-drive file-name search**: search with the PulseIndex service, or narrow the scope to the current folder or another folder.
 - **Find Chinese names with pinyin**: full spellings, initials, polyphonic characters and highlighted matches. For example, typing `sh` in the current folder can match Chinese names such as “品牌设计”, “城市夜景” and “山湖晨雾”.
 - **Full-text search**: install the content-search enhancement pack on demand to search text, code, PDF, Word, Excel, PowerPoint and more, with results streamed as they arrive.
-- **Global quick search**: once enabled, press Alt+Space or tap Ctrl twice to find files, frequent folders and Start menu apps. Preview, select multiple results, copy them or add them to the staging tray.
+- **Global quick search**: once enabled, press Alt+Space or tap Ctrl twice to find files, frequent folders and Start menu apps. Preview, select multiple results, and copy them.
 - **Continue in the main window**: press Shift+Enter in quick search to carry over the query, scope and filters without starting again.
 - **Path completion, too**: navigate using absolute paths, relative paths or aliases. Enter `cmd`, `powershell`, `pwsh` or `wt` in the address bar to open a terminal in the current folder.
 
@@ -83,10 +83,6 @@ Choose to number conflicting names, skip them or block the operation. Save frequ
 You can also **describe rules in a sentence** or **name supported text, PDF and Office documents by their content**. This requires a configured model service and the relevant document-reading support. Content-based naming sends extracted text excerpts to your configured model: check for sensitive information first, then review the proposed names.
 
 ![Batch-renaming rules and result previews in Pulse](docs/images/1.0.59/batch-rename.png)
-
-### Staging tray and text diffs
-
-Collect copied or cut files across folders and tabs, then drag them to a destination together. A drop copies files by default; hold Shift to move. Stage two files to compare their sizes, timestamps and contents. Text diffs offer side-by-side and unified views, inline highlights, and options to ignore whitespace or case.
 
 File operations provide progress, pause, conflict handling and undo where supported. Duplicate-file discovery and folder-size statistics help you clean up without handing every task to the assistant.
 

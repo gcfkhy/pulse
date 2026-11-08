@@ -1755,8 +1755,6 @@ target_sources(pulse_preview PRIVATE src/preview_host/gif_frames.cpp)
 add_executable(pulse_preview_pipeline_audit_test src/bench/preview_pipeline_audit_test.cpp
     src/preview_host/gif_frames.cpp src/preview_host/folder_listing.cpp src/preview_host/preview_file_utils.cpp)
 target_link_libraries(pulse_preview_pipeline_audit_test PRIVATE ole32 windowscodecs uuid shlwapi)
-add_executable(pulse_tray_metadata_audit_test src/bench/tray_metadata_audit_test.cpp src/app/tray_compare_metadata.cpp)
-add_executable(pulse_paste_source_test src/bench/paste_source_test.cpp src/app/paste_source.cpp)
 add_executable(pulse_window_placement_test src/bench/window_placement_test.cpp src/app/window_placement.cpp)
 target_link_libraries(pulse_window_placement_test PRIVATE shell32 user32)
 add_executable(pulse_tray_placement_test src/bench/tray_placement_test.cpp src/app/tray_controller.cpp)

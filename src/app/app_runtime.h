@@ -67,7 +67,7 @@ void PrefetchDetailsMeta(HWND hwnd, const std::wstring& path);
 void RememberLayoutFocus(AppState& s);
 
 // Clickable follow-up shown at the end of the status-bar context hint.
-enum class StatusHintAction : int { None = 0, Tray, Compare, DiffOnly, ShowAll, Advanced, Shortcuts,
+enum class StatusHintAction : int { None = 0, Compare, DiffOnly, ShowAll, Advanced, Shortcuts,
                                     OpenPath, SearchSubfolders, LanRescan };
 // Re-runs the active tab's pane filter as a search of the folder and its subfolders.
 void SearchFilterInSubfolders(AppState& s);
@@ -97,22 +97,6 @@ void RememberPath(AppState& s, const std::wstring& path);
 void RecordRecentOpen(AppState& s, const std::wstring& path,
                              app::PlaceItemKind kind);
 void FillPaneSlots(AppState& s, ui::WindowViewModel& vm);
-int TrayDeckCap(const AppState& s);
-std::vector<TrayDeckEntry> TrayDeckEntries(const app::StagingTray& tray, size_t offset,
-                                                  size_t cap);
-int TrayItemTotalCount(const app::StagingTray& tray);
-std::wstring TrayDisplayPath(const std::wstring& path);
-std::wstring TrayItemName(const std::wstring& path);
-int TrayDeckHoverIndex(const AppState& s);
-// Staging tray card stack (cyclic): index of the top card, throw the top card
-// to the back (dir ±1, release offset in DIPs), bring the last card back on
-// top, smoke burst for a dismiss, and exit hints for the next tick.
-int TrayStackTop(const AppState& s);
-void ThrowTrayTop(AppState& s, float dir, float dx, float dy);
-void TrayStepBack(AppState& s);
-void ReleaseTrayDrag(AppState& s, bool commit);
-void SpawnTrayPuffs(AppState& s);
-void MarkTrayExit(AppState& s, const std::vector<std::wstring>& paths, bool stagger);
 void RefreshStarredViews(AppState& s);
 void RefreshRecentViews(AppState& s);
 bool IsRecycleTab(const app::Tab* tab);
@@ -134,11 +118,6 @@ void StopDetailsSizeWalk(AppState& s);
 void StartDetailsSizeWalk(AppState& s, const std::wstring& path);
 void ShutdownDetailsSizeWalk(AppState& s);
 std::wstring DetailsAttributeText(DWORD attrs);
-bool TickTrayDeck(AppState& s);
-// Shelf release mode right now: the tray-wide mode, flipped while Shift is held.
-bool TrayEffectiveMove(const AppState& s);
-// Hashes of every staged path ("已暂存" row pills), cached per tray state.
-std::shared_ptr<const std::unordered_set<uint64_t>> StagedHashes(AppState& s);
 ui::WindowViewModel BuildVm(AppState& s, bool probe_details = true);
 std::wstring TooltipForHover(AppState& s);
 // Records what the pointer is over. Both mouse-move paths (client and frame)

@@ -1,7 +1,6 @@
 #include "pane_close.h"
 // app_state.h — Window process state, shot request, and WM_APP message ids.
 #pragma once
-#include "tray_compare_metadata.h"
 #include "../common/path_utils.h"
 
 #include "../ui/ui_compositor.h"
@@ -15,7 +14,6 @@
 #include "preview_selection_follow.h"
 #include "list_selection_gesture.h"
 #include "file_click_gesture.h"
-#include "../ui/text_diff_window.h"
 #include "../ui/bloom_accent_picker.h"
 #include "../fs/fs_enum.h"
 #include "../fs/fs_recycle.h"
@@ -26,7 +24,6 @@
 #include "window_overview.h"
 #include "window_switcher.h"
 #include "live_network_search.h"
-#include "tray_compare_metadata.h"
 #include "frame_pump.h"
 #include "ui_timer_pacer.h"
 #include <deque>
@@ -91,12 +88,6 @@ constexpr UINT_PTR kTimerDrawnCaret = 0x4342;
 
 enum class OmnibarMode { Path, Mixed, Command, Project };
 
-struct TrayDeckEntry {
-    int batch = -1;
-    int sub = -1;
-    const app::TrayItem* item = nullptr;
-};
-
 struct TagAdsDiscovery {
     std::wstring path;
     std::vector<app::TagAdsRecord> records;
@@ -127,18 +118,6 @@ struct Timing {
     double draw_ms = 0.0;
     double present_ms = 0.0;
     bool first_frame_recorded = false;
-};
-
-// Byte-by-byte comparison of the two staged files, run on a worker thread.
-struct TrayCompareJob {
-    std::wstring a, b;
-    std::atomic<int> state{1}; // 1 running, 2 identical, 3 different, 4 unreadable
-};
-
-// Text-or-binary probe (first 8 KB of both files) for the tray compare "view diff" link.
-struct TrayTextProbe {
-    std::wstring a, b;
-    std::atomic<int> state{0}; // 0 running, 1 both text, 2 binary / unreadable
 };
 
 struct SidebarRefreshLoad;
@@ -188,7 +167,6 @@ struct AppState : AppCoreOwner {
     decltype(AppCore::recycle_refresh_left)& recycle_refresh_left = core.recycle_refresh_left;
     decltype(AppCore::recycle_ignore_items)& recycle_ignore_items = core.recycle_ignore_items;
     decltype(AppCore::recycle_info_guard)& recycle_info_guard = core.recycle_info_guard;
-    decltype(AppCore::tray)& tray = core.tray;
     decltype(AppCore::places)& places = core.places;
     decltype(AppCore::ctxMenuPrefs)& ctxMenuPrefs = core.ctxMenuPrefs;
     decltype(AppCore::context_menu)& context_menu = core.context_menu;
@@ -254,8 +232,6 @@ struct AppState : AppCoreOwner {
     decltype(AppCore::explorer_takeover)& explorer_takeover = core.explorer_takeover;
     decltype(AppCore::cutPaths)& cutPaths = core.cutPaths;
     decltype(AppCore::pendingCutClipboardSequence)& pendingCutClipboardSequence = core.pendingCutClipboardSequence;
-    decltype(AppCore::trayClipboardSequence)& trayClipboardSequence = core.trayClipboardSequence;
-    decltype(AppCore::trayClipboardBatchId)& trayClipboardBatchId = core.trayClipboardBatchId;
     decltype(AppCore::pendingCutClipboardPaths)& pendingCutClipboardPaths = core.pendingCutClipboardPaths;
     decltype(AppCore::completedCutClipboardPaths)& completedCutClipboardPaths = core.completedCutClipboardPaths;
 
@@ -533,9 +509,6 @@ struct AppState : AppCoreOwner {
     std::wstring colorpickshot_out;
     // Smoke test: open the interactive color picker dialog on launch.
     bool colorpickdialog = false;
-    // GUI verification for the tray card deck: stage a few files pre-shot.
-    bool shot_tray = false;
-    int shot_tray_count = 4;
     // GUI verification for tab colors: three tabs, red/yellow/blue strips.
     bool shot_tab_colors = false;
     // GUI verification for pinned-tab spacing and the adjacent new-tab button.
@@ -749,7 +722,6 @@ struct AppState : AppCoreOwner {
     int dropRow = -1;
     int dropBreadcrumb = -1;
     int dropSidebar = -1;
-    bool dropTray = false;
     bool dropQuickAccess = false;  // folders over the Quick access header: pin
     int dropFavorite = -1;         // 收藏栏: files over this favorite folder (index into the bar)
     bool dropFavoriteAdd = false;  // 收藏栏's empty part: what is dropped gets starred
@@ -757,20 +729,13 @@ struct AppState : AppCoreOwner {
     float dropBadgeX = 0.0f;
     float dropBadgeY = 0.0f;
     bool dropBadgeMove = false;
-    bool trayDragOut = false;          // tray contents are being dragged out (not a tray target)
-    ULONGLONG trayProbeAt = 0;         // last staging-tray existence probe (UI timer, 2 s)
-    bool trayCompare = false;          // two-file compare table replaces the card stack
-    std::unique_ptr<app::TrayCompareMetadata> trayMetadata;
-    std::shared_ptr<TrayCompareJob> trayCmpJob; // on-demand byte comparison
-    std::shared_ptr<TrayTextProbe> trayTextProbe; // text/binary probe for "view diff"
-    std::unique_ptr<ui::TextDiffWindow> textDiff; // stand-alone text compare window
     // One-time teaching bubbles (tips_seen bits in appPrefs).
     int teachTip = -1;                 // visible tip, -1 = none
     int teachCandidate = -1;           // trigger currently holding
     ULONGLONG teachCandidateSince = 0;
     ULONGLONG teachShownAt = 0;
     bool teachShownThisSession = false; // at most one tip per launch
-    std::wstring dropDestDir;                 // resolved drop destination ("" = none/tray)
+    std::wstring dropDestDir;                 // resolved drop destination ("" = none)
     std::wstring dropLaunchProgram;           // program row that opens the dropped items
     std::wstring dropLaunchShortcut;          // ...when that row is a shortcut: the .lnk
     // Toolbar drop mode (app_toolbar_apps.cpp): while files are dragged over
@@ -834,146 +799,6 @@ struct AppState : AppCoreOwner {
     float pinGapLineY = 0.0f;
     bool pinGapVisible = false;
 
-    // Staging tray card stack: per-card animation state keyed by item path.
-    // TickTrayDeck advances it on the 16 ms UI timer; the renderer receives
-    // the current pose through WindowViewModel::tray_deck (TrayStackGeometry
-    // maps it to pixels for both drawing and hit testing).
-    enum class TrayMotion : uint8_t { None, ThrowOut, ThrowBack, Spring };
-    enum class TrayExit : uint8_t { Fade, Tumble, Return };
-    struct TrayCardAnim {
-        std::wstring name;      // cached so exiting ghosts can still draw
-        std::wstring folder;
-        DWORD attrs = 0;
-        bool is_dir = false;
-        bool missing = false;
-        bool cut = false;
-        uint64_t size = 0;
-        bool ghost = false;     // left the stack window, playing its exit
-        TrayExit exit = TrayExit::Fade;
-        ULONGLONG exit_started = 0;
-        ULONGLONG exit_delay = 0;   // ms, staggered clear
-        float exit_opacity = 1.0f;
-        float depth = 0.0f;     // eases toward the window index (0 = top)
-        float hover = 0.0f;     // 0..1 top-card lift + close badge
-        float appear = 1.0f;    // 0 = dropping in, eases to 1
-        float opacity = 1.0f;
-        float fly = 0.0f;       // card widths
-        float dx = 0.0f;        // DIPs
-        float dy = 0.0f;
-        float angle = 0.0f;     // degrees
-        float shrink = 1.0f;
-        TrayMotion motion = TrayMotion::None;
-        ULONGLONG motion_started = 0;
-        float from_fly = 0.0f, from_dx = 0.0f, from_dy = 0.0f, from_angle = 0.0f;
-        float to_fly = 0.0f, to_dy = 0.0f, to_angle = 0.0f;
-    };
-    struct TrayPuff {
-        ULONGLONG start = 0;
-        float angle = 0.0f;
-        float dist = 0.0f;
-        float size = 1.0f;
-    };
-    struct TrayExitHint {
-        TrayExit exit = TrayExit::Tumble;
-        ULONGLONG delay = 0;
-    };
-    // Press-and-hold on the top card: follow the pointer, fling to the back.
-    struct TrayDrag {
-        bool pending = false;   // button down on the top card, not moved yet
-        bool active = false;    // moved past the slop: card follows the pointer
-        std::wstring path;
-        int x0 = 0, y0 = 0;
-        int last_x = 0;
-        ULONGLONG last_t = 0;
-        float vx = 0.0f;        // DIP/ms, smoothed
-        float dx = 0.0f;        // DIPs
-        float dy = 0.0f;
-    };
-    std::unordered_map<std::wstring, TrayCardAnim> trayCards;
-    std::vector<TrayPuff> trayPuffs;
-    std::unordered_map<std::wstring, TrayExitHint> trayExitHints; // consumed by the next tick
-    TrayDrag trayDrag;
-    std::wstring trayRaisePath; // stepping back: this card drops in on top
-    float trayOpen = 0.0f;      // eased drag-over highlight
-    float traySpread = 0.0f;    // eased stack fan-out while hovered
-    // The tray's motion runs on ui::motion::NowMs (QueryPerformanceCounter):
-    // GetTickCount64 moves in 15.6 ms steps, so display-rate frames got no
-    // progress or a double step. Every tray timestamp below uses that clock.
-    ULONGLONG trayLastTick = 0;
-    // The tray is moving and the frame pump paints it once per display frame
-    // (Render advances it); the UI timer only notices that motion starts.
-    bool trayAnimating = false;
-    int trayDeckOffset = 0;     // cyclic index of the top card (newest-first order)
-    int trayWheelAccum = 0;     // sub-notch wheel delta accumulator
-    size_t trayDeckLastTotal = 0; // collect detection (stack resets to newest)
-
-    // Staging tray shelf: strip / drop / shelf
-    // layers, sprung panel height, live copy-move mode. TickTrayShelf
-    // advances it; BuildVm copies it into vm.tray_deck.
-    struct TrayShelfAnim {
-        int stage = 0;               // ui::TrayStage shown
-        int prev_stage = -1;         // layer fading out
-        ULONGLONG swap_at = 0;       // layer swap start
-        float height = 40.0f;        // panel height, DIPs (spring)
-        float velocity = 0.0f;       // DIPs / s
-        float drop_from = 0.0f;      // height when the drop layer opened
-        bool initialized = false;
-        float mode_t = 0.0f;         // copy (0) -> move (1) colour blend
-        bool last_move = false;
-        ULONGLONG label_at = 0;      // main label rise-in after a mode flip
-        float fan_spread = 0.0f;
-        ULONGLONG bump_at = 0;       // count bump after a collect
-        int last_total = -1;
-        std::wstring flash_path;     // 送到 chip that just received items
-        ULONGLONG flash_at = 0;
-        // Same-name probe against the current folder (cached, re-probed
-        // when the folder or the tray changes, at most every 1.5 s).
-        std::wstring conflict_dir;
-        uint64_t conflict_sig = 0;
-        ULONGLONG conflict_at = 0;
-        int conflicts = 0;
-        std::vector<uint64_t> conflict_ids;  // items behind conflicts (open view subsets)
-        // "已暂存" row pills: hashes of every staged path.
-        uint64_t staged_sig = 0;
-        std::shared_ptr<const std::unordered_set<uint64_t>> staged;
-    } trayShelf;
-    bool trayMoveMode = false;       // tray-wide release mode; staging as move sets it
-    bool dragFilesOver = false;      // an OLE file drag is over this window (drop layer)
-    bool dropTrayMove = false;       // drop layer: the 移动暂存 half is active
-    struct TrayReleaseNote {
-        uint64_t task = 0;           // copy / move submitted by the shelf
-        size_t count = 0;
-        bool move = false;
-        std::wstring dest;           // target folder
-    } trayRelease;
-    // Ctrl+C / Ctrl+X inside Pulse only write the system clipboard; the shelf
-    // then offers to stage that copy (剪贴板 N 项 · 收入). The offer is gone
-    // once anything else changes the clipboard.
-    struct TrayClipOffer {
-        std::vector<std::wstring> paths;
-        bool move = false;
-        DWORD seq = 0;               // GetClipboardSequenceNumber after the write
-        ULONGLONG at = 0;            // pop-in start
-    } trayClip;
-    // Expanded tray (⌃ on the shelf): every item grouped by source folder, a
-    // type filter, check boxes that narrow the release, a two-file compare.
-    struct TrayOpenView {
-        bool open = false;
-        ULONGLONG opened_at = 0;     // row stagger (60 + 40·i ms)
-        int filter = 0;              // 0 all, 1 images, 2 documents, 3 other
-        std::vector<uint64_t> checked;  // item ids, check order
-        float scroll = 0.0f;         // list offset, DIPs
-        bool compare = false;        // compare card beside the sidebar
-        ULONGLONG compare_at = 0;
-        std::vector<uint64_t> removing;  // Del: rows sliding out (320 ms)
-        ULONGLONG remove_at = 0;
-    } trayView;
-    std::wstring trayReleaseOpen;    // folder the release snack's 打开 opens
-    std::wstring trayClearedJson;    // tray before 清空, for the snack's 撤销
-    struct TrayZipJob {
-        uint64_t id = 0;             // zipJobs id while the shelf ring spins
-        std::shared_ptr<std::atomic<float>> progress;
-    } trayZip;
 
     // Right details panel (view-menu toggle, session-persisted).
     bool showDetailsPanel = false;

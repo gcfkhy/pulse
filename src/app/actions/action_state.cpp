@@ -671,18 +671,6 @@ json::Value StateSnapshot(AppState& s) {
     }
     if (!other_tabs.items().empty()) out.set("other_tabs", std::move(other_tabs));
 
-    json::Value tray = json::Value::Object();
-    json::Value tray_names = json::Value::Array();
-    uint64_t tray_count = 0;
-    for (const TrayBatch& batch : s.tray.batches())
-        for (const TrayItem& item : batch.items) {
-            ++tray_count;
-            if (tray_names.items().size() < kStateTrayNames) tray_names.push(U8(Leaf(item.path)));
-        }
-    tray.set("count", tray_count);
-    if (tray_count) tray.set("names", std::move(tray_names));
-    out.set("tray", std::move(tray));
-
     if (s.quickPreview.visible()) {
         json::Value preview = json::Value::Object();
         preview.set("path", U8(Shown(s.quickPreview.item().path)));

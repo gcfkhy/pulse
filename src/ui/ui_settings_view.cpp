@@ -1486,7 +1486,6 @@ float MainRenderer::SettingsDestinationOffset(const WindowViewModel& vm, int set
     case I::SettingsWallpaperLook: target=l.wallpaper_look_card;break;
     case I::SettingsWallpaperBlur: target=l.wallpaper_blur_card;break;
     case I::SettingsFrameLook: target=l.frame_look_card;break;
-    case I::SettingsTrayIcon: target=l.tray_icon_card;break;
     case I::SettingsShowHidden: target=l.hidden_files_row;break;
     case I::SettingsShowProtected: target=l.protected_files_row;break;
     case I::PinnedNames: target=l.pinned_names_row;break;
@@ -1494,7 +1493,6 @@ float MainRenderer::SettingsDestinationOffset(const WindowViewModel& vm, int set
     case I::SettingsTreeSticky: target=l.tree_sticky_row;break;
     case I::ThumbCache: target=l.thumb_cache_row;break;
     case I::SettingsVerticalTabs: target=l.vertical_tabs_row;break;
-    case I::TrayHideWhenEmpty: target=l.tray_hide_row;break;
     case I::SettingsLanDiscovery: target=l.lan_discovery_row;break;
     case I::SettingsLanCache: target=l.lan_cache_card;break;
     case I::SettingsNetworkRecent: target=l.network_recent_row;break;

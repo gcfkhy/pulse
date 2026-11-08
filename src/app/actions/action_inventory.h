@@ -10,7 +10,7 @@
 // Risk, lowest first; the registry turns it into run / confirm / refuse:
 //   Read      reads state only
 //   View      changes what Pulse shows (panes, tabs, view, selection); undo
-//   Organize  Pulse's own data (tags, favorites, tray, aliases); undo
+//   Organize  Pulse's own data (tags, favorites, aliases); undo
 //   Create    new files only, nothing overwritten; undo
 //   Move      moves or renames files: a plan the user accepts once
 //   System    changes Windows (startup, default file manager, drives)
@@ -165,13 +165,6 @@ inline constexpr ActionEntry kActions[] = {
     {"alias.manage", ActionRisk::View},
     {"alias.export", ActionRisk::Create},
     // 暂存托盘
-    {"tray.add", ActionRisk::Organize},
-    {"tray.remove", ActionRisk::Organize},
-    {"tray.find_stale", ActionRisk::View},
-    {"tray.send_to", ActionRisk::Move},
-    {"tray.zip", ActionRisk::Create},
-    {"tray.compare", ActionRisk::Read},
-    {"tray.text_diff", ActionRisk::View},
     // 搜索与索引
     {"search.files", ActionRisk::Read},
     {"search.open", ActionRisk::View},
@@ -226,7 +219,6 @@ inline constexpr KeyActionLink kKeyActionLinks[] = {
     {KeyAction::Cut, {"file.cut"}},
     {KeyAction::Paste, {"file.paste"}},
     {KeyAction::CopyPath, {"file.copy_path"}},
-    {KeyAction::StageToTray, {"tray.add"}},
     {KeyAction::Undo, {"edit.undo"}},
     {KeyAction::Rename, {"file.rename"}},
     {KeyAction::BatchRename, {"file.batch_rename"}},
@@ -390,7 +382,6 @@ inline constexpr MenuCmdLink kMenuCmdLinks[] = {
     {CmdUnpinNetwork, {"net.place"}},
     {CmdCompressZip, {"file.zip"}},
     {CmdToggleFolderSizes, {"view.folder_sizes"}},
-    {CmdStageToTray, {"tray.add"}},
     {CmdCloudKeep, {"cloud.keep"}},
     {CmdCloudFree, {"cloud.free"}},
     {CmdGroupIntoFolder, {"file.group_into_folder"}},

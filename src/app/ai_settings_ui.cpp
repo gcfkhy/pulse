@@ -416,7 +416,7 @@ void StageAiShot(int variant) {
         e.tool = "pulse.find_actions";
         e.call = id++;
         e.ok = true;
-        e.summary = L"\n\u201C\u79FB\u52A8\u201D \u2192 file.move_to\u3001file.copy_to\u3001tray.send_to";
+        e.summary = L"\n\u201C\u79FB\u52A8\u201D \u2192 file.move_to\u3001file.copy_to";
         ai::OnAiBrokerEvent(e);
         event(K::CallStarted, 1, L"Claude", "pulse.run_actions", id);
         e.tool = "pulse.run_actions";

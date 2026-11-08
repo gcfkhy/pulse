@@ -93,10 +93,8 @@ bool CanCompressSelection(AppState& s) {
 }
 
 namespace {
-// Shared by the toolbar tool and the staging shelf. With `progress` the
-// caller shows its own indicator (the shelf's ring) instead of the busy snack.
 uint64_t StartZip(AppState& s, std::vector<std::wstring> paths, const std::wstring& dir,
-                  const std::wstring& zip_path, std::shared_ptr<std::atomic<float>> progress) {
+                  const std::wstring& zip_path) {
     const uint64_t id = NextZipId();
     auto cancel = std::make_shared<std::atomic<bool>>(false);
     s.zipJobs.push_back({id, zip_path, cancel});
@@ -107,22 +105,19 @@ uint64_t StartZip(AppState& s, std::vector<std::wstring> paths, const std::wstri
         ExpectArrival(s, zip_path);
     }
     const HWND hwnd = s.hwnd;
-    std::thread([hwnd, id, paths = std::move(paths), zip_path, cancel, progress] {
+    std::thread([hwnd, id, paths = std::move(paths), zip_path, cancel] {
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
         const ULONGLONG started = GetTickCount64();
-        bool told = progress != nullptr;
+        bool told = false;
         auto done = std::make_unique<ZipDone>();
         done->id = id;
         done->zip_path = zip_path;
-        done->result = app::CompressToZip(paths, zip_path, cancel.get(), [&](uint64_t now, uint64_t total) {
-            if (progress && total > 0)
-                progress->store(static_cast<float>(static_cast<double>(now) / static_cast<double>(total)));
+        done->result = app::CompressToZip(paths, zip_path, cancel.get(), [&](uint64_t, uint64_t) {
             if (!told && GetTickCount64() - started >= kBusySnackMs) {
                 told = true;
                 PostMessageW(hwnd, WM_ZIP_COMPRESS, 0, static_cast<LPARAM>(id & 0x7FFFFFFF));
             }
         });
-        if (progress) progress->store(1.0f);
         if (PostMessageW(hwnd, WM_ZIP_COMPRESS, 1, reinterpret_cast<LPARAM>(done.get()))) done.release();
     }).detach();
     return id;
@@ -134,18 +129,7 @@ void CompressSelection(AppState& s) {
     std::wstring dir;
     if (!CompressTarget(s, &paths, &dir)) return;
     const std::wstring zip_path = app::ZipPathFor(paths, dir);
-    StartZip(s, std::move(paths), dir, zip_path, nullptr);
-}
-
-uint64_t CompressPathsTo(AppState& s, std::vector<std::wstring> paths, const std::wstring& dir,
-                         const std::wstring& base_name, std::shared_ptr<std::atomic<float>> progress) {
-    if (paths.empty() || dir.empty() || fs::IsVirtualPath(dir) || !app::ZipCompressAvailable()) return 0;
-    std::wstring folder = dir;
-    if (folder.back() != L'\\') folder += L'\\';
-    std::wstring zip_path = folder + base_name + L".zip";
-    for (int n = 2; GetFileAttributesW(zip_path.c_str()) != INVALID_FILE_ATTRIBUTES && n < 1000; ++n)
-        zip_path = folder + base_name + L" (" + std::to_wstring(n) + L").zip";
-    return StartZip(s, std::move(paths), dir, zip_path, std::move(progress));
+    StartZip(s, std::move(paths), dir, zip_path);
 }
 
 void HandleZipMessage(AppState& s, UINT message, WPARAM wparam, LPARAM lparam) {
@@ -168,7 +152,6 @@ void HandleZipMessage(AppState& s, UINT message, WPARAM wparam, LPARAM lparam) {
     s.zipJobs.erase(std::remove_if(s.zipJobs.begin(), s.zipJobs.end(),
                                    [&](const AppState::ZipJob& j) { return j.id == done->id; }),
                     s.zipJobs.end());
-    if (s.trayZip.id == done->id) s.trayZip = {};
     ops::FinishedTask finished;
     finished.task_id = done->id;
     finished.success = done->result.ok;

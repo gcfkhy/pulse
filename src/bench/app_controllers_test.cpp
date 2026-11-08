@@ -2353,9 +2353,6 @@ int wmain(int argc, wchar_t** argv) {
     settings_ui.RowHeight(2);
     passed &= Report("settings density owns preference mutation",
         prefs.row_height == 40 && HasEffect(last_effect, SettingsEffect::RowHeight));
-    settings_ui.TrayIconSize(0);
-    passed &= Report("settings tray size owns preference mutation",
-        prefs.tray_icon_size == 40 && HasEffect(last_effect, SettingsEffect::TrayDeckIcon));
     settings_ui.Language(L"en-US");
     passed &= Report("settings language uses a stable identifier",
         prefs.language == L"en-US" && HasEffect(last_effect, SettingsEffect::Language));
@@ -2371,7 +2368,7 @@ int wmain(int argc, wchar_t** argv) {
     settings_ui.AccentChoice(false, 0x2468AC);
     passed &= Report("settings UI controller routes preference commands",
         prefs.window_effect == L"mica-alt" && prefs.row_height == 28 &&
-        prefs.accent_rgb == L"2468AC" && applied_effects == 10);
+        prefs.accent_rgb == L"2468AC" && applied_effects == 9);
     settings_ui.NotifyIcon(2);
     passed &= Report("settings tray icon choice requests tray synchronization",
         prefs.notify_icon_mode == 2 && HasEffect(last_effect, SettingsEffect::TrayVisibility));

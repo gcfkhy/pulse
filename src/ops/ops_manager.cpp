@@ -6568,7 +6568,7 @@ bool OpsManager::WaitShellDone(uint32_t id, uint32_t& hr, bool& cancelled, std::
 }
 
 // ---------------------------------------------------------------------------
-// Undo stack JSON persistence (minimal parser, same style as StagingTray).
+// Undo stack JSON persistence (minimal parser).
 // ---------------------------------------------------------------------------
 std::wstring OpsManager::UndoToJson() const {
     std::lock_guard<std::mutex> lock(mutex_);

@@ -46,7 +46,6 @@ static void ApplyWindowOperationIntentCompletion(AppState& state, const ops::Com
 }
 
 static void FinishWindowOperationIntents(AppState& state, const ops::FinishedTask& finished) {
-    state.tray.CompleteTask(finished.task_id, finished.moved_sources);
     // 解散文件夹: the chain renames, moves and recycles under one listing; its
     // last step lists the parent afresh rather than trusting the patched snapshot.
     for (auto it = state.dissolveSteps.begin(); it != state.dissolveSteps.end();) {

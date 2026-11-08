@@ -891,7 +891,7 @@ void TestRenameOutsideClick() {
 void TestBlankPaneClickNavigation() {
     for (float scale : {1.0f, 1.25f, 1.5f, 2.0f}) {
         for (float height : {380.0f, 720.0f}) {
-            for (bool occupied : {false, true}) {
+            {
                 ui::MainRenderer renderer;
                 renderer.SetScale(scale);
                 ui::WindowViewModel vm;
@@ -908,7 +908,6 @@ void TestBlankPaneClickNavigation() {
                     }
                     vm.sidebar.push_back(std::move(group));
                 }
-                if (occupied) vm.tray_deck.cards.emplace_back();
                 const float width_px = 1000.0f * scale, height_px = height * scale;
                 vm.sidebar_scroll = renderer.SidebarMaxScroll(vm, width_px, height_px);
                 D2D1_RECT_F track{}, thumb{};
@@ -916,7 +915,7 @@ void TestBlankPaneClickNavigation() {
                 const bool geometry = renderer.SidebarScrollbarGeometry(
                     vm, width_px, height_px, track, thumb, maximum);
                 Check(geometry && std::abs(thumb.bottom - track.bottom) < 0.01f,
-                      L"sidebar geometry: thumb reaches track bottom across DPI and tray states");
+                      L"sidebar geometry: thumb reaches track bottom across DPI");
                 const auto bounds = D2D1::RectF(0, 0, width_px, height_px);
                 const auto thumb_hit = renderer.HitTest(vm, bounds,
                     (thumb.left + thumb.right) * 0.5f, (thumb.top + thumb.bottom) * 0.5f);
@@ -1054,18 +1053,20 @@ void TestBlankPaneClickNavigation() {
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(state.get()));
         {
             const auto saved_sidebar = state->sidebar;
+            const auto saved_pins = state->places.quick_access_paths;
             for (int i = 0; i < 40; ++i) {
                 SidebarEntry entry;
                 entry.label = L"Scroll fixture " + std::to_wstring(i);
                 entry.path = L"C:\\PulseSidebarFixture\\" + std::to_wstring(i);
+                // Pinned, so Quick access lists it and the places overflow the sidebar.
+                state->places.quick_access_paths.push_back(entry.path);
                 state->sidebar.quick_access.push_back(std::move(entry));
             }
-            state->trayCards[L"sidebar-test-ghost"].ghost = true;
             state->sidebarScroll = 100000.0f;
             auto vm = BuildVm(*state, false);
             const float maximum = state->renderer.SidebarMaxScroll(vm, 1000, 700);
             Check(maximum > 0.0f && std::abs(state->sidebarScroll - maximum) < 0.01f,
-                  L"sidebar: clamp uses final occupied tray height");
+                  L"sidebar: clamp uses the final sidebar height");
             vm = BuildVm(*state, false);
             Check(std::abs(vm.sidebar_scroll - maximum) < 0.01f,
                   L"sidebar: rebuilding view model preserves bottom scroll position");
@@ -1100,7 +1101,7 @@ void TestBlankPaneClickNavigation() {
             Check(!state->scrollbarDragging && !state->scrollbarSidebar && GetCapture() != hwnd,
                   L"sidebar: releasing thumb clears drag and capture");
             state->sidebar = saved_sidebar;
-            state->trayCards.clear();
+            state->places.quick_access_paths = saved_pins;
             state->sidebarScroll = 0.0f;
         }
         {
@@ -6112,7 +6113,7 @@ void TestActionArgs() {
     const char* ids[] = {"tab.pin", "tab.color", "tab.rename", "tab.group", "tab.duplicate", "tab.close_others",
                          "tab.activate", "pane.focus", "window.activate", "sidebar.section", "view.icon_size",
                          "tag.create", "tag.edit", "tag.delete", "tag.group", "smartview.save", "recent.remove",
-                         "alias.set", "tray.remove", "search.open", "index.status", "net.place", "keymap.read",
+                         "alias.set", "search.open", "index.status", "net.place", "keymap.read",
                          "keymap.set"};
     bool all = true, direct = true;
     for (const char* id : ids) {
@@ -6271,8 +6272,8 @@ void TestMcpRunActions() {
     size_t total = 0;
     for (size_t n : counts) total += n;
     Check(total == std::size(act::kActions) && counts[static_cast<size_t>(G::View)] > 0 &&
-              counts[static_cast<size_t>(G::Locked)] == 4 && counts[static_cast<size_t>(G::Files)] == 12,
-          L"mcp: every action is in one group; 4 are only the user's, 12 change files");
+              counts[static_cast<size_t>(G::Locked)] == 4 && counts[static_cast<size_t>(G::Files)] == 11,
+          L"mcp: every action is in one group; 4 are only the user's, 11 change files");
     Check(act::McpGroupOf("nav.back") == G::View && act::McpGroupOf("settings.set") == G::Organize &&
               act::McpGroupOf("file.new_folder") == G::Create && act::McpGroupOf("file.recycle") == G::Files &&
               act::McpGroupOf("file.delete_permanent") == G::Files && act::McpGroupOf("git.push") == G::External &&
@@ -6679,14 +6680,6 @@ void TestActionState() {
         const std::wstring dir = kOpsTestRoot + L"\\action_state";
         CreateDirectoryW(kOpsTestRoot.c_str(), nullptr);
         CreateDirectoryW(dir.c_str(), nullptr);
-        std::vector<std::wstring> staged;
-        for (int i = 0; i < 12; ++i) {
-            const std::wstring p = dir + L"\\tray" + std::to_wstring(i) + L".txt";
-            HANDLE h = CreateFileW(p.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-            if (h != INVALID_HANDLE_VALUE) CloseHandle(h);
-            staged.push_back(p);
-        }
-        s.tray.Collect(staged, false);
         const json::Value state = act::StateSnapshot(s);
         const json::Value& left = AsPane(state, 0);
         const json::Value& other = AsPane(state, 1);
@@ -6699,17 +6692,11 @@ void TestActionState() {
         Check(osel && AsInt(osel->find("count")) == 250 && osel->find("names") &&
                   osel->find("names")->items().size() == act::kStateOtherNames && !osel->find("paths"),
               L"state: other panes list 20 names");
-        const json::Value* tray = state.find("tray");
-        Check(tray && AsInt(tray->find("count")) == 12 && tray->find("names") &&
-                  tray->find("names")->items().size() == act::kStateTrayNames,
-              L"state: the tray gives its count and 10 names");
         Check(left.get_string("view") == "tiles" && left.find("sort") &&
                   left.find("sort")->items().size() == 2 && left.find("sort")->items()[0].as_string() == "size" &&
                   left.find("sort")->items()[1].as_string() == "desc" && state.find("tab") &&
                   state.find("tab")->get_string("layout") == "side_by_side",
               L"state: view, sort and layout use the names get_state documents");
-        s.tray.Clear();
-        for (const std::wstring& p : staged) DeleteFileW(p.c_str());
         RemoveDirectoryW(dir.c_str());
     }
 
@@ -8485,183 +8472,6 @@ void TestOptionalColumns() {
 
 } // namespace
 
-// Staging tray card stack (v1.0.40): cyclic window, top-card-only hit
-// testing, hold-and-fling to the back, spring back on a short drag, wheel and
-// footer paging, dismiss tumble + smoke, clear.
-void TrayStackSettle(AppState& s, int ms) {
-    const ULONGLONG until = GetTickCount64() + static_cast<ULONGLONG>(ms);
-    while (GetTickCount64() < until) {
-        TickTrayDeck(s);
-        Sleep(16);
-    }
-    TickTrayDeck(s);
-}
-
-void TestTrayStack() {
-    Check(!l10n::Get(l10n::StringId::StagingTrayEmpty).empty() &&
-          !l10n::Get(l10n::StringId::TrayPrev).empty() &&
-          !l10n::Get(l10n::StringId::TrayNext).empty() &&
-          !l10n::Get(l10n::StringId::TrayFlingHint).empty(),
-          L"tray stack: new strings resolve (localization range covers them)");
-    wchar_t temp[MAX_PATH]{};
-    GetTempPathW(MAX_PATH, temp);
-    const std::wstring dir = std::wstring(temp) + L"PulseTrayStackSelftest-" +
-        std::to_wstring(GetCurrentProcessId()) + L"-" + std::to_wstring(GetTickCount64());
-    CreateDirectoryW(dir.c_str(), nullptr);
-    std::vector<std::wstring> files;
-    for (int i = 0; i < 5; ++i) {
-        const std::wstring p = dir + L"\\card" + std::to_wstring(i) + L".txt";
-        HANDLE h = CreateFileW(p.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
-                               FILE_ATTRIBUTE_NORMAL, nullptr);
-        if (h != INVALID_HANDLE_VALUE) {
-            DWORD written = 0;
-            WriteFile(h, "pulse", 5, &written, nullptr);
-            CloseHandle(h);
-        }
-        files.push_back(p);
-    }
-
-    auto state = std::make_unique<AppState>();
-    state->places.persist = false;
-    state->appPrefs.persist = false;
-    state->isolatedTest = true;
-    state->tray.Collect(files, false);
-    Check(TrayItemTotalCount(state->tray) == 5, L"tray stack: five staged items");
-    {
-        const auto all = TrayDeckEntries(state->tray, 0, 5);
-        const auto wrap = TrayDeckEntries(state->tray, 3, 4);
-        bool cyclic = all.size() == 5 && wrap.size() == 4;
-        for (size_t k = 0; cyclic && k < wrap.size(); ++k)
-            cyclic = wrap[k].item && all[(3 + k) % 5].item &&
-                     wrap[k].item->path == all[(3 + k) % 5].item->path;
-        Check(cyclic, L"tray stack: window wraps around the end of the stack");
-    }
-
-    WNDCLASSW wc{};
-    wc.lpfnWndProc = BlankPaneTestProc;
-    wc.hInstance = GetModuleHandleW(nullptr);
-    wc.lpszClassName = L"PulseTrayStackSelftest";
-    RegisterClassW(&wc);
-    HWND hwnd = CreateWindowExW(0, wc.lpszClassName, L"", WS_POPUP,
-        0, 0, 1000, 700, nullptr, nullptr, wc.hInstance, nullptr);
-    Check(hwnd != nullptr, L"tray stack: hidden test window created");
-    if (!hwnd) return;
-    state->hwnd = hwnd;
-    if (state->compositor.Init(hwnd)) {
-        state->compositor.RecreateTextFormats(1.0f);
-        state->renderer.SetCompositor(&state->compositor);
-        state->renderer.SetScale(1.0f);
-        state->window_tabs.NewTab(L"C:\\PulseTrayStackFixture");
-        state->pane = state->window_tabs.Active()->panes.front().get();
-        SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(state.get()));
-        TrayStackSettle(*state, 900);
-        auto vm = BuildVm(*state, false);
-        const auto& deck = vm.tray_deck;
-        Check(deck.total_count == 5 && deck.live_count >= 3,
-              L"tray stack: view model carries the visible window");
-        const auto first = TrayDeckEntries(state->tray, 0, 1);
-        Check(deck.live_count >= 3 && !first.empty() &&
-              deck.cards[0].path == first.front().item->path &&
-              deck.cards[0].depth < 0.05f && std::abs(deck.cards[1].depth - 1.0f) < 0.05f &&
-              std::abs(deck.cards[2].depth - 2.0f) < 0.05f,
-              L"tray stack: top card first, two layers peek underneath");
-
-        // The panel is the shelf (b7b1cd5): a fan of the staged items to drag
-        // out, the release split button, and a chevron that lists every item.
-        BYTE saved_keys[256]{};
-        GetKeyboardState(saved_keys);
-        const auto scan_shelf = [&](const ui::WindowViewModel& model, std::map<int, D2D1_RECT_F>& zones) {
-            zones.clear();
-            const D2D1_RECT_F area = state->renderer.StagingTrayRect(model, 1000.0f, 700.0f);
-            for (float y = area.top; y < area.bottom; y += 2.0f) {
-                for (float x = area.left; x < area.right; x += 2.0f) {
-                    const auto hit = state->renderer.HitTest(model, D2D1::RectF(0, 0, 1000, 700), x, y);
-                    if (hit.region != ui::HitTestResult::TrayShelf) continue;
-                    auto [it, fresh] = zones.emplace(hit.index, D2D1::RectF(x, y, x, y));
-                    if (!fresh) {
-                        it->second.left = std::min(it->second.left, x); it->second.top = std::min(it->second.top, y);
-                        it->second.right = std::max(it->second.right, x); it->second.bottom = std::max(it->second.bottom, y);
-                    }
-                }
-            }
-        };
-        const auto zone_list = [](const std::map<int, D2D1_RECT_F>& zones) {
-            std::wstring text;
-            for (const auto& [k, rc] : zones) text += L" " + std::to_wstring(k);
-            return text;
-        };
-        const auto has_zone = [](const std::map<int, D2D1_RECT_F>& zones, ui::TrayShelfHit h) {
-            return zones.count(static_cast<int>(h)) != 0;
-        };
-        const auto click_zone = [&](const std::map<int, D2D1_RECT_F>& zones, ui::TrayShelfHit h) {
-            const auto it = zones.find(static_cast<int>(h));
-            if (it == zones.end()) return;
-            const LPARAM pt = MAKELPARAM(static_cast<int>((it->second.left + it->second.right) * 0.5f),
-                                         static_cast<int>((it->second.top + it->second.bottom) * 0.5f));
-            SendMessageW(hwnd, WM_LBUTTONDOWN, MK_LBUTTON, pt);
-            SendMessageW(hwnd, WM_LBUTTONUP, 0, pt);
-        };
-        const D2D1_RECT_F panel = state->renderer.StagingTrayRect(vm, 1000.0f, 700.0f);
-        Check(panel.bottom - panel.top > 60.0f, L"tray stack: panel has room for the stack");
-        std::map<int, D2D1_RECT_F> zones;
-        scan_shelf(vm, zones);
-        Check(has_zone(zones, ui::TrayShelfHit::Fan) && has_zone(zones, ui::TrayShelfHit::Release) &&
-              has_zone(zones, ui::TrayShelfHit::ReleaseMenu) && has_zone(zones, ui::TrayShelfHit::Expand),
-              (L"tray shelf: fan, release split button and expand hit-test (zones" + zone_list(zones) + L")").c_str());
-        click_zone(zones, ui::TrayShelfHit::Expand);
-        Check(state->trayView.open, L"tray shelf: expand opens the item list");
-        TrayStackSettle(*state, 600);
-        vm = BuildVm(*state, false);
-        scan_shelf(vm, zones);
-        Check(has_zone(zones, ui::TrayShelfHit::Row) && has_zone(zones, ui::TrayShelfHit::Collapse),
-              (L"tray shelf: open list shows item rows and collapse (zones" + zone_list(zones) + L")").c_str());
-        click_zone(zones, ui::TrayShelfHit::Collapse);
-        Check(!state->trayView.open, L"tray shelf: collapse returns to the shelf");
-        TrayStackSettle(*state, 600);
-        vm = BuildVm(*state, false);
-
-        // Clear: every visible card tumbles off, staggered; nothing lingers.
-        std::vector<std::wstring> all;
-        for (const auto& b : state->tray.batches())
-            for (const auto& item : b.items) all.push_back(item.path);
-        MarkTrayExit(*state, all, true);
-        state->tray.Clear();
-        TickTrayDeck(*state);
-        vm = BuildVm(*state, false);
-        int ghosts = 0;
-        for (const auto& c : vm.tray_deck.cards) if (c.ghost) ++ghosts;
-        Check(vm.tray_deck.live_count == 0 && ghosts >= 3 && ghosts <= 8,
-              L"tray stack: clear tumbles the visible cards");
-        TrayStackSettle(*state, 1300);
-        vm = BuildVm(*state, false);
-        Check(vm.tray_deck.cards.empty() && state->trayCards.empty(),
-              L"tray stack: clear leaves no animation state behind");
-
-        // The same file staged twice (Ctrl+C again, or once to copy and once
-        // to move) settles as one card. Two cards would share the path's
-        // animation entry and pull it toward two depths on every tick, so the
-        // stack never came to rest and its text shimmered.
-        state->tray.Collect({ files[0] }, false);
-        state->tray.Collect({ files[0] }, true);
-        TrayStackSettle(*state, 900);
-        vm = BuildVm(*state, false);
-        const bool duplicate_moving = TickTrayDeck(*state);
-        Check(!duplicate_moving && vm.tray_deck.live_count == 1 && vm.tray_deck.cards.size() == 1 &&
-              vm.tray_deck.cards[0].depth < 0.05f,
-              (L"tray stack: a file staged twice settles as one card (moving=" + std::to_wstring(duplicate_moving) +
-               L" live=" + std::to_wstring(vm.tray_deck.live_count) + L")").c_str());
-        state->tray.Clear();
-        SetKeyboardState(saved_keys);
-    } else Check(false, L"tray stack: graphics initialized");
-    if (GetCapture() == hwnd) ReleaseCapture();
-    SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
-    DestroyWindow(hwnd);
-    state->hwnd = nullptr;
-    UnregisterClassW(wc.lpszClassName, wc.hInstance);
-    for (const auto& f : files) DeleteFileW(f.c_str());
-    RemoveDirectoryW(dir.c_str());
-}
-
 void TestLinkResolve() {
     Check(fs::StripLnkSuffix(L"计算图形.dwg.lnk") == L"计算图形.dwg",
           L"link: strip suffix");
@@ -9253,91 +9063,6 @@ void TestTabShortcuts() {
     }
 }
 
-void TestStagingTrayDeletion() {
-    {
-        StagingTray tray;
-        tray.Collect({ L"C:\\tray-test\\a.txt", L"C:\\tray-test\\folder\\b.txt",
-                       L"C:\\tray-test\\folder-other\\keep.txt" }, false);
-        tray.Collect({ L"C:\\tray-test\\a.txt" }, true);
-        tray.RemoveDeleted({});
-        Check(tray.batches().size() == 2, L"tray: no successful deletions keep batches");
-        tray.RemoveDeleted({ L"c:\\TRAY-test\\A.txt" });
-        Check(tray.batches().size() == 1 && tray.batches()[0].items.size() == 2,
-              L"tray: deletion removes duplicate copy and cut entries and empty batches");
-        tray.RemoveDeleted({ L"C:\\tray-test\\folder" });
-        Check(tray.batches().size() == 1 && tray.batches()[0].items.size() == 1 &&
-              tray.batches()[0].items[0].path.find(L"folder-other") != std::wstring::npos,
-              L"tray: folder deletion removes descendants but preserves sibling prefixes");
-        tray.RemoveDeleted({ L"C:\\tray-test" });
-        Check(tray.batches().empty(), L"tray: deleting final ancestor clears tray");
-        const auto source = WorkspacePath(L"src\\app\\app_model.cpp");
-        tray.Collect({ source, source }, false);
-        const auto size = tray.batches()[0].items[0].size;
-        tray.RemoveItem(0, 0);
-        Check(size > 0 && tray.batches()[0].total_size == size,
-              L"tray: removing an item updates batch size");
-        std::wstring saved;
-        tray.ToJson(saved);
-        StagingTray restored;
-        Check(restored.FromJson(saved) && restored.batches()[0].total_size == size,
-              L"tray: restored batch retains size accounting");
-        restored.RemoveDeleted({ source });
-        Check(restored.batches().empty(), L"tray: deletion also clears restored entries");
-    }
-}
-
-void TestStagingTraySession() {
-    // Each batch nests its own "items" array and paths may contain brackets;
-    // a reload must bring back every batch, not stop at the first ']'.
-    StagingTray tray;
-    tray.Collect({ L"C:\\tray-test\\a]b.txt", L"C:\\tray-test\\c.txt" }, false);
-    tray.Collect({ L"C:\\tray-test\\[x]\\d.txt" }, true);
-    std::wstring tray_json;
-    tray.ToJson(tray_json);
-    SessionSnapshot saved;
-    saved.tray = tray;
-    saved.details_panel = true;
-    const std::wstring json = SessionToJson(saved);
-    wchar_t previous[32768]{};
-    GetEnvironmentVariableW(L"PULSE_TEST_DATA_DIR", previous, ARRAYSIZE(previous));
-    const auto data_dir = WorkspacePath((L"bench_data/tray-session-" + std::to_wstring(GetCurrentProcessId())).c_str());
-    std::filesystem::create_directories(data_dir);
-    SetEnvironmentVariableW(L"PULSE_TEST_DATA_DIR", data_dir.c_str());
-    SessionSnapshot snap;
-    Check(SaveSession(saved) && LoadSession(snap), L"session: complete file round trip loads");
-    SetEnvironmentVariableW(L"PULSE_TEST_DATA_DIR", previous[0] ? previous : nullptr);
-    std::filesystem::remove_all(data_dir);
-    const auto& batches = snap.tray.batches();
-    Check(batches.size() == 2 && batches[0].items.size() == 2 && !batches[0].move_intent &&
-          batches[0].items[0].path.find(L"a]b.txt") != std::wstring::npos &&
-          batches[1].items.size() == 1 && batches[1].move_intent &&
-          batches[1].items[0].path.find(L"[x]\\d.txt") != std::wstring::npos,
-          L"session: every tray batch survives reload, including bracketed paths");
-    Check(snap.details_panel, L"session: fields after the tray still load");
-    Check(!ParseSessionJson(json.substr(0, json.rfind(L'}')), snap) && snap.tray.batches().size() == 2,
-          L"session: truncated document retains previous tray");
-    Check(!snap.tray.FromJson(tray_json + L"garbage") && snap.tray.batches().size() == 2,
-          L"tray: trailing garbage cannot replace previous batches");
-    Check(!snap.tray.FromJson(L"[{\"move\":false,\"items\":[\"x\"]},]") && snap.tray.batches().size() == 2,
-          L"tray: balanced invalid syntax cannot replace previous batches");
-
-    // A rename or move reported by the completed job also retargets staged
-    // children of the folder, never siblings that only share a name prefix.
-    StagingTray moved;
-    moved.Collect({ L"C:\\tray-test\\dir", L"C:\\tray-test\\dir\\sub\\a.txt",
-                    L"C:\\tray-test\\dir-other\\b.txt" }, true);
-    moved.ReplacePath(L"C:\\tray-test\\dir", L"C:\\tray-test\\renamed");
-    const auto& items = moved.batches()[0].items;
-    Check(items.size() == 3 &&
-          items[0].path == fs::NormalizePath(L"C:\\tray-test\\renamed") &&
-          items[1].path == fs::NormalizePath(L"C:\\tray-test\\renamed\\sub\\a.txt") &&
-          items[2].path.find(L"dir-other") != std::wstring::npos,
-          L"tray: a completed folder rename remaps staged children only");
-    moved.ReplacePath(L"", L"C:\\x");
-    Check(moved.batches()[0].items[0].path == fs::NormalizePath(L"C:\\tray-test\\renamed"),
-          L"tray: an empty source path changes nothing");
-}
-
 void TestAuditTabs() {
     WindowTabs tabs;
     auto& first = tabs.NewTab(L"C:\\visible");
@@ -9865,14 +9590,6 @@ int RunSelfTest1B2() {
         return g_fail ? 1 : 0;
     }
     if (GetEnvironmentVariableW(L"PULSE_SELFTEST_CASE", test_case, ARRAYSIZE(test_case)) &&
-        wcscmp(test_case, L"tray-session") == 0) {
-        TestStagingTrayDeletion();
-        TestStagingTraySession();
-        LogLine(L"\n== tray-session: %d passed, %d failed ==\n", g_pass, g_fail);
-        if (g_log) { fclose(g_log); g_log = nullptr; }
-        return g_fail ? 1 : 0;
-    }
-    if (GetEnvironmentVariableW(L"PULSE_SELFTEST_CASE", test_case, ARRAYSIZE(test_case)) &&
         wcscmp(test_case, L"pr-shell") == 0) {
         TestMenuModel();
         TestShellMenuMerge();
@@ -9931,12 +9648,6 @@ int RunSelfTest1B2() {
         TestActionArgs();
         TestFilePlans();
         TestMcpRunActions();
-        if (g_log) { fclose(g_log); g_log = nullptr; }
-        return g_fail ? 1 : 0;
-    }
-    if (GetEnvironmentVariableW(L"PULSE_SELFTEST_CASE", test_case, ARRAYSIZE(test_case)) &&
-        wcscmp(test_case, L"tray-stack") == 0) {
-        TestTrayStack();
         if (g_log) { fclose(g_log); g_log = nullptr; }
         return g_fail ? 1 : 0;
     }
@@ -10093,7 +9804,6 @@ int RunSelfTest1B2() {
     TestViewLayouts();
     TestListColumns();
     TestOptionalColumns();
-    TestTrayStack();
     TestHiddenFiles();
     TestQuickAccess();
     TestIntegrationCompat();
@@ -10108,8 +9818,6 @@ int RunSelfTest1B2() {
     TestSessionLayoutTabs();
     TestTabShortcuts();
     TestKeymap();
-    TestStagingTrayDeletion();
-    TestStagingTraySession();
     TestLayoutOwnedTabs();
     TestUtf8PersistFile();
     TestColorPickerModel();

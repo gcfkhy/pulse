@@ -1,5 +1,5 @@
 // ui_view_model.h — Plain view models the app builds and MainRenderer draws
-// (tabs, panes, sidebar, tray, hit results). Kept apart from ui_renderer.h so
+// (tabs, panes, sidebar, hit results). Kept apart from ui_renderer.h so
 // app headers can name them without the renderer class: edits to MainRenderer
 // then rebuild only the sources that call it.
 #pragma once
@@ -339,8 +339,6 @@ struct PaneViewModel {
     bool compare_diff_only = false;
     std::array<int, 5> compare_counts{};   // indexed by CompareMark
     std::shared_ptr<const TagDots> tag_dots;
-    // Hashes (StagedPathHash) of every staged item: rows show "已暂存".
-    std::shared_ptr<const std::unordered_set<uint64_t>> staged;
     // In-app Git: source index -> working-tree state (git_mark.h). Rows tint
     // their name; Details files also get a pill in the badge slot.
     std::shared_ptr<const std::unordered_map<int, GitMark>> git_marks;
@@ -588,194 +586,6 @@ struct SidebarGroupBand {
     int group = -1;      // index into WindowViewModel::sidebar
     float top = 0.0f;    // header top (px, client space)
     float bottom = 0.0f; // end of the section's gap (px)
-};
-
-// Card stack inside the staging tray panel. Poses arrive pre-animated from
-// the app-side state (TickTrayDeck); the renderer maps depth/offsets to one
-// shared geometry (TrayStackGeometry), so draw and hit-test never disagree.
-struct TrayCardView {
-    std::wstring path;
-    std::wstring name;
-    std::wstring folder;       // parent folder for the third line (display form)
-    DWORD attrs = 0;
-    bool is_dir = false;
-    bool missing = false;
-    bool cut = false;          // staged with Ctrl+X (move intent)
-    int batch = -1;            // staging-tray batch index (live cards only)
-    int sub = -1;              // item index inside the batch (live cards only)
-    uint64_t size = 0;         // item size in bytes (files)
-    float depth = 0.0f;        // 0 = top card, 1/2 = peeking layers, 3 = hidden behind
-    float hover = 0.0f;        // 0..1 top-card lift + close badge
-    float appear = 1.0f;       // 0 = dropping in from above, 1 = settled
-    float fly = 0.0f;          // horizontal offset in card widths (throw / tumble)
-    float dx = 0.0f;           // gesture offset, DIPs
-    float dy = 0.0f;
-    float angle = 0.0f;        // rotation, degrees
-    float shrink = 1.0f;       // extra scale (tumble)
-    float opacity = 1.0f;
-    bool ghost = false;        // exiting: drawn, never hit-tested
-    bool on_top = false;       // painted above the stack (dragged / flying out)
-};
-
-// One smoke puff of the dismiss effect, anchored at the top card's × badge.
-struct TrayPuffView {
-    float t = 0.0f;            // 0..1 lifetime progress
-    float angle = 0.0f;        // radians
-    float dist = 0.0f;         // travel, DIPs
-    float size = 1.0f;         // final scale
-};
-
-// One row of the open tray view.
-struct TrayOpenRow {
-    uint64_t id = 0;
-    std::wstring path, name, size;
-    DWORD attrs = 0;
-    bool is_dir = false;
-    bool exists = true;
-    bool checked = false;
-    bool group_start = false;        // first row of its source folder: header above
-    std::wstring group, group_path;  // source folder name / path
-    float in_t = 1.0f;               // 0..1 stagger entrance
-    float out_t = 0.0f;              // 0..1 Del slide-out
-};
-
-// Staging tray recent drop destination (chip row under the deck).
-struct TrayDestView {
-    std::wstring path;
-    std::wstring label;              // folder name (drive root: the path)
-    bool missing = false;            // folder gone: chip greyed, click ignored
-};
-
-// Two staged files side by side (column 0 = first staged).
-struct TrayCompareView {
-    std::wstring name[2], where[2], time[2], size[2];
-    int newer = -1;            // column with the later mtime (2 s tolerance), -1 same
-    bool size_differs = false;
-    int content = 0;           // 0 not compared, 1 running, 2 identical, 3 different, 4 unreadable
-    int text = -1;             // both files text: 1, binary: 0, not probed yet: -1
-};
-
-struct TrayDeckView {
-    std::vector<TrayCardView> cards; // live window (top first) + ghosts
-    std::vector<TrayPuffView> puffs;
-    int live_count = 0;              // leading non-ghost entries in cards
-    int total_count = 0;             // all staged items
-    int offset = 0;                  // cyclic index of the top card (newest-first order)
-    uint64_t total_size = 0;         // sum over all batches (footer text)
-    int batch_count = 0;
-    bool release_move = false;       // intent of the batch the header button releases
-    float open = 0.0f;               // 0..1 drag-over highlight
-    float spread = 0.0f;             // 0..1 peeking layers fan out (stack hovered)
-    float thumb_dip = 48.0f;         // thumbnail edge (settings: staging tray icon size)
-    bool hidden = false;             // host has no staging tray (file picker)
-    int hovered = -1;                // live display index under the cursor (0 = top)
-    std::vector<TrayDestView> dests; // recent drop folders, newest first (max 3)
-    int stale_count = 0;             // staged items moved/deleted outside Pulse
-    bool can_compare = false;        // exactly two existing files staged
-    bool comparing = false;          // compare table replaces the card stack
-    TrayCompareView compare;
-
-    // Shelf redesign. The panel is one of three
-    // layers: a 40 dip strip when empty, two drop halves while files are
-    // dragged over the window, and the shelf (fan + release + 送到 chips).
-    int stage = 0;                   // TrayStage: 0 strip, 1 drop, 2 shelf
-    int prev_stage = -1;             // layer fading out during a swap, -1 none
-    float swap = 1.0f;               // 0..1 layer swap progress (410 ms)
-    float height_dip = 40.0f;        // animated panel height (spring)
-    bool hide_empty = false;         // setting: the empty strip folds to 0 (fades below 40)
-    bool drop_move = false;          // drop layer: 移动暂存 half is the active one
-    bool move_mode = false;          // release moves (mode, flipped live by Shift)
-    float mode_t = 0.0f;             // 0..1 copy -> move colour blend
-    float label_t = 1.0f;            // 0..1 main label rise-in after a mode flip
-    std::wstring target;             // current folder name; empty: not a target
-    int conflicts = 0;               // staged names already in the current folder
-    std::wstring sources_text;       // "来自 A、B 等 n 处"
-    std::vector<TrayCardView> fan;   // up to three newest live items, oldest first
-    float fan_spread = 0.0f;         // 0..1 fan hovered
-    float bump = 0.0f;               // 0..1 progress of the count bump after a collect
-    bool zipping = false;
-    float zip_progress = 0.0f;       // 0..1 (ring)
-    int flash_chip = -1;             // 送到 chip that just received items
-    float flash_t = 1.0f;            // 0..1 flash progress
-    int clip_count = 0;              // Ctrl+C offer (剪贴板 N 项 · 收入), 0 none
-    float clip_t = 1.0f;             // 0..1 offer pop-in (450 ms)
-    // Open view (stage 3).
-    std::vector<TrayOpenRow> open_rows;  // filtered, grouped by source folder
-    int filter = 0;                  // 0 all, 1 images, 2 documents, 3 other
-    int filter_counts[4]{};          // per filter (0 = every item)
-    int checked = 0;                 // checked live items
-    int live_total = 0;              // existing items (未勾选 · 对全部 N 项)
-    int target_count = 0;            // items the main button acts on
-    float open_scroll = 0.0f;        // DIPs
-    bool cmp_shown = false;          // compare card beside the sidebar
-    float cmp_t = 1.0f;              // 0..1 card entrance
-};
-
-enum class TrayStage : int { Strip = 0, Drop = 1, Shelf = 2, Open = 3 };
-
-// Panel height of each layer, DIPs (the drop layer never shrinks the panel).
-inline float TrayShelfStageHeightDip(int stage, bool clip = false) {
-    switch (static_cast<TrayStage>(stage)) {
-    case TrayStage::Drop: return 112.0f;
-    case TrayStage::Shelf: return clip ? 184.0f : 150.0f;  // + the 收入 row
-    case TrayStage::Open: return 476.0f;  // capped at the sidebar height - 20
-    default: return 40.0f;
-    }
-}
-
-// Case-insensitive path hash for the "已暂存" row pill (separators and a
-// trailing backslash ignored). Rows only hash their own path per frame.
-inline uint64_t StagedPathHash(std::wstring_view path) noexcept {
-    // Staged paths are normalized (long-path prefix); rows are not.
-    uint64_t h = 1469598103934665603ull;
-    auto mix = [&h](wchar_t c) {
-        if (c == L'/') c = L'\\';
-        else if (c >= L'A' && c <= L'Z') c = static_cast<wchar_t>(c + 32);
-        else if (c >= 0x80) c = static_cast<wchar_t>(reinterpret_cast<uintptr_t>(
-            CharLowerW(reinterpret_cast<LPWSTR>(static_cast<uintptr_t>(c)))));
-        h ^= static_cast<uint64_t>(c);
-        h *= 1099511628211ull;
-    };
-    if (path.starts_with(L"\\\\?\\UNC\\")) {
-        path.remove_prefix(8);
-        mix(L'\\');
-        mix(L'\\');
-    } else if (path.starts_with(L"\\\\?\\")) {
-        path.remove_prefix(4);
-    }
-    while (!path.empty() && (path.back() == L'\\' || path.back() == L'/')) path.remove_suffix(1);
-    for (wchar_t c : path) mix(c);
-    return h;
-}
-
-// HitTestResult::TrayShelf index values (sub_index: chip number).
-enum class TrayShelfHit : int {
-    Panel = 0,       // background: swallows the click
-    Fan,             // card fan: drag the whole stack out
-    Expand,          // ⌃ show every item
-    More,            // ⋯ menu
-    Release,         // main split button: copy / move to the current folder
-    ReleaseMenu,     // ▾ part: mode + 送到 + choose folder
-    Zip,
-    Rename,
-    Chip,            // 送到 chip (sub_index, path)
-    Pick,            // ＋ chip: choose a folder
-    DropCopy,        // drop layer halves
-    DropMove,
-    Strip,           // empty strip
-    Clip,            // 剪贴板 N 项 · 收入 (strip button / shelf row)
-    // Open view.
-    Collapse,        // ⌄ back to the shelf
-    Filter,          // type chip (sub_index: filter)
-    Row,             // item row: toggle its check (sub_index: row)
-    GroupOpen,       // 打开 › on a source header (path)
-    SelNone,         // 取消: clear the checks
-    Compare,         // ⇄ 比较这两个
-    List,            // list background (wheel)
-    // Compare card (beside the sidebar).
-    Card,            // background: swallows the click
-    CardAction,      // result line: compare content / view diff
-    CardClose,
 };
 
 // Right-side details panel for the current selection (ui.md §7.2 视图簇).
@@ -1185,7 +995,6 @@ struct WindowViewModel {
     // Settings page scrollbar: thin at rest, expanded while hovered or dragged.
     float settings_scrollbar_opacity = 1.0f;
     float settings_scrollbar_expand = 0.0f;
-    TrayDeckView tray_deck;
     bool details_visible = false;   // right details panel toggle (view menu)
     int layout_preset = 0;          // app::LayoutPreset of the active tab (toolbar split icon)
     DetailsPanelView details;
@@ -1221,7 +1030,6 @@ struct WindowViewModel {
     // and 0..1 of the distance at which the tab becomes a window.
     float tab_detach_dy = 0.0f;
     float tab_detach_pull = 0.0f;
-    bool tray_drop = false;       // staging tray under a drag
     std::wstring drag_badge;      // action badge text near the cursor
     float drag_badge_x = 0.0f;
     float drag_badge_y = 0.0f;
@@ -1395,7 +1203,6 @@ struct WindowViewModel {
     bool settings_hover_select = false;
     bool settings_item_checkboxes = false;
     bool settings_vertical_tabs = false;
-    bool settings_tray_hide_empty = false;
     // 文件操作 → 网络位置 (AppPrefs lan_discovery ...).
     bool settings_lan_discovery = true;
     bool settings_network_recent = true;
@@ -1471,7 +1278,6 @@ struct WindowViewModel {
     bool settings_change_tracking = false;
     int settings_change_days = 3;
     int settings_row_height = 34; // current row-height pref (DIPs) for density radios
-    int settings_tray_icon = 48;  // current tray-deck icon pref (DIPs) for size radios
     int settings_language = 0;    // 0 system, 1 zh-CN, 2 zh-TW, 3 en-US
     BloomAccentPicker* settings_bloom = nullptr;
     bool settings_group_on[5] = { true, true, false, false, true };
@@ -1622,14 +1428,8 @@ struct HitTestResult {
         SidebarWorkspaceAction,
         SidebarItemExpand,
         SidebarBlank,             // empty space in the sidebar: section menu
-        TrayRelease,
-        TrayClose,
-        TrayItemRemove,
-        TrayCard,
-        TrayIntent,               // copy/move chip on the top tray card
         CompareDiffToggle,        // folder compare banner: differences only / show all
         CompareExit,              // folder compare banner: exit compare
-        TrayClear,
         RowStar,
         RowTagDot,   // a tag dot after the name: sub_index = the tag's index in the catalog
         RowFolderSize,
@@ -1691,7 +1491,6 @@ struct HitTestResult {
         SettingsThumbCache,
         SettingsTextRender,
         SettingsUiFontSize,
-        SettingsTrayIcon,
         SettingsDoubleCtrlGap,
         SettingsLanguage,
         SettingsIndexVolume,
@@ -1715,8 +1514,6 @@ struct HitTestResult {
         SettingsDupGroupDelete,
         SettingsDupDeleteAll,
         SearchFilter,
-        TrayPrev,                 // staging tray footer: previous card
-        TrayNext,                  // staging tray footer: next card (top card to the back)
         PaneColumnLayout,
         ColumnStripRow,      // index = row, sub_index = column id
         ColumnStripDivider,  // sub_index = column id
@@ -1736,9 +1533,6 @@ struct HitTestResult {
         TeachNever,          // teaching bubble: don't show tips
         TeachBubble,         // teaching bubble body (swallows clicks)
         FilterEmptyAction,   // pane filter with no matches: 0 search subfolders, 1 clear filter
-        TrayDest,            // staging tray recent destination chip: index, path
-        TrayStale,           // staging tray stale-items row: 0 find, 1 remove
-        TrayCompare,         // staging tray compare: 0 footer toggle, 1 content check, 2 view diff
         GroupHeader,         // "group by" header (index = group): toggle collapse
         GroupSelect,         // header hover action (index = group): select the group
         ToolbarGroup,        // toolbar "Group" button / active chip: open the group menu
@@ -1750,8 +1544,6 @@ struct HitTestResult {
         SettingsSysCtx,        // Settings > 系统右键菜单: index = SysCtxHit
         SettingsCtxPivot,      // Settings > 右键菜单 layer card 系统右键菜单: index = page (6)
         SettingsShortcuts,     // Settings > 快捷键: index = ShortcutsHit
-        TrayShelf,             // staging tray shelf: index = TrayShelfHit
-        StagedBadge,           // "已暂存" pill on a list row: index = entry, path
         PaneWallHint,          // photo wall suggestion: index 0 card, 1 switch, 2 never again
         StatusBarAi,           // the AI chip at the right end of the status bar
         SettingsAi,            // Settings > 增强包 > AI 与 MCP: index = AiHit
@@ -1766,8 +1558,8 @@ struct HitTestResult {
         ColumnStripNav,        // column view arrow button: index = kColumnStripNavLeft / Right
     } region = None;
     SidebarAddAction sidebar_action = SidebarAddAction::None;
-    int index = -1;          // tab/row/sidebar item/tray batch/tray item.
-    int sub_index = -1;      // tray item inside batch, breadcrumb segment.
+    int index = -1;          // tab/row/sidebar item.
+    int sub_index = -1;      // breadcrumb segment.
     int pane_index = -1;     // leaf in pane_slots, or -1 outside the content area.
     // Sidebar hits: the logical section (SidebarSectionId) and the row inside it,
     // so dragging can tell a pinned row from a section's own row.

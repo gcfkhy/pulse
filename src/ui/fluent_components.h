@@ -262,15 +262,6 @@ struct SidebarItemSpec {
     D2D1_COLOR_F status_color{};
 };
 
-struct TrayCardSpec {
-    D2D1_RECT_F bounds{};
-    std::wstring_view summary;
-    std::wstring_view detail;
-    int item_count = 0;
-    bool move_intent = false;
-    ControlState state{};
-};
-
 struct ProgressSpec {
     D2D1_RECT_F bounds{};
     float value = 0.0f;
@@ -408,25 +399,6 @@ struct FileRowContentSpec {
     bool drop_target = false;
 };
 
-struct StagingTrayPanelSpec {
-    D2D1_RECT_F bounds{};
-    std::wstring_view title;
-    std::wstring_view helper;
-    std::wstring_view count_label;
-    std::wstring_view action_text;
-    int item_count = 0;
-    ControlState state{};
-    bool action_hovered = false; // 释放 button under the cursor
-    bool expanded = true;
-};
-
-struct StagingItemSpec {
-    D2D1_RECT_F bounds{};
-    std::wstring_view name;
-    ControlState state{};
-    bool missing = false;
-};
-
 struct StatusBarSpec {
     D2D1_RECT_F bounds{};
     std::wstring_view left_text;
@@ -526,7 +498,6 @@ public:
     void DrawTooltip(const D2D1_RECT_F& bounds, std::wstring_view text);
     void DrawListRowBackground(const ListRowSpec& spec);
     void DrawSidebarItem(const SidebarItemSpec& spec);
-    void DrawTrayCard(const TrayCardSpec& spec);
     void DrawProgressBar(const ProgressSpec& spec);
     void DrawProgressRing(const ProgressSpec& spec);
     void DrawTagDot(D2D1_POINT_2F center, float radius, const D2D1_COLOR_F& color);
@@ -592,8 +563,6 @@ public:
     void DrawPaneHeader(const PaneHeaderSpec& spec);
     void DrawColumnHeader(const ColumnHeaderSpec& spec);
     void DrawFileRowContent(const FileRowContentSpec& spec);
-    void DrawStagingTrayPanel(const StagingTrayPanelSpec& spec);
-    void DrawStagingItem(const StagingItemSpec& spec);
     void DrawStatusBar(const StatusBarSpec& spec);
     void DrawInfoBar(const InfoBarSpec& spec);
     InfoBarLayout LayoutInfoBar(const InfoBarSpec& spec) const;

@@ -63,7 +63,6 @@
 #include "../common/diagnostics_exporter.h"
 #include "snapshot_patch.h"
 #include "dir_notify_queue.h"
-#include "text_diff.h"
 #include "content_pack.h"
 #include "content_pack_ui.h"
 #include "ai_pack.h"
@@ -893,7 +892,6 @@ void FillPaneSlots(AppState& s, ui::WindowViewModel& vm) {
             vm.settings_change_tracking = s.appPrefs.change_tracking_enabled;
             vm.settings_change_days = s.appPrefs.change_tracking_days;
             vm.settings_row_height = s.appPrefs.row_height;
-            vm.settings_tray_icon = s.appPrefs.tray_icon_size;
             vm.settings_language = s.appPrefs.language == L"zh-CN" ? 1
                 : s.appPrefs.language == L"zh-TW" ? 2
                 : s.appPrefs.language == L"en-US" ? 3 : 0;
@@ -1257,7 +1255,6 @@ void FillPaneSlots(AppState& s, ui::WindowViewModel& vm) {
             // it instead of rebuilding all snapshot-derived data twice.
             if (slot.focused) slot.pane = vm.pane;
             else app::FillPaneViewModel(slot.pane, *p, &s.places);
-            slot.pane.staged = StagedHashes(s);
             if (app::Tab* tab = p->ActiveTab()) {
                 FillChangePane(s, *tab, slot.pane, slot.rect);
                 FillGitPane(s, *tab, slot.pane);
@@ -1317,82 +1314,6 @@ void FillPaneSlots(AppState& s, ui::WindowViewModel& vm) {
     }
     s.renderer.PruneWallViews(vm.pane_slots);
 }
-// ---------------------------------------------------------------------------
-// Staging tray card deck: display entries (newest batch first) + eased poses.
-// ---------------------------------------------------------------------------
-
-// Deck window size: as many cards as the tray panel width fits at the
-// current icon size without breaking the max-50%-overlap rule; anything
-// beyond that stays behind the +N overflow and the wheel paged window.
-int TrayDeckCap(const AppState& s) {
-    return s.renderer.TrayDeckCapacity(static_cast<float>(s.compositor.Width()));
-}
-
-
-// Cyclic window into the newest-first item list: the card at `offset` is on
-// top, the following ones sit underneath, wrapping around the end so the
-// stack can be flipped through endlessly. A path staged more than once (copied
-// again, or once to copy and once to move) shows once per window: its cards
-// would share the path's animation entry and pull it toward two depths on
-// every tick, so the stack never settled and its text shimmered.
-std::vector<TrayDeckEntry> TrayDeckEntries(const app::StagingTray& tray, size_t offset,
-                                                  size_t cap) {
-    std::vector<TrayDeckEntry> all;
-    const auto& batches = tray.batches();
-    for (int b = static_cast<int>(batches.size()) - 1; b >= 0; --b) {
-        const auto& items = batches[static_cast<size_t>(b)].items;
-        for (int k = 0; k < static_cast<int>(items.size()); ++k)
-            all.push_back({ b, k, &items[static_cast<size_t>(k)] });
-    }
-    std::vector<TrayDeckEntry> out;
-    if (all.empty()) return out;
-    const size_t n = all.size();
-    const size_t start = offset % n;
-    for (size_t i = 0; i < n && out.size() < cap; ++i) {
-        const TrayDeckEntry& entry = all[(start + i) % n];
-        const bool shown = std::any_of(out.begin(), out.end(),
-            [&entry](const TrayDeckEntry& e) { return e.item->path == entry.item->path; });
-        if (!shown) out.push_back(entry);
-    }
-    return out;
-}
-
-int TrayItemTotalCount(const app::StagingTray& tray) {
-    int n = 0;
-    for (const auto& b : tray.batches()) n += static_cast<int>(b.items.size());
-    return n;
-}
-
-// Extended-length prefixes leak into tooltips otherwise: \\?\C:\x -> C:\x.
-std::wstring TrayDisplayPath(const std::wstring& path) {
-    return pulse::path::FriendlyPathText(path);
-}
-
-std::wstring TrayItemName(const std::wstring& path) {
-    const size_t slash = path.find_last_of(L"\\/");
-    return slash == std::wstring::npos ? path : path.substr(slash + 1);
-}
-
-// Display index of the tray card under the cursor. Hovering a card's × badge
-// (TrayItemRemove) still counts as hovering that card, so the raise pose and
-// the badge stay put instead of oscillating.
-int TrayDeckHoverIndex(const AppState& s) {
-    if (s.hoverRegion == static_cast<int>(ui::HitTestResult::TrayCard))
-        return s.hoverControlIndex;
-    if (s.hoverRegion == static_cast<int>(ui::HitTestResult::TrayIntent))
-        return s.hoverSubIndex;
-    if (s.hoverRegion == static_cast<int>(ui::HitTestResult::TrayItemRemove)) {
-        const auto entries = TrayDeckEntries(s.tray, static_cast<size_t>(TrayStackTop(s)),
-                                             static_cast<size_t>(TrayDeckCap(s)));
-        for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
-            if (entries[static_cast<size_t>(i)].batch == s.hoverControlIndex &&
-                entries[static_cast<size_t>(i)].sub == s.hoverSubIndex)
-                return i;
-        }
-    }
-    return -1;
-}
-
 // ---------------------------------------------------------------------------
 // Details panel helpers: star shortcuts, byte/time formatting, size walk.
 // ---------------------------------------------------------------------------
@@ -1705,482 +1626,6 @@ std::wstring DetailsAttributeText(DWORD attrs) {
     return result.empty() ? pulse::l10n::Get(pulse::l10n::StringId::AttrNormal).c_str() : result;
 }
 
-namespace {
-// CSS-style cubic-bezier easing (x1, y1, x2, y2) evaluated at time t.
-float CubicBezier(float x1, float y1, float x2, float y2, float t) {
-    t = std::clamp(t, 0.0f, 1.0f);
-    auto bx = [&](float u) {
-        const float v = 1.0f - u;
-        return 3.0f * v * v * u * x1 + 3.0f * v * u * u * x2 + u * u * u;
-    };
-    auto by = [&](float u) {
-        const float v = 1.0f - u;
-        return 3.0f * v * v * u * y1 + 3.0f * v * u * u * y2 + u * u * u;
-    };
-    float lo = 0.0f, hi = 1.0f, u = t;
-    for (int i = 0; i < 24; ++i) {
-        u = (lo + hi) * 0.5f;
-        if (bx(u) < t) lo = u; else hi = u;
-    }
-    return by(u);
-}
-
-constexpr float kTrayThrowOutMs = 220.0f;
-constexpr float kTrayThrowBackMs = 460.0f;
-constexpr float kTraySpringMs = 420.0f;
-constexpr float kTrayTumbleMs = 560.0f;
-constexpr float kTrayPuffMs = 620.0f;
-constexpr float kTrayFadeMs = 140.0f;
-
-void StartTrayMotion(AppState::TrayCardAnim& a, AppState::TrayMotion motion, ULONGLONG now) {
-    a.motion = motion;
-    a.motion_started = now;
-    a.from_fly = a.fly;
-    a.from_dx = a.dx;
-    a.from_dy = a.dy;
-    a.from_angle = a.angle;
-}
-
-// Advance throw / spring motion. Returns true while still moving.
-bool AdvanceTrayMotion(AppState::TrayCardAnim& a, ULONGLONG now) {
-    using M = AppState::TrayMotion;
-    const float ms = static_cast<float>(now - a.motion_started);
-    switch (a.motion) {
-    case M::None:
-        return false;
-    case M::ThrowOut: {
-        const float t = ms / kTrayThrowOutMs;
-        const float e = CubicBezier(0.3f, 0.6f, 0.4f, 1.0f, t);
-        a.fly = a.from_fly + (a.to_fly - a.from_fly) * e;
-        a.dx = a.from_dx * (1.0f - e);
-        a.dy = a.from_dy + (a.to_dy - a.from_dy) * e;
-        a.angle = a.from_angle + (a.to_angle - a.from_angle) * e;
-        if (t >= 1.0f) StartTrayMotion(a, M::ThrowBack, now);
-        return true;
-    }
-    case M::ThrowBack:
-    case M::Spring: {
-        const bool back = a.motion == M::ThrowBack;
-        const float t = ms / (back ? kTrayThrowBackMs : kTraySpringMs);
-        const float e = back ? CubicBezier(0.2f, 0.9f, 0.25f, 1.08f, t)
-                             : CubicBezier(0.2f, 1.4f, 0.4f, 1.0f, t);
-        a.fly = a.from_fly * (1.0f - e);
-        a.dx = a.from_dx * (1.0f - e);
-        a.dy = a.from_dy * (1.0f - e);
-        a.angle = a.from_angle * (1.0f - e);
-        if (t >= 1.0f) {
-            a.motion = M::None;
-            a.fly = a.dx = a.dy = a.angle = 0.0f;
-            return false;
-        }
-        return true;
-    }
-    }
-    return false;
-}
-
-std::wstring TrayFolderOf(const std::wstring& path) {
-    const std::wstring shown = TrayDisplayPath(path);
-    const size_t slash = shown.find_last_of(L"\\/");
-    if (slash == std::wstring::npos) return L"";
-    if (slash == 2 && shown.size() > 1 && shown[1] == L':') return shown.substr(0, 3);
-    return shown.substr(0, slash);
-}
-} // namespace
-
-int TrayStackTop(const AppState& s) {
-    const int total = TrayItemTotalCount(s.tray);
-    return total > 0 ? ((s.trayDeckOffset % total) + total) % total : 0;
-}
-
-// Send the top card to the back of the stack: it flies out toward `dir`
-// (+1 right, -1 left) from its current gesture pose, then settles under the
-// stack. dx/dy are the release offset in DIPs (0 for wheel / button).
-void ThrowTrayTop(AppState& s, float dir, float dx, float dy) {
-    const int total = TrayItemTotalCount(s.tray);
-    if (total < 2) return;
-    const auto entries = TrayDeckEntries(s.tray, static_cast<size_t>(TrayStackTop(s)), 1);
-    if (entries.empty()) return;
-    const ULONGLONG now = ui::motion::NowMs();
-    AppState::TrayCardAnim& a = s.trayCards[entries.front().item->path];
-    a.dx = dx;
-    a.dy = dy;
-    a.angle = dx * 0.07f;
-    StartTrayMotion(a, AppState::TrayMotion::ThrowOut, now);
-    a.to_fly = (dir < 0.0f ? -1.0f : 1.0f) * 1.18f;
-    a.to_dy = dy;
-    a.to_angle = (dir < 0.0f ? -1.0f : 1.0f) * 16.0f;
-    s.trayDeckOffset = (TrayStackTop(s) + 1) % total;
-    if (s.hwnd) InvalidateRect(s.hwnd, nullptr, FALSE);
-}
-
-// End a press-and-hold on the top card. A far or fast enough fling sends
-// the card to the back; anything else springs it home. commit=false (lost
-// capture) always springs back.
-void ReleaseTrayDrag(AppState& s, bool commit) {
-    AppState::TrayDrag drag = s.trayDrag;
-    s.trayDrag = AppState::TrayDrag{};
-    if (!drag.active) return;
-    float vx = drag.vx;
-    if (ui::motion::NowMs() - drag.last_t > 80) vx = 0.0f; // stopped before letting go
-    const bool fling = std::abs(drag.dx) > 70.0f || std::abs(vx) > 0.55f;
-    if (commit && fling && TrayItemTotalCount(s.tray) > 1) {
-        const float dir = std::abs(drag.dx) > 8.0f ? (drag.dx < 0.0f ? -1.0f : 1.0f)
-                                                    : (vx < 0.0f ? -1.0f : 1.0f);
-        ThrowTrayTop(s, dir, drag.dx, drag.dy * 0.35f);
-        return;
-    }
-    const auto found = s.trayCards.find(drag.path);
-    if (found != s.trayCards.end()) {
-        AppState::TrayCardAnim& a = found->second;
-        a.dx = drag.dx;
-        a.dy = drag.dy * 0.35f;
-        a.angle = drag.dx * 0.07f;
-        StartTrayMotion(a, AppState::TrayMotion::Spring, ui::motion::NowMs());
-    }
-    if (s.hwnd) InvalidateRect(s.hwnd, nullptr, FALSE);
-}
-
-// Bring the last card back on top: it drops in from above.
-void TrayStepBack(AppState& s) {
-    const int total = TrayItemTotalCount(s.tray);
-    if (total < 2) return;
-    s.trayDeckOffset = (TrayStackTop(s) + total - 1) % total;
-    const auto entries = TrayDeckEntries(s.tray, static_cast<size_t>(s.trayDeckOffset), 1);
-    if (!entries.empty()) s.trayRaisePath = entries.front().item->path;
-    if (s.hwnd) InvalidateRect(s.hwnd, nullptr, FALSE);
-}
-
-// Smoke burst at the top card's close badge (renderer anchors it).
-void SpawnTrayPuffs(AppState& s) {
-    const ULONGLONG now = ui::motion::NowMs();
-    uint32_t seed = static_cast<uint32_t>(now * 2654435761u);
-    auto frand = [&seed]() {
-        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
-        return static_cast<float>(seed & 0xFFFFFF) / 16777216.0f;
-    };
-    for (int i = 0; i < 10; ++i) {
-        AppState::TrayPuff p;
-        p.start = now + static_cast<ULONGLONG>(frand() * 60.0f);
-        p.angle = static_cast<float>(i) / 10.0f * 6.2831853f + frand() * 0.5f;
-        p.dist = 16.0f + frand() * 16.0f;
-        p.size = 0.8f + frand() * 0.9f;
-        s.trayPuffs.push_back(p);
-    }
-}
-
-// Tell the next tick how the currently visible cards of `paths` should
-// leave: tumble off (dismiss / clear / release), staggered by stack order.
-void MarkTrayExit(AppState& s, const std::vector<std::wstring>& paths, bool stagger) {
-    const auto entries = TrayDeckEntries(s.tray, static_cast<size_t>(TrayStackTop(s)), 4);
-    ULONGLONG delay = 0;
-    for (const auto& e : entries) {
-        if (std::find(paths.begin(), paths.end(), e.item->path) == paths.end()) continue;
-        s.trayExitHints[e.item->path] = { AppState::TrayExit::Tumble, delay };
-        if (stagger) delay += 60;
-    }
-}
-
-// Release mode the shelf shows right now: the tray-wide mode, flipped while
-// Shift is held.
-bool TrayEffectiveMove(const AppState& s) {
-    const bool shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
-    return s.trayMoveMode != shift;
-}
-
-// Hashes of every staged path for the "已暂存" row pill, rebuilt only when
-// the tray changes.
-std::shared_ptr<const std::unordered_set<uint64_t>> StagedHashes(AppState& s) {
-    uint64_t sig = 1469598103934665603ull;
-    size_t n = 0;
-    for (const auto& b : s.tray.batches())
-        for (const auto& item : b.items) {
-            sig = (sig ^ item.id) * 1099511628211ull;
-            sig = (sig ^ std::hash<std::wstring>{}(item.path)) * 1099511628211ull;
-            ++n;
-        }
-    if (n == 0) {
-        s.trayShelf.staged.reset();
-        s.trayShelf.staged_sig = 0;
-        return nullptr;
-    }
-    if (s.trayShelf.staged && s.trayShelf.staged_sig == sig) return s.trayShelf.staged;
-    auto set = std::make_shared<std::unordered_set<uint64_t>>();
-    set->reserve(n);
-    for (const auto& b : s.tray.batches())
-        for (const auto& item : b.items) set->insert(ui::StagedPathHash(item.path));
-    s.trayShelf.staged = std::move(set);
-    s.trayShelf.staged_sig = sig;
-    return s.trayShelf.staged;
-}
-
-// Del in the open view: rows slide out for 320 ms, then leave the tray.
-static void TickTrayOpenRemoval(AppState& s, ULONGLONG now) {
-    auto& v = s.trayView;
-    if (v.removing.empty() || now - v.remove_at < 320) return;
-    const std::vector<uint64_t> ids = std::move(v.removing);
-    v.removing.clear();
-    RemoveTrayItems(s, ids);
-}
-
-// Shelf layers and the sprung panel height (Open 480/38 growing, Close
-// 700/52 shrinking), integrated in fixed 4 ms steps.
-static bool TickTrayShelf(AppState& s, float elapsed) {
-    auto& a = s.trayShelf;
-    bool dirty = false;
-    const ULONGLONG now = ui::motion::NowMs();
-    const int total = TrayItemTotalCount(s.tray);
-    int stage = static_cast<int>(ui::TrayStage::Strip);
-    if (total == 0 && s.trayView.open) s.trayView = {};
-    if (s.dragFilesOver && !s.trayDragOut) stage = static_cast<int>(ui::TrayStage::Drop);
-    else if (total > 0) stage = static_cast<int>(s.trayView.open ? ui::TrayStage::Open : ui::TrayStage::Shelf);
-    if (stage != static_cast<int>(ui::TrayStage::Open)) s.trayView.compare = false;
-    TickTrayOpenRemoval(s, now);
-    const bool animate = ui::motion::SystemAnimationsEnabled();
-    if (stage != a.stage) {
-        a.prev_stage = a.initialized && animate ? a.stage : -1;
-        if (stage == static_cast<int>(ui::TrayStage::Drop)) a.drop_from = a.height;
-        a.stage = stage;
-        a.swap_at = now;
-        dirty = true;
-    }
-    // The Ctrl+C offer adds the 收入 row to the shelf (and pops in).
-    const bool clip = TrayClipLive(s);
-    if (clip && now - s.trayClip.at < 460) dirty = true;
-    float target = ui::TrayShelfStageHeightDip(stage, clip);
-    // Setting: an empty tray folds away; a Ctrl+C offer or a drag brings it back.
-    if (stage == static_cast<int>(ui::TrayStage::Strip) && !clip && s.appPrefs.tray_hide_when_empty) target = 0.0f;
-    if (stage == static_cast<int>(ui::TrayStage::Drop)) target = std::max(target, a.drop_from);
-    if (!a.initialized || !animate) {
-        if (a.height != target) dirty = true;
-        a.height = target;
-        a.velocity = 0.0f;
-        a.initialized = true;
-    } else if (std::abs(target - a.height) > 0.05f || std::abs(a.velocity) > 0.5f) {
-        const ui::motion::SpringSpec spec = target > a.height - 0.5f && a.velocity >= -1.0f
-            ? ui::motion::spring::Open : ui::motion::spring::Close;
-        float left = std::min(elapsed, 64.0f);
-        while (left > 0.0f) {
-            const float dt = std::min(left, 4.0f) * 0.001f;
-            const float acc = spec.k * (target - a.height) - spec.c * a.velocity;
-            a.velocity += acc * dt;
-            a.height += a.velocity * dt;
-            left -= 4.0f;
-        }
-        if (std::abs(target - a.height) <= 0.05f && std::abs(a.velocity) <= 0.5f) {
-            a.height = target;
-            a.velocity = 0.0f;
-        }
-        dirty = true;
-    }
-    if (a.prev_stage >= 0 && now - a.swap_at < 420) dirty = true;
-    else if (a.prev_stage >= 0) { a.prev_stage = -1; dirty = true; }
-
-    auto ease = [&dirty, elapsed](float& cur, float to, float k) {
-        const float timed_k = 1.0f - std::pow(1.0f - k, std::min(elapsed, 100.0f) / 16.0f);
-        const float next = cur + (to - cur) * timed_k;
-        if (std::abs(next - cur) > 0.002f) { cur = next; dirty = true; }
-        else if (cur != to) { cur = to; dirty = true; }
-    };
-    const bool move = stage == static_cast<int>(ui::TrayStage::Drop) ? s.dropTrayMove : TrayEffectiveMove(s);
-    if (move != a.last_move) {
-        a.last_move = move;
-        if (stage == static_cast<int>(ui::TrayStage::Shelf) && animate) a.label_at = now;
-        dirty = true;
-    }
-    ease(a.mode_t, move ? 1.0f : 0.0f, animate ? 0.22f : 1.0f);
-    const bool fan_hot = s.hoverRegion == static_cast<int>(ui::HitTestResult::TrayShelf) &&
-        s.hoverControlIndex == static_cast<int>(ui::TrayShelfHit::Fan);
-    ease(a.fan_spread, fan_hot ? 1.0f : 0.0f, animate ? 0.2f : 1.0f);
-    if (a.last_total >= 0 && total > a.last_total && animate) a.bump_at = now;
-    a.last_total = total;
-    if (a.bump_at && now - a.bump_at < 520) dirty = true;
-    if (a.label_at && now - a.label_at < 340) dirty = true;
-    if (a.flash_at && now - a.flash_at < 920) dirty = true;
-    if (s.trayZip.id) dirty = true;  // progress ring
-    // Open view: row stagger, Del slide-out, compare card entrance.
-    if (s.trayView.open && s.trayView.opened_at && now - s.trayView.opened_at < 1000) dirty = true;
-    if (!s.trayView.removing.empty()) dirty = true;
-    if (s.trayView.compare && now - s.trayView.compare_at < 470) dirty = true;
-    return dirty;
-}
-
-// Per-frame stack animation on the 16 ms UI timer. Returns true while
-// anything is still moving (caller invalidates).
-bool TickTrayDeck(AppState& s) {
-    using M = AppState::TrayMotion;
-    using X = AppState::TrayExit;
-    bool dirty = false;
-    const ULONGLONG now = ui::motion::NowMs();
-    // After a quiet spell the UI timer polls every 100-500 ms: motion that
-    // starts then begins with one frame's step, not a jump of several.
-    float elapsed = s.trayLastTick ? static_cast<float>(now - s.trayLastTick) : 16.0f;
-    if (elapsed > 50.0f) elapsed = 16.0f;
-    s.trayLastTick = now;
-    auto ease = [&dirty, elapsed](float& cur, float target, float k) {
-        const float timed_k = 1.0f - std::pow(1.0f - k, std::min(elapsed, 100.0f) / 16.0f);
-        const float next = cur + (target - cur) * timed_k;
-        if (std::abs(next - cur) > 0.0015f) { cur = next; dirty = true; }
-        else if (cur != target) { cur = target; dirty = true; }
-    };
-
-    ease(s.trayOpen, s.dropTray ? 1.0f : 0.0f, 0.20f);
-    if (TickTrayShelf(s, elapsed)) dirty = true;
-
-    // A fresh collect always brings the newest item to the top.
-    const int total = TrayItemTotalCount(s.tray);
-    const int top = TrayStackTop(s);
-    if (top != s.trayDeckOffset) { s.trayDeckOffset = top; dirty = true; }
-    const bool grew = total > static_cast<int>(s.trayDeckLastTotal);
-    if (grew && s.trayDeckOffset != 0) { s.trayDeckOffset = 0; dirty = true; }
-    s.trayDeckLastTotal = static_cast<size_t>(total);
-
-    const auto entries = TrayDeckEntries(s.tray, static_cast<size_t>(s.trayDeckOffset),
-                                         static_cast<size_t>(TrayDeckCap(s)));
-    const int n = static_cast<int>(entries.size());
-    const int hovered = TrayDeckHoverIndex(s);
-    const bool stackHot = hovered >= 0 || s.trayDrag.active;
-    ease(s.traySpread, stackHot ? 1.0f : 0.0f, 0.20f);
-
-    std::unordered_set<std::wstring> live;
-    live.reserve(entries.size() * 2);
-    for (int i = 0; i < n; ++i) {
-        const TrayDeckEntry& entry = entries[static_cast<size_t>(i)];
-        const app::TrayItem& item = *entry.item;
-        live.insert(item.path);
-        auto [it, inserted] = s.trayCards.try_emplace(item.path);
-        AppState::TrayCardAnim& a = it->second;
-        if (!inserted && a.ghost && a.exit != X::Return) {
-            a = AppState::TrayCardAnim{};
-            inserted = true;
-        }
-        if (inserted || a.ghost) {
-            a.ghost = false;
-            a.depth = static_cast<float>(i);
-            a.appear = 1.0f;
-            // A fresh collect drops in on top; cards revealed underneath
-            // start hidden behind the stack (depth 3) and rise into place.
-            if (i > 0) a.depth = 3.0f;
-        }
-        // A fresh collect drops in on top - even when the path still has a
-        // settled anim left over from an earlier stay in the tray.
-        if (i == 0 && grew && !(s.trayDrag.active && s.trayDrag.path == item.path)) {
-            a.appear = 0.0f;
-            a.depth = 0.0f;
-            // Motion v2 "droptray": the new card falls in on a spring - it
-            // lands with a small bounce and its tilt straightens out.
-            if (ui::motion::SystemAnimationsEnabled()) {
-                a.dy = -22.0f;
-                a.angle = (total & 1) ? -6.0f : 6.0f;
-                StartTrayMotion(a, M::Spring, now);
-            }
-        }
-        if (item.path == s.trayRaisePath) {
-            a.appear = 0.0f;
-            a.depth = 0.0f;
-            a.motion = M::None;
-            a.fly = a.dx = a.dy = a.angle = 0.0f;
-        }
-        if (a.name.empty()) a.name = TrayItemName(item.path);
-        if (a.folder.empty()) a.folder = TrayFolderOf(item.path);
-        a.attrs = item.attrs;
-        a.is_dir = item.is_dir;
-        a.missing = !item.exists;
-        a.size = item.size;
-        a.cut = entry.batch >= 0 && entry.batch < static_cast<int>(s.tray.batches().size()) &&
-                s.tray.batches()[static_cast<size_t>(entry.batch)].move_intent;
-        a.shrink = 1.0f;
-        if (s.trayDrag.active && s.trayDrag.path == item.path) {
-            a.motion = M::None;
-            a.fly = 0.0f;
-            a.dx = s.trayDrag.dx;
-            a.dy = s.trayDrag.dy * 0.35f;
-            a.angle = s.trayDrag.dx * 0.07f;
-            dirty = true;
-        } else if (AdvanceTrayMotion(a, now)) {
-            dirty = true;
-        }
-        if (a.motion != M::ThrowOut) ease(a.depth, static_cast<float>(i), 0.20f);
-        ease(a.appear, 1.0f, 0.16f);
-        ease(a.hover, i == 0 && hovered == 0 && !s.trayDrag.active ? 1.0f : 0.0f, 0.28f);
-        ease(a.opacity, 1.0f, 0.25f);
-    }
-    s.trayRaisePath.clear();
-
-    // Cards that left the window play their exit, then are dropped.
-    size_t ghosts = 0;
-    for (auto it = s.trayCards.begin(); it != s.trayCards.end();) {
-        if (live.count(it->first)) { ++it; continue; }
-        AppState::TrayCardAnim& a = it->second;
-        if (!a.ghost) {
-            a.ghost = true;
-            a.exit_started = now;
-            a.exit_opacity = a.opacity;
-            a.exit_delay = 0;
-            const auto hint = s.trayExitHints.find(it->first);
-            if (hint != s.trayExitHints.end()) {
-                a.exit = hint->second.exit;
-                a.exit_delay = hint->second.delay;
-            } else {
-                // Still staged but outside the window: it was sent to the back.
-                bool staged = false;
-                for (const auto& b : s.tray.batches())
-                    for (const auto& item : b.items)
-                        if (item.path == it->first) staged = true;
-                a.exit = staged ? X::Return : X::Fade;
-            }
-            if (a.exit == X::Tumble) StartTrayMotion(a, M::None, now);
-        }
-        bool done = false;
-        const float local = static_cast<float>(now) - static_cast<float>(a.exit_started)
-                          - static_cast<float>(a.exit_delay);
-        switch (a.exit) {
-        case X::Fade: {
-            const float t = std::clamp(local / kTrayFadeMs, 0.0f, 1.0f);
-            a.opacity = a.exit_opacity * (1.0f - t) * (1.0f - t);
-            done = t >= 1.0f;
-            break;
-        }
-        case X::Tumble: {
-            if (local < 0.0f) break; // staggered: waiting its turn
-            const float t = std::clamp(local / kTrayTumbleMs, 0.0f, 1.0f);
-            const float e = CubicBezier(0.45f, -0.25f, 0.85f, 0.55f, t);
-            a.fly = a.from_fly + (1.25f - a.from_fly) * e;
-            a.dx = a.from_dx * (1.0f - e);
-            a.dy = a.from_dy + (40.0f - a.from_dy) * e;
-            a.angle = a.from_angle + (32.0f - a.from_angle) * e;
-            a.shrink = 1.0f - 0.08f * e;
-            a.hover = 0.0f;
-            const float ot = std::clamp((local - 60.0f) / 500.0f, 0.0f, 1.0f);
-            a.opacity = a.exit_opacity * (1.0f - CubicBezier(0.42f, 0.0f, 1.0f, 1.0f, ot));
-            done = t >= 1.0f;
-            break;
-        }
-        case X::Return: {
-            const bool moving = AdvanceTrayMotion(a, now);
-            if (a.motion != M::ThrowOut) ease(a.depth, 3.0f, 0.20f);
-            a.hover = 0.0f;
-            done = !moving && a.depth >= 2.99f;
-            if (local > 1200.0f) done = true;
-            break;
-        }
-        }
-        dirty = true;
-        ++ghosts;
-        if (done || ghosts > 8) it = s.trayCards.erase(it);
-        else ++it;
-    }
-    s.trayExitHints.clear();
-
-    const size_t puffs = s.trayPuffs.size();
-    s.trayPuffs.erase(std::remove_if(s.trayPuffs.begin(), s.trayPuffs.end(),
-        [now](const AppState::TrayPuff& p) {
-            return now > p.start && static_cast<float>(now - p.start) >= kTrayPuffMs;
-        }), s.trayPuffs.end());
-    if (!s.trayPuffs.empty() || puffs != s.trayPuffs.size()) dirty = true;
-    return dirty;
-}
-
 static bool HoverHintIsCommand(ui::HitTestResult::Region region) {
     using R = ui::HitTestResult;
     switch (region) {
@@ -2190,7 +1635,6 @@ static bool HoverHintIsCommand(ui::HitTestResult::Region region) {
     case R::Tab:
     case R::SidebarItem:
     case R::SidebarHeader:
-    case R::TrayCard:
     case R::AddressBar:
     case R::ColumnHeader:
     case R::StatusBar:
@@ -2213,7 +1657,7 @@ static std::wstring ContextStatusHint(AppState& s, StatusHintAction& action) {
     if (IsSettingsTab(tab)) return l10n::Get(I::Settings);
     if (!s.appPrefs.show_hints) return {};
     if (!s.dropBadge.empty())
-        return l10n::Get(s.trayDragOut ? I::HintTrayDragOut : I::HintDrag);
+        return l10n::Get(I::HintDrag);
     if (s.addressSearching) {
         // Typing a search: surface the keys the search box understands.
         const auto sep = L"  \u00B7  ";
@@ -2224,15 +1668,6 @@ static std::wstring ContextStatusHint(AppState& s, StatusHintAction& action) {
         hint += sep + l10n::Get(IsAddressSearchResults(tab) ? I::HintKeyDownResults : I::HintKeyDownHistory);
         action = StatusHintAction::Advanced;
         return hint;
-    }
-    {
-        using R = ui::HitTestResult;
-        const int hr = s.hoverRegion;
-        if (hr == static_cast<int>(R::TrayCard) || hr == static_cast<int>(R::TrayIntent) ||
-            hr == static_cast<int>(R::TrayItemRemove) || hr == static_cast<int>(R::TrayPrev) ||
-            hr == static_cast<int>(R::TrayNext))
-            return l10n::Get(I::HintTrayMenu);
-        if (hr == static_cast<int>(R::TrayDest)) return l10n::Get(I::HintTrayDest);
     }
     if (IsRecycleTab(tab)) return l10n::Get(I::StatusHintRecycle);
     const app::LayoutTab* layout = s.window_tabs.Active();
@@ -2248,10 +1683,6 @@ static std::wstring ContextStatusHint(AppState& s, StatusHintAction& action) {
         if (s.appPrefs.search_enabled && !tab->current_path.empty() && !fs::IsVirtualPath(tab->current_path))
             action = StatusHintAction::SearchSubfolders;
         return l10n::Get(I::HintFiltering);
-    }
-    if (selected >= 2) {
-        action = StatusHintAction::Tray;
-        return l10n::Get(I::HintMultiSel);
     }
     if (tab->net_readonly) return l10n::Get(I::HintReadonly2);
     if (selected == 1) {
@@ -2292,7 +1723,6 @@ static std::wstring ContextStatusHint(AppState& s, StatusHintAction& action) {
 static const std::wstring& StatusHintActionText(StatusHintAction action) {
     using I = l10n::StringId;
     switch (action) {
-    case StatusHintAction::Tray: return l10n::Get(I::HintActTray);
     case StatusHintAction::Compare: return l10n::Get(I::HintActCompare);
     case StatusHintAction::DiffOnly: return l10n::Get(I::HintActDiffOnly);
     case StatusHintAction::ShowAll: return l10n::Get(I::HintActShowAll);
@@ -2308,7 +1738,7 @@ static const std::wstring& StatusHintActionText(StatusHintAction action) {
 }
 
 // ---- One-time teaching bubbles -------------------------------------------
-// Tip ids double as tips_seen bits: 0 middle-click, 1 tray, 2 compare,
+// Tip ids double as tips_seen bits: 0 middle-click, 1 retired (the staging tray), 2 compare,
 // 3 smart search, 4 collapsed sidebar, 5 quick preview.
 namespace {
 constexpr int kTeachCount = 6;
@@ -2330,7 +1760,6 @@ int TeachTrigger(AppState& s) {
     std::wstring kind;
     app::ParsePulsePath(tab->current_path, &kind, nullptr);
     const bool compare = layout && layout->compare;
-    if (selected >= 5) return 1;
     if (layout && layout->panes.size() >= 2 && !compare) return 2;
     // Only with results: on an empty page the bubble would cover the suggestion buttons.
     if (kind == L"search") return tab->snapshot && tab->snapshot->size() > 0 ? 3 : -1;
@@ -2422,317 +1851,6 @@ StatusHintAction CurrentStatusHintAction(AppState& s) {
 // View-model wrapper: builds the base VM and layers ops-layer status on top.
 // probe_details=false: hit-test / input paths must not kick off selection
 // probes (or mutate detailsSelPath); paint owns those side effects.
-// Compact local time for the tray compare table ("09-30 14:02", other years by date).
-static std::wstring TrayCmpTime(const FILETIME& ft) {
-    FILETIME local{};
-    SYSTEMTIME st{}, now{};
-    if (!FileTimeToLocalFileTime(&ft, &local) || !FileTimeToSystemTime(&local, &st)) return L"";
-    GetLocalTime(&now);
-    wchar_t buf[32]{};
-    if (st.wYear == now.wYear)
-        swprintf_s(buf, L"%02u-%02u %02u:%02u", st.wMonth, st.wDay, st.wHour, st.wMinute);
-    else
-        swprintf_s(buf, L"%04u-%02u-%02u", st.wYear, st.wMonth, st.wDay);
-    return buf;
-}
-
-// Two staged files: same rules as the dual-pane compare (mtime 2 s tolerance,
-// then size); content only after the user asks (TrayStartContentCompare).
-static void FillTrayCompare(AppState& s, const app::TrayItem* const (&items)[2],
-                            ui::TrayCompareView& v) {
-    const std::wstring paths[2]{items[0]->path, items[1]->path};
-    if (!s.trayMetadata) s.trayMetadata = std::make_unique<app::TrayCompareMetadata>();
-    const app::TrayMetadataKey key{{items[0]->id, items[1]->id}, {paths[0], paths[1]}};
-    const auto metadata = s.trayMetadata->Read(key, s.hwnd);
-    uint64_t t[2]{}, sz[2]{};
-    std::wstring dir[2];
-    for (int i = 0; i < 2; ++i) {
-        const std::wstring shown = ClipboardPath(paths[i]);
-        const size_t slash = shown.find_last_of(L"\\/");
-        v.name[i] = slash == std::wstring::npos ? shown : shown.substr(slash + 1);
-        dir[i] = slash == std::wstring::npos ? std::wstring() : shown.substr(0, slash);
-        const size_t up = dir[i].find_last_of(L"\\/");
-        v.where[i] = up == std::wstring::npos ? dir[i] : dir[i].substr(up + 1);
-        v.size[i] = format::ByteSize(items[i]->size);
-        if (metadata.status == app::TrayMetadataSnapshot::Status::Ready) {
-            const auto& d = metadata.files[static_cast<size_t>(i)];
-            t[i] = (static_cast<uint64_t>(d.ftLastWriteTime.dwHighDateTime) << 32) |
-                   d.ftLastWriteTime.dwLowDateTime;
-            sz[i] = (static_cast<uint64_t>(d.nFileSizeHigh) << 32) | d.nFileSizeLow;
-            v.time[i] = TrayCmpTime(d.ftLastWriteTime);
-            v.size[i] = format::ByteSize(sz[i]);
-        }
-    }
-    // Same leaf folder name in different places: show the full folders.
-    if (v.where[0] == v.where[1] && dir[0] != dir[1]) {
-        v.where[0] = dir[0];
-        v.where[1] = dir[1];
-    }
-    if (metadata.status != app::TrayMetadataSnapshot::Status::Ready) {
-        v.newer = -1;
-        v.content = metadata.status == app::TrayMetadataSnapshot::Status::Error ? 4 : 1;
-        return;
-    }
-    constexpr uint64_t kTolerance = 2ull * 10000000ull; // 2 s in FILETIME units
-    v.newer = t[0] > t[1] + kTolerance ? 0 : (t[1] > t[0] + kTolerance ? 1 : -1);
-    v.size_differs = sz[0] != sz[1];
-    if (v.size_differs)
-        v.content = 3;
-    else if (s.trayCmpJob && s.trayCmpJob->a == paths[0] && s.trayCmpJob->b == paths[1])
-        v.content = s.trayCmpJob->state.load();
-    else
-        v.content = 0;
-    if (v.content != 3) return;
-    // Different: find out (once per pair, off the UI thread) whether both are text.
-    const auto& probe = s.trayTextProbe;
-    if (probe && probe->a == paths[0] && probe->b == paths[1]) {
-        const int state = probe->state.load();
-        v.text = state == 1 ? 1 : (state == 2 ? 0 : -1);
-        return;
-    }
-    auto job = std::make_shared<TrayTextProbe>();
-    job->a = paths[0];
-    job->b = paths[1];
-    s.trayTextProbe = job;
-    const HWND hwnd = s.hwnd;
-    std::thread([job, hwnd] {
-        const bool text = diff::ProbeLooksText(job->a) && diff::ProbeLooksText(job->b);
-        job->state.store(text ? 1 : 2);
-        InvalidateRect(hwnd, nullptr, FALSE);
-    }).detach();
-}
-
-// Type filter of the open view: 1 images, 2 documents, 3 other (folders too).
-static int TrayItemKind(const std::wstring& name, bool is_dir) {
-    if (is_dir) return 3;
-    const size_t dot = name.find_last_of(L'.');
-    if (dot == std::wstring::npos) return 3;
-    std::wstring ext = name.substr(dot + 1);
-    for (auto& ch : ext) ch = static_cast<wchar_t>(towlower(ch));
-    static const wchar_t* const kImages[] = {L"jpg", L"jpeg", L"png", L"gif", L"bmp", L"webp", L"heic", L"heif",
-        L"tif", L"tiff", L"svg", L"ico", L"avif", L"jxl", L"raw", L"cr2", L"nef", L"arw", L"dng", L"psd"};
-    static const wchar_t* const kDocs[] = {L"pdf", L"doc", L"docx", L"xls", L"xlsx", L"ppt", L"pptx", L"txt",
-        L"md", L"csv", L"rtf", L"odt", L"ods", L"odp", L"epub", L"pages", L"numbers", L"key", L"json",
-        L"xml", L"html", L"htm", L"log", L"tsv"};
-    for (const wchar_t* e : kImages) if (ext == e) return 1;
-    for (const wchar_t* e : kDocs) if (ext == e) return 2;
-    return 3;
-}
-
-// Open view rows: the filtered items grouped by source folder (staging order).
-static void FillTrayOpen(AppState& s, ui::TrayDeckView& deck, ULONGLONG now) {
-    auto& v = s.trayView;
-    auto progress = [now](ULONGLONG at, float ms) {
-        return now >= at ? std::clamp(static_cast<float>(now - at) / ms, 0.0f, 1.0f) : 0.0f;
-    };
-    // Checks follow the tray: removed or released items drop out.
-    v.checked.erase(std::remove_if(v.checked.begin(), v.checked.end(), [&](uint64_t id) {
-        for (const auto& b : s.tray.batches())
-            for (const auto& item : b.items)
-                if (item.id == id) return !item.exists;
-        return true;
-    }), v.checked.end());
-    struct Group { std::wstring path; std::vector<const app::TrayItem*> items; };
-    std::vector<Group> groups;
-    for (const auto& b : s.tray.batches()) {
-        for (const auto& item : b.items) {
-            const std::wstring name = TrayItemName(item.path);
-            const int kind = TrayItemKind(name, item.is_dir);
-            ++deck.filter_counts[0];
-            ++deck.filter_counts[kind];
-            if (item.exists) ++deck.live_total;
-            if (v.filter != 0 && kind != v.filter) continue;
-            const std::wstring parent = fs::ParentPath(item.path);
-            auto g = std::find_if(groups.begin(), groups.end(), [&](const Group& x) {
-                return _wcsicmp(x.path.c_str(), parent.c_str()) == 0; });
-            if (g == groups.end()) { groups.push_back({parent, {}}); g = std::prev(groups.end()); }
-            g->items.push_back(&item);
-        }
-    }
-    if (v.filter != 0 && deck.filter_counts[v.filter] == 0) v.filter = 0;
-    deck.filter = v.filter;
-    deck.checked = static_cast<int>(v.checked.size());
-    deck.target_count = deck.checked > 0 ? deck.checked : deck.live_total;
-    int i = 0;
-    for (const Group& g : groups) {
-        bool first = true;
-        for (const app::TrayItem* item : g.items) {
-            ui::TrayOpenRow row;
-            row.id = item->id;
-            row.path = ClipboardPath(item->path);
-            row.name = TrayItemName(item->path);
-            row.is_dir = item->is_dir;
-            row.attrs = item->attrs;
-            row.exists = item->exists;
-            row.size = item->is_dir ? std::wstring() : format::ByteSize(item->size);
-            row.checked = std::find(v.checked.begin(), v.checked.end(), item->id) != v.checked.end();
-            row.group_start = first;
-            row.group_path = ClipboardPath(g.path);
-            row.group = TrayItemName(g.path);
-            if (row.group.empty()) row.group = row.group_path;
-            first = false;
-            // .oi.in: 60 + 40·i ms delay, 400 ms (the first dozen rows).
-            row.in_t = v.opened_at ? progress(v.opened_at + 60 + 40 * static_cast<ULONGLONG>(std::min(i, 12)), 400.0f) : 1.0f;
-            if (std::find(v.removing.begin(), v.removing.end(), item->id) != v.removing.end())
-                row.out_t = std::max(0.001f, progress(v.remove_at, 320.0f));
-            deck.open_rows.push_back(std::move(row));
-            ++i;
-        }
-    }
-    // Wheel clamp: headers 27 + rows 36 + 8 against the list (panel - 81 - 80).
-    const float content = static_cast<float>(groups.size()) * 27.0f + static_cast<float>(i) * 36.0f + 8.0f;
-    v.scroll = std::clamp(v.scroll, 0.0f, std::max(0.0f, content - (s.trayShelf.height - 161.0f)));
-    deck.open_scroll = v.scroll;
-    // 同名 on the main button counts only what it would release.
-    if (deck.checked > 0) {
-        int n = 0;
-        for (const uint64_t id : s.trayShelf.conflict_ids)
-            if (std::find(v.checked.begin(), v.checked.end(), id) != v.checked.end()) ++n;
-        deck.conflicts = n;
-    }
-    // Compare card: exactly two checked existing files.
-    deck.cmp_shown = false;
-    if (v.compare && v.checked.size() == 2) {
-        const app::TrayItem* pair[2]{};
-        for (const auto& b : s.tray.batches())
-            for (const auto& item : b.items)
-                for (int k = 0; k < 2; ++k)
-                    if (item.id == v.checked[static_cast<size_t>(k)]) pair[k] = &item;
-        if (pair[0] && pair[1] && !pair[0]->is_dir && !pair[1]->is_dir && pair[0]->exists && pair[1]->exists) {
-            deck.cmp_shown = true;
-            deck.cmp_t = progress(v.compare_at, 450.0f);
-            FillTrayCompare(s, pair, deck.compare);
-        }
-    }
-    if (!deck.cmp_shown) v.compare = false;
-}
-
-// Shelf part of the tray view.
-static void FillTrayShelf(AppState& s, ui::TrayDeckView& deck, ULONGLONG now) {
-    const auto& a = s.trayShelf;
-    auto progress = [now](ULONGLONG at, float ms) {
-        return at ? std::clamp(static_cast<float>(now - at) / ms, 0.0f, 1.0f) : 1.0f;
-    };
-    deck.stage = a.stage;
-    deck.prev_stage = a.prev_stage;
-    deck.swap = a.prev_stage >= 0 ? progress(a.swap_at, 410.0f) : 1.0f;
-    deck.height_dip = a.height;
-    deck.hide_empty = s.appPrefs.tray_hide_when_empty;
-    deck.drop_move = s.dropTrayMove;
-    deck.move_mode = TrayEffectiveMove(s);
-    deck.mode_t = a.mode_t;
-    deck.label_t = progress(a.label_at, 320.0f);
-    deck.fan_spread = a.fan_spread;
-    deck.bump = progress(a.bump_at, 500.0f);
-    deck.zipping = s.trayZip.id != 0;
-    deck.zip_progress = s.trayZip.progress ? s.trayZip.progress->load() : 0.0f;
-    if (TrayClipLive(s)) {
-        deck.clip_count = static_cast<int>(s.trayClip.paths.size());
-        deck.clip_t = progress(s.trayClip.at, 450.0f);
-    }
-
-    // Target: the current folder, when files can land there.
-    std::wstring current;
-    if (app::Tab* tab = ActiveTab(s); tab && !tab->current_path.empty() &&
-        !fs::IsVirtualPath(tab->current_path) && !tab->net_readonly) {
-        current = tab->current_path;
-        deck.target = TrayItemName(current);
-        if (deck.target.empty()) deck.target = current;
-    }
-    // 送到 chips and the ▾ menu never offer the folder the main button covers.
-    if (!current.empty()) {
-        const std::wstring cur = ClipboardPath(fs::NormalizePath(current));
-        deck.dests.erase(std::remove_if(deck.dests.begin(), deck.dests.end(),
-            [&](const ui::TrayDestView& d) { return _wcsicmp(d.path.c_str(), cur.c_str()) == 0; }),
-            deck.dests.end());
-    }
-    deck.flash_chip = -1;
-    if (!a.flash_path.empty() && now - a.flash_at < 900) {
-        for (size_t i = 0; i < deck.dests.size(); ++i)
-            if (_wcsicmp(deck.dests[i].path.c_str(), a.flash_path.c_str()) == 0) deck.flash_chip = static_cast<int>(i);
-        deck.flash_t = progress(a.flash_at, 900.0f);
-    }
-
-    // Sources ("来自 A、B 等 n 处") and the fan of the newest three items.
-    std::vector<std::wstring> parents;
-    std::vector<const app::TrayItem*> newest;
-    size_t seen = 0;
-    const auto& batches = s.tray.batches();
-    for (auto b = batches.rbegin(); b != batches.rend(); ++b) {
-        for (auto it = b->items.rbegin(); it != b->items.rend(); ++it) {
-            if (it->exists && newest.size() < 3) newest.push_back(&*it);
-            if (++seen > 400) continue;  // enough for the summary line
-            const std::wstring parent = fs::ParentPath(it->path);
-            if (std::none_of(parents.begin(), parents.end(), [&](const std::wstring& p) {
-                    return _wcsicmp(p.c_str(), parent.c_str()) == 0; }))
-                parents.push_back(parent);
-        }
-    }
-    // Oldest staged source first, like the prototype.
-    std::reverse(parents.begin(), parents.end());
-    if (!parents.empty()) {
-        std::wstring names;
-        for (size_t i = 0; i < parents.size() && i < 2; ++i) {
-            std::wstring name = TrayItemName(parents[i]);
-            if (name.empty()) name = parents[i];
-            if (!names.empty()) names += L"\u3001";
-            names += name;
-        }
-        std::wstring text = l10n::Get(parents.size() > 2 ? l10n::StringId::TraySourcesMany
-                                                         : l10n::StringId::TraySourcesFew);
-        if (const size_t at = text.find(L"{a}"); at != std::wstring::npos) text.replace(at, 3, names);
-        if (const size_t at = text.find(L"{n}"); at != std::wstring::npos)
-            text.replace(at, 3, std::to_wstring(parents.size()));
-        deck.sources_text = std::move(text);
-    }
-    for (auto it = newest.rbegin(); it != newest.rend(); ++it) {
-        ui::TrayCardView card;
-        card.path = (*it)->path;
-        card.name = TrayItemName((*it)->path);
-        card.is_dir = (*it)->is_dir;
-        card.attrs = (*it)->attrs;
-        card.size = (*it)->size;
-        deck.fan.push_back(std::move(card));
-    }
-
-    // Same names already in the current folder (cached probe).
-    auto& c = s.trayShelf;
-    uint64_t sig = 1469598103934665603ull;
-    for (const auto& b : batches)
-        for (const auto& item : b.items) sig = (sig ^ item.id) * 1099511628211ull;
-    if (current.empty()) {
-        c.conflicts = 0;
-        c.conflict_ids.clear();
-    } else if (sig != c.conflict_sig || _wcsicmp(c.conflict_dir.c_str(), current.c_str()) != 0 ||
-               now - c.conflict_at > 1500) {
-        int n = 0, probed = 0;
-        c.conflict_ids.clear();
-        const bool remote = fs::IsUncPath(current);
-        for (const auto& b : batches) {
-            for (const auto& item : b.items) {
-                if (remote || ++probed > 200) break;
-                if (!item.exists) continue;
-                const std::wstring parent = fs::ParentPath(item.path);
-                if (_wcsicmp(parent.c_str(), current.c_str()) == 0) continue;
-                std::wstring dest = current;
-                if (!dest.empty() && dest.back() != L'\\') dest += L'\\';
-                dest += TrayItemName(item.path);
-                if (GetFileAttributesW(dest.c_str()) != INVALID_FILE_ATTRIBUTES) {
-                    ++n;
-                    c.conflict_ids.push_back(item.id);
-                }
-            }
-        }
-        c.conflicts = n;
-        c.conflict_sig = sig;
-        c.conflict_dir = current;
-        c.conflict_at = now;
-    }
-    deck.conflicts = c.conflicts;
-    if (deck.stage == static_cast<int>(ui::TrayStage::Open) || deck.prev_stage == static_cast<int>(ui::TrayStage::Open))
-        FillTrayOpen(s, deck, now);
-}
-
 ui::WindowViewModel BuildVm(AppState& s, bool probe_details) {
     SyncTaskbarWindowTitle(s);
     if (!s.pane) return {};
@@ -2852,7 +1970,6 @@ ui::WindowViewModel BuildVm(AppState& s, bool probe_details) {
     vm.settings_vertical_tabs = s.appPrefs.vertical_tabs;
     vm.tab_layout = s.appPrefs.tab_layout;
     vm.tab_max_rows = s.appPrefs.tab_max_rows;
-    vm.settings_tray_hide_empty = s.appPrefs.tray_hide_when_empty;
     vm.settings_lan_discovery = s.appPrefs.lan_discovery;
     vm.settings_network_recent = s.appPrefs.network_recent_enabled;
     vm.settings_hidden_shares = s.appPrefs.show_hidden_shares;
@@ -3063,8 +2180,6 @@ ui::WindowViewModel BuildVm(AppState& s, bool probe_details) {
         vm.status.hint_action_text.clear();
     }
     pulse::FillAiStatusVm(vm);   // the AI chip at the left end of the status bar
-    // "已暂存" row pills (tray redesign).
-    vm.pane.staged = StagedHashes(s);
     // 1B-2 overlays: cut rows, drag feedback, breadcrumb hover.
     if (!s.cutPaths.empty()) {
         app::Tab* tab = ActiveTab(s);
@@ -3187,129 +2302,10 @@ ui::WindowViewModel BuildVm(AppState& s, bool probe_details) {
             if (off != s.chipOffsets.end()) vm.tab_groups[gi].x_offset = off->second;
         }
     }
-    // Staging tray card stack: live window (top first) + exiting ghosts.
-    {
-        const auto entries = TrayDeckEntries(s.tray, static_cast<size_t>(TrayStackTop(s)),
-                                             static_cast<size_t>(TrayDeckCap(s)));
-        ui::TrayDeckView& deck = vm.tray_deck;
-        deck.open = s.trayOpen;
-        deck.spread = s.traySpread;
-        deck.thumb_dip = static_cast<float>(s.appPrefs.tray_icon_size);
-        deck.offset = TrayStackTop(s);
-        deck.total_count = TrayItemTotalCount(s.tray);
-        deck.batch_count = static_cast<int>(s.tray.batches().size());
-        deck.release_move = !s.tray.batches().empty() && s.tray.batches().back().move_intent;
-        deck.live_count = static_cast<int>(entries.size());
-        for (const auto& b : s.tray.batches())
-            for (const auto& item : b.items)
-                if (!item.exists) ++deck.stale_count;
-        {
-            // Two-file compare: exactly two staged items, both existing files.
-            const app::TrayItem* pair[2]{};
-            int n = 0;
-            bool files = true;
-            for (const auto& b : s.tray.batches()) {
-                for (const auto& item : b.items) {
-                    if (n < 2) pair[n] = &item;
-                    ++n;
-                    files = files && item.exists && !item.is_dir;
-                }
-            }
-            deck.can_compare = n == 2 && files;
-            deck.comparing = deck.can_compare && s.trayCompare;
-            if (deck.comparing) FillTrayCompare(s, pair, deck.compare);
-            else if (s.trayMetadata && !s.trayView.compare) s.trayMetadata->Cancel();
-        }
-        // Live sum: items removed one by one leave the batch totals stale.
-        for (const auto& b : s.tray.batches())
-            for (const auto& item : b.items)
-                if (item.exists && !item.is_dir) deck.total_size += item.size;
-        for (const auto& dir : TrayDestList(s)) {
-            ui::TrayDestView d;
-            d.path = dir;
-            d.label = BaseName(dir);
-            if (d.label.empty()) d.label = dir;
-            // Network folders are not probed per frame (a dead share would stall).
-            d.missing = !fs::IsUncPath(dir) && GetFileAttributesW(dir.c_str()) == INVALID_FILE_ATTRIBUTES;
-            deck.dests.push_back(std::move(d));
-        }
-        const int hover_index = TrayDeckHoverIndex(s);
-        deck.hovered = hover_index >= 0 && hover_index < deck.live_count ? hover_index : -1;
-        auto fill = [&s](ui::TrayCardView& card, const AppState::TrayCardAnim& anim) {
-            card.name = anim.name;
-            card.folder = anim.folder;
-            card.depth = anim.depth;
-            card.hover = anim.hover;
-            card.appear = anim.appear;
-            card.fly = anim.fly;
-            card.dx = anim.dx;
-            card.dy = anim.dy;
-            card.angle = anim.angle;
-            card.shrink = anim.shrink;
-            card.opacity = anim.opacity;
-            card.on_top = anim.motion == AppState::TrayMotion::ThrowOut ||
-                          (anim.ghost && anim.exit == AppState::TrayExit::Tumble) ||
-                          (s.trayDrag.active && !anim.ghost);
-        };
-        for (int i = 0; i < deck.live_count; ++i) {
-            const TrayDeckEntry& entry = entries[static_cast<size_t>(i)];
-            const app::TrayItem& item = *entry.item;
-            ui::TrayCardView card;
-            card.path = item.path;
-            card.batch = entry.batch;
-            card.sub = entry.sub;
-            card.size = item.size;
-            card.is_dir = item.is_dir;
-            card.attrs = item.attrs;
-            card.missing = !item.exists;
-            card.cut = entry.batch >= 0 &&
-                entry.batch < static_cast<int>(s.tray.batches().size()) &&
-                s.tray.batches()[static_cast<size_t>(entry.batch)].move_intent;
-            const auto found = s.trayCards.find(item.path);
-            if (found != s.trayCards.end() && !found->second.ghost) {
-                fill(card, found->second);
-                card.on_top = card.on_top && (i == 0 ||
-                    found->second.motion == AppState::TrayMotion::ThrowOut);
-            } else {
-                card.name = TrayItemName(item.path);
-                card.depth = static_cast<float>(i);
-            }
-            // A collect that the deck tick has not seen yet stays hidden for
-            // this one frame, so the drop-in never flashes the settled card.
-            if (i == 0 && TrayItemTotalCount(s.tray) > static_cast<int>(s.trayDeckLastTotal))
-                card.appear = 0.0f;
-            deck.cards.push_back(std::move(card));
-        }
-        for (const auto& [key, anim] : s.trayCards) {
-            if (!anim.ghost) continue;
-            ui::TrayCardView card;
-            card.path = key;
-            card.is_dir = anim.is_dir;
-            card.attrs = anim.attrs;
-            card.missing = anim.missing;
-            card.cut = anim.cut;
-            card.size = anim.size;
-            card.ghost = true;
-            fill(card, anim);
-            deck.cards.push_back(std::move(card));
-        }
-        const ULONGLONG now = ui::motion::NowMs();
-        for (const auto& p : s.trayPuffs) {
-            if (now < p.start) continue;
-            ui::TrayPuffView view;
-            view.t = std::clamp(static_cast<float>(now - p.start) / 620.0f, 0.0f, 1.0f);
-            view.angle = p.angle;
-            view.dist = p.dist;
-            view.size = p.size;
-            deck.puffs.push_back(view);
-        }
-        FillTrayShelf(s, deck, now);
-    }
     // Vertical tabs join the sidebar before its scroll range is measured.
     ApplyVerticalTabs(s, vm);
     FillFavoritesBar(s, vm);
-    // The tray (including exiting cards) determines the sidebar viewport.
-    // Clamp only after it is populated, using the same model as draw/hit-test.
+    // Clamp only after the sidebar is populated, using the same model as draw/hit-test.
     s.sidebarScroll = std::clamp(s.sidebarScroll, 0.0f, s.renderer.SidebarMaxScroll(
         vm, static_cast<float>(s.compositor.Width()),
         static_cast<float>(s.compositor.Height())));
@@ -3389,7 +2385,7 @@ ui::WindowViewModel BuildVm(AppState& s, bool probe_details) {
             dv.size_text = tab->content_results && !contentSize ? l10n::Get(l10n::StringId::LoadingEllipsis) : pulse::format::ByteSize(knownSize, true);
             dv.location_text = fs::IsVirtualPath(tab->current_path)
                 ? l10n::Get(l10n::StringId::MultipleLocations)
-                : TrayDisplayPath(tab->current_path);
+                : pulse::path::FriendlyPathText(tab->current_path);
         }
         if (dv.has_selection && dv.multi_count == 1 && !dv.path.empty()) {
             if (probe_details && s.detailsSelPath != dv.path) {
@@ -3425,7 +2421,7 @@ ui::WindowViewModel BuildVm(AppState& s, bool probe_details) {
                 dv.modified_text = pulse::format::LocalFileTime(s.detailsModified);
                 dv.accessed_text = pulse::format::LocalFileTime(s.detailsAccessed);
             }
-            dv.location_text = TrayDisplayPath(fs::ParentPath(dv.path));
+            dv.location_text = pulse::path::FriendlyPathText(fs::ParentPath(dv.path));
             dv.attributes_text = DetailsAttributeText(dv.attrs);
             dv.type_text = dv.link_kind != fs::LinkKind::None
                 ? ui::LinkTypeText(dv.link_kind) : s.detailsTypeName;
@@ -3491,7 +2487,6 @@ ui::WindowViewModel BuildVm(AppState& s, bool probe_details) {
     } else if (!requestedSizePath.empty()) {
         StopDetailsSizeWalk(s);
     }
-    vm.tray_drop = s.dropTray;
     vm.drag_badge = s.dropBadge;
     vm.drag_badge_x = s.dropBadgeX;
     vm.drag_badge_y = s.dropBadgeY;
@@ -3529,9 +2524,10 @@ ui::WindowViewModel BuildVm(AppState& s, bool probe_details) {
     vm.tooltip_text = s.listSelection.BandActive() ? std::wstring{} : s.tooltipText;
     if (s.teachTip >= 0) {
         using I = l10n::StringId;
-        static constexpr I kTitles[] = {I::TeachMiddleTitle, I::TeachTrayTitle, I::TeachCompareTitle,
+        // Tip 1 (the staging tray) is retired: TeachTrigger never returns it.
+        static constexpr I kTitles[] = {I::TeachMiddleTitle, I::TeachMiddleTitle, I::TeachCompareTitle,
                                         I::TeachSearchTitle, I::TeachSidebarTitle, I::TeachPreviewTitle};
-        static constexpr I kBodies[] = {I::TeachMiddleBody, I::TeachTrayBody, I::TeachCompareBody,
+        static constexpr I kBodies[] = {I::TeachMiddleBody, I::TeachMiddleBody, I::TeachCompareBody,
                                         I::TeachSearchBody, I::TeachSidebarBody, I::TeachPreviewBody};
         vm.teach.visible = true;
         vm.teach.title = l10n::Get(kTitles[s.teachTip]);
@@ -3757,7 +2753,6 @@ std::wstring TooltipForHover(AppState& s) {
     case R::SettingsThumbCache: return text(I::ThumbCacheTooltip);
     case R::SettingsTextRender: return text(I::SettingsTextRender);
     case R::SettingsUiFontSize: return text(I::SettingsUiFontSize);
-    case R::SettingsTrayIcon: return text(I::SettingsTrayIcon);
     case R::SettingsDoubleCtrlGap: return text(I::GlobalSearchDoubleCtrlGap);
     case R::SettingsWallpaperLook: return text(I::SettingsWallpaperLook);
     case R::SettingsWallpaperBlur: return text(I::SettingsWallpaperBlur);
@@ -4036,38 +3031,6 @@ std::wstring TooltipForHover(AppState& s) {
         }
         return L"";
     }
-    case R::TrayCompare:
-        return text(s.hoverControlIndex == 0   ? I::HintTrayCompare
-                    : s.hoverControlIndex == 2 ? I::TrayCompareTwo
-                                               : I::HintTrayCmpCheck);
-    case R::TrayStale:
-        return text(s.hoverControlIndex == 0 ? I::HintTrayStaleFind : I::HintTrayStaleRemove);
-    case R::TrayShelf: return s.hoverLabel;  // the shelf hit test carries each control's tip
-    case R::StagedBadge: return text(I::TrayStagedTip);
-    case R::TrayDest: {
-        const bool gone = GetFileAttributesW(s.hoverPath.c_str()) == INVALID_FILE_ATTRIBUTES;
-        return s.hoverPath + L"\n" + text(gone ? I::TrayDestMissing : I::HintTrayDest);
-    }
-    case R::TrayCard: {
-        const auto entries = TrayDeckEntries(s.tray, static_cast<size_t>(TrayStackTop(s)),
-                                             static_cast<size_t>(TrayDeckCap(s)));
-        if (s.hoverControlIndex >= 0 &&
-            s.hoverControlIndex < static_cast<int>(entries.size())) {
-            std::wstring tip =
-                TrayDisplayPath(entries[static_cast<size_t>(s.hoverControlIndex)].item->path);
-            if (entries.size() > 1 || TrayItemTotalCount(s.tray) > 1)
-                tip += L"\n" + pulse::l10n::Get(pulse::l10n::StringId::TrayFlingHint);
-            return tip;
-        }
-        return L"";
-    }
-    case R::TrayIntent: return pulse::l10n::Get(pulse::l10n::StringId::TipTrayIntent);
-    case R::TrayRelease:
-        return pulse::l10n::Get(!s.tray.batches().empty() && s.tray.batches().back().move_intent
-            ? pulse::l10n::StringId::TipTrayReleaseMove
-            : pulse::l10n::StringId::TipTrayReleaseCopy);
-    case R::TrayPrev: return pulse::l10n::Get(pulse::l10n::StringId::TrayPrev);
-    case R::TrayNext: return pulse::l10n::Get(pulse::l10n::StringId::TrayNext);
     default: return L"";
     }
 }
