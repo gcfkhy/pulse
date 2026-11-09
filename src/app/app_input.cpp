@@ -3890,7 +3890,9 @@ LRESULT HandleLButtonDown(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARA
             // blank double click, so the second click navigates back.
             // Shift keeps the selection (the band adds), Ctrl inverts.
             RememberSelectionForMarquee(*s, tab);
-            if (tab && !ctrl && !shift) tab->ClearSelection();
+            // Column view: the selected folder's column stays open until
+            // another folder is clicked (a marquee drag still replaces it).
+            if (tab && !ctrl && !shift && !ColumnStripKeepsFolderOnBlank(*tab)) tab->ClearSelection();
             s->marqueePending = true;
             s->marqueeActive = false;
             s->marqueeAdditive = ctrl || shift;

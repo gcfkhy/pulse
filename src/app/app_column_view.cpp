@@ -290,6 +290,10 @@ bool ClickRow(AppState& s, app::Tab& tab, int column_id, int row) {
 
 } // namespace
 
+bool ColumnStripKeepsFolderOnBlank(const app::Tab& tab) {
+    return Eligible(tab) && !SelectedFolder(tab).empty();
+}
+
 void SyncColumnStrips(AppState& s) {
     ForEachPane(s, [&](app::Pane& pane) {
         if (app::Tab* tab = pane.ActiveTab()) SyncTab(s, *tab);
@@ -352,19 +356,10 @@ bool HandleColumnStripMouseDown(AppState& s, const ui::WindowViewModel& vm,
         if (tab) ClickRow(s, *tab, hit.sub_index, hit.index);
         return true;
     }
-    case R::ColumnStripBlank: {
-        // Empty space in a column makes its folder the current one, nothing
-        // selected (as in Finder), so Ctrl+V / New folder land there.
-        app::Tab* tab = TabAtSlot(s, hit.pane_index);
-        const app::ColumnStripColumn* col = tab ? StripColumn(*tab, hit.sub_index) : nullptr;
-        if (!col || col->path.empty()) return true;
-        const std::wstring folder = col->path;  // col is invalidated by navigation
-        if (!SamePath(folder, tab->current_path)) {
-            NavigateTo(s, folder);
-            s.stripClickTick = GetTickCount64();
-        }
+    case R::ColumnStripBlank:
+        // Empty space leaves the open columns as they are: navigating here
+        // would collapse every column to the right of this one.
         return true;
-    }
     case R::ColumnStripNav:
         // The arrow that just ran out of travel disappears under the pointer.
         if (StepStrip(s, vm, hit.pane_index, hit.index)) RefreshScrolledHover(s);
