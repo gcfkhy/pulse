@@ -7,6 +7,10 @@ namespace pulse {
 // Keeps every visible pane's column listings in step with its folder and
 // selection. Cheap when nothing changed; starts async loads otherwise.
 void SyncColumnStrips(AppState& s);
+// True when `tab` shows the column view with a folder selected (its column is
+// open on the right): a plain click on blank space in the list leaves that
+// selection, so the open folder stays open until another folder is clicked.
+bool ColumnStripKeepsFolderOnBlank(const app::Tab& tab);
 // Called for every worker result before pane handling.
 void NoteColumnStripResult(AppState& s, const app::WorkResult& res);
 

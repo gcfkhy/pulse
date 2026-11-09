@@ -1,5 +1,6 @@
 #include "app_list_selection.h"
 #include "app_input.h"
+#include "app_column_view.h"
 #include "app_navigation.h"
 #include "app_details_tree.h"
 #include "file_press_selection.h"
@@ -286,7 +287,9 @@ void BeginListBand(AppState& s, app::Tab* tab, POINT point, int row, bool ctrl, 
             gesture.base = tab->selected;
         } else if (row >= 0) {
             CommitListRowClick(s, row, false, false);
-        } else {
+        } else if (!ColumnStripKeepsFolderOnBlank(*tab)) {
+            // Column view: the selected folder's column stays open until another
+            // folder is clicked (a band drag still replaces the selection).
             tab->ClearSelection();
         }
     }
