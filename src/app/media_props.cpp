@@ -160,11 +160,11 @@ Props ReadProps(const Job& job) {
     Props out;
     if (job.kind == Kind::None || (job.attrs & kNeverOpen)) return out;
     const PROPERTYKEY photo_keys[] = {PKEY_Photo_DateTaken, PKEY_Image_HorizontalSize,
-        PKEY_Image_VerticalSize, PKEY_Photo_CameraManufacturer, PKEY_Photo_CameraModel};
+        PKEY_Image_VerticalSize, PKEY_Photo_CameraManufacturer, PKEY_Photo_CameraModel, PKEY_Rating};
     const PROPERTYKEY music_keys[] = {PKEY_Title, PKEY_Music_Artist, PKEY_Music_AlbumArtist,
-        PKEY_Music_AlbumTitle, PKEY_Music_TrackNumber, PKEY_Media_Duration};
+        PKEY_Music_AlbumTitle, PKEY_Music_TrackNumber, PKEY_Media_Duration, PKEY_Rating};
     const PROPERTYKEY video_keys[] = {PKEY_Media_Duration, PKEY_Video_FrameWidth,
-        PKEY_Video_FrameHeight, PKEY_Video_FrameRate};
+        PKEY_Video_FrameHeight, PKEY_Video_FrameRate, PKEY_Rating};
     const PROPERTYKEY* keys = photo_keys;
     UINT count = ARRAYSIZE(photo_keys);
     if (job.kind == Kind::Music) { keys = music_keys; count = ARRAYSIZE(music_keys); }
@@ -201,6 +201,7 @@ Props ReadProps(const Job& job) {
     default:
         break;
     }
+    out.rating = StarsFromRating(Number(store, PKEY_Rating));
     store->Release();
     return out;
 }
@@ -243,6 +244,15 @@ size_t Pending() {
     Shared& s = State();
     std::lock_guard lock(s.m);
     return s.queue.size() + s.busy;
+}
+
+void Forget(const std::wstring& path) {
+    Shared& s = State();
+    {
+        std::lock_guard lock(s.m);
+        s.cache.erase(path);
+    }
+    s.revision.fetch_add(1, std::memory_order_release);
 }
 
 void ForEachInFolder(const std::wstring& prefix,

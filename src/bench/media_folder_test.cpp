@@ -104,6 +104,43 @@ void GroupTests() {
 }
 }  // namespace
 
+// 分级 order: System.Rating (1-99) reads as 1-5 stars; unrated rows follow in
+// either direction, ties and unrated rows by name (reversed when descending).
+void RatingTests() {
+    Check(StarsFromRating(0) == 0 && StarsFromRating(1) == 1 && StarsFromRating(12) == 1 &&
+          StarsFromRating(13) == 2 && StarsFromRating(25) == 2 && StarsFromRating(50) == 3 &&
+          StarsFromRating(75) == 4 && StarsFromRating(88) == 5 && StarsFromRating(99) == 5,
+          "System.Rating maps to 1-5 stars");
+    struct Source {
+        static void Keys(const std::wstring&, const std::vector<pulse::fs::DirEntry>& entries,
+                         pulse::ui::SortColumn column, std::vector<pulse::app::MediaSortKey>& keys) {
+            keys.assign(entries.size(), {});
+            if (column != pulse::ui::SortColumn::MediaRating) return;
+            for (size_t i = 0; i < entries.size(); ++i) {
+                const std::wstring& name = entries[i].name;
+                const uint8_t stars = name == L"two" ? 2 : name == L"five" ? 5 : 0;
+                keys[i].number = stars;
+                keys[i].known = stars != 0;
+            }
+        }
+    };
+    pulse::app::SetMediaSortKeySource(&Source::Keys);
+    const std::wstring folder = L"C:\Pics";
+    const pulse::app::ScopedMediaSortFolder scope(folder);
+    const auto order = [&](pulse::ui::SortDirection direction) {
+        std::vector<pulse::fs::DirEntry> rows = {File(L"zero"), File(L"five"), File(L"two"), File(L"also")};
+        pulse::app::SortEntries(rows, pulse::ui::SortColumn::MediaRating, direction);
+        std::wstring out;
+        for (const auto& row : rows) out += (out.empty() ? L"" : L" ") + row.name;
+        return out;
+    };
+    Check(order(pulse::ui::SortDirection::Asc) == L"two five also zero",
+          "rating ascending: stars low to high, unrated last by name");
+    Check(order(pulse::ui::SortDirection::Desc) == L"five two zero also",
+          "rating descending: stars high to low, unrated still last (names follow the direction)");
+    pulse::app::SetMediaSortKeySource(nullptr);
+}
+
 int main() {
     Check(KindOfName(L"IMG_0001.JPG") == Kind::Photo, "extension case does not matter");
     Check(KindOfName(L"a.heic") == Kind::Photo && KindOfName(L"b.CR3") == Kind::Photo, "heic and raw are photos");
@@ -147,6 +184,7 @@ int main() {
     Check(CompareKnownFirst(false, 0, false, 0, unknown) == 0 && unknown, "two unknowns tie");
 
     GroupTests();
+    RatingTests();
 
     std::printf("%d passed, %d failed\n", passes, failures);
     return failures ? 1 : 0;

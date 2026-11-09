@@ -24,7 +24,7 @@ constexpr std::pair<std::string_view, std::string_view> kSpecs[] = {
     {"tab.new", "path:folder"},
     {"pane.to_window", "pane:pane"},
     {"view.mode", "view:extra_large_icons|large_icons|medium_icons|small_icons|list|details|tiles|content pane:pane"},
-    {"view.sort", "by:name|modified|type|size|created desc:bool pane:pane"},
+    {"view.sort", "by:name|modified|type|size|created|rating|duration desc:bool pane:pane"},
     {"view.group", "by:none|name|date|type|size pane:pane"},
     {"sidebar.toggle", "show:bool"},
     {"favbar.toggle", "show:bool"},

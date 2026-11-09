@@ -61,7 +61,7 @@ int FluentSvgIdForGlyph(std::wstring_view glyph);
 // Media*: 媒体文件夹专用列 (PaneViewModel::media_columns), read by app/media_props.
 enum class SortColumn { Name, Mtime, Type, Size, Path, Created, Accessed,
                         MediaTaken, MediaDims, MediaCamera, MediaTitle, MediaArtist, MediaAlbum,
-                        MediaDuration, MediaFps };
+                        MediaDuration, MediaFps, MediaRating };
 enum class SortDirection { Asc, Desc };
 
 struct TabView {
@@ -791,6 +791,10 @@ struct DetailsPanelView {
     std::wstring owner_text, permissions_text;
     std::wstring drive_text, fs_text, free_space_text;
     bool size_pending = false;      // folder size still computing
+    // Photo / video / audio file: 时长 and the 分级 stars (keys 0-5, or a click).
+    bool can_rate = false;
+    uint8_t rating = 0;             // 0 unrated, 1-5
+    std::wstring duration_text;     // empty until read, or when the file has none
     bool starred = false;
     // 下载并预览 (C4b): a file whose content is only in the cloud. The well
     // explains and offers the download instead of a preview.
@@ -812,6 +816,7 @@ struct DetailsHitRects {
     D2D1_RECT_F tag_add{}, preview{}, preview_toggle{}, preview_enable{};
     D2D1_RECT_F attr_readonly{}, attr_hidden{}, attr_advanced{};
     D2D1_RECT_F security_change{};
+    std::array<D2D1_RECT_F, 5> rating_stars{};   // the 分级 row's five stars, when it is shown
     std::vector<D2D1_RECT_F> preset_chips;
     std::vector<int> preset_ids;    // tag_index per chip
     std::vector<D2D1_RECT_F> section_headers;
@@ -1633,6 +1638,7 @@ struct HitTestResult {
         DetailsAttrToggle,
         DetailsSecurityChange,
         DetailsPresetTag,
+        DetailsRating,          // one of the 分级 stars; index 1-5
         DetailsPreview,
         DetailsPreviewToggle,
         DetailsPreviewEnable,   // preview pane on/off chip inside the well

@@ -47,6 +47,11 @@ inline std::wstring LocalFileTime(const FILETIME& time,
     return text;
 }
 
+// 3 -> three filled stars; 0 (unrated) -> "".
+inline std::wstring RatingStars(uint8_t rating) {
+    return rating ? std::wstring(static_cast<size_t>(rating > 5 ? 5 : rating), L'\x2605') : std::wstring();
+}
+
 // 2895851315 -> "2,895,851,315"
 inline std::wstring GroupedInt(uint64_t value) {
     wchar_t digits[24];

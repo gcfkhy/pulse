@@ -73,6 +73,17 @@ inline Kind Classify(const Tally& t) noexcept {
     return Kind::Video;
 }
 
+// System.Rating is 1-99 (1, 25, 50, 75, 99 are the 1-5 star presets Explorer
+// writes); other values fall in the nearest star. 0 and unset are unrated.
+inline uint8_t StarsFromRating(uint64_t rating) noexcept {
+    if (rating == 0) return 0;
+    if (rating <= 12) return 1;
+    if (rating <= 37) return 2;
+    if (rating <= 62) return 3;
+    if (rating <= 87) return 4;
+    return 5;
+}
+
 // 3:07, 1:02:03; empty when unknown.
 inline std::wstring FormatDuration(uint64_t duration_100ns) {
     if (duration_100ns == 0) return {};

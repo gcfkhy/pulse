@@ -18,6 +18,7 @@
 #include "../app_messages.h"
 #include "../ai_assistant_chat.h"
 #include "../context_menu.h"
+#include "../media_columns_ui.h"
 #include "../favorites_bar.h"
 #include "../keymap.h"
 #include "../places.h"
@@ -134,6 +135,7 @@ BackgroundViewOptions ViewOptions(AppState&, const Tab& tab) {
     o.can_sort = kind != L"recent";
     o.indexed_search = search && !tab.content_results;
     o.show_path = search || kind == L"recycle";
+    o.media_sort = !o.show_path && !o.indexed_search && MediaSortOffered(tab);
     o.group_virtual = search || IsTagViewKind(kind) || kind == L"recycle";
     o.can_group = !tab.content_results && (real || kind == L"recent" || o.group_virtual);
     o.group_by = tab.group_by;

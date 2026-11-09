@@ -98,6 +98,7 @@ namespace pulse::app { bool RunMediaColumnResizeCapture(); }
 #include "folder_sizes_ui.h"
 #include "media_columns_ui.h"
 #include "media_props.h"
+#include "media_rating.h"
 #include "saved_search.h"
 #include "search_query.h"
 #include "settings_controller.h"
@@ -2702,6 +2703,9 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
                 dirty = true;
             }
             if (s->mediaResortWaiting) s->mediaResortWaiting = ResortForMediaProps(*s);
+            if (app::TakeRatingFailures() > 0)
+                s->notification_toast.ShowError(hwnd, l10n::Get(l10n::StringId::RatingSetFailedTitle),
+                                                l10n::Get(l10n::StringId::RatingSetFailed));
             if (DrainDirNotifies(*s)) {
                 s->uiTimerPacer.NoteActivity(GetTickCount64());
                 SyncUiTimerRate(*s, hwnd, IsWindowVisible(hwnd) && !IsIconic(hwnd));
@@ -3853,6 +3857,7 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
                 s->watches.Stop();
                 const uint64_t watches_ms = timer.Lap();
                 s->folderSizes.Stop();
+                app::StopRatingWriter();
                 const uint64_t sizes_ms = timer.Lap();
                 s->settings.ResetUi();
                 s->settings.Stop();

@@ -5110,5 +5110,12 @@
 #define IDS_ARCHIVE_PLUGIN_REQUIRED                                                      6388
 #define IDS_ARCHIVE_PLUGIN_MIGRATION_TITLE                                               6389
 #define IDS_ARCHIVE_PLUGIN_MIGRATION_BODY                                                6390
+#define IDS_COLUMN_RATING                                                                6391
+#define IDS_SORT_LOW_HIGH                                                                6392
+#define IDS_SORT_HIGH_LOW                                                                6393
+#define IDS_SORT_SHORT_LONG                                                              6394
+#define IDS_SORT_LONG_SHORT                                                              6395
+#define IDS_RATING_SET_FAILED_TITLE                                                      6396
+#define IDS_RATING_SET_FAILED                                                            6397
 
 #endif  // PULSE_STRING_IDS_H

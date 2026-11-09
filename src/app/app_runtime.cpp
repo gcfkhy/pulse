@@ -15,6 +15,8 @@
 #include "app_wall_hint.h"
 #include "app_internal.h"
 #include "workspace_sidebar.h"
+#include "media_props.h"
+#include "media_rating.h"
 #include "app_network_page.h"
 #include "shortcut_page.h"
 #include "keymap.h"
@@ -3427,6 +3429,14 @@ ui::WindowViewModel BuildVm(AppState& s, bool probe_details) {
                                pulse::format::GroupedInt(dv.size_value) +
                                pulse::l10n::Get(pulse::l10n::StringId::Bytes).c_str();
             }
+            if (!dv.is_dir && !dv.cloud_online && !fs::IsVirtualPath(dv.path) &&
+                app::media::KindOfName(dv.name) != app::media::Kind::None) {
+                dv.can_rate = app::CanRateName(dv.name);
+                if (const auto props = app::media::Find(dv.path, dv.modified_value, dv.size_value)) {
+                    dv.rating = props->rating;
+                    dv.duration_text = app::media::FormatDuration(props->duration);
+                }
+            }
             if (s.detailsMetaPath == dv.path) {
                 dv.owner_text = s.detailsOwner;
                 dv.permissions_text = s.detailsPermissions;
@@ -3892,6 +3902,7 @@ std::wstring TooltipForHover(AppState& s) {
     case R::DetailsNewTab: return text(I::OpenNewTab);
     case R::DetailsCopyPath: return text(I::CopyPath);
     case R::DetailsSection: return text(I::ExpandCollapse);
+    case R::DetailsRating: return text(I::ColumnRating);
     case R::DetailsAttrToggle:
         switch (s.hoverControlIndex) {
         case 0: return text(I::ReadOnly);

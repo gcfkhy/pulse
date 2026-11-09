@@ -469,13 +469,13 @@ public:
     // columns either; each sorts by the SortColumn of the same name.
     enum class ColumnKind : uint8_t { Name, Path, Date, Type, Size, Created, Accessed, Status, Total,
                                       MediaTaken, MediaDims, MediaCamera, MediaTitle, MediaArtist,
-                                      MediaAlbum, MediaDuration, MediaFps };
+                                      MediaAlbum, MediaDuration, MediaFps, MediaRating };
     static constexpr bool IsMediaColumn(ColumnKind kind) noexcept { return kind >= ColumnKind::MediaTaken; }
     static SortColumn MediaSortColumn(ColumnKind kind) noexcept;
     static std::wstring MediaColumnLabel(ColumnKind kind, uint8_t media_columns);
     DetailsColumnWidths ResizeMediaDetailsColumnDivider(const D2D1_RECT_F& bounds,
         const PaneViewModel& view, int divider, float cursor_x) const;
-    static constexpr size_t kMaxDetailsColumns = 11;
+    static constexpr size_t kMaxDetailsColumns = 12;
     static_assert(kDetailsColumnModified == 1u << static_cast<uint32_t>(ColumnKind::Date) &&
                   kDetailsColumnType == 1u << static_cast<uint32_t>(ColumnKind::Type) &&
                   kDetailsColumnSize == 1u << static_cast<uint32_t>(ColumnKind::Size) &&

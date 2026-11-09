@@ -5090,4 +5090,11 @@ BEGIN
     IDS_ARCHIVE_PLUGIN_REQUIRED "需要壓縮檔外掛程式。請安裝並啟用支援此格式的原生增強套件。"
     IDS_ARCHIVE_PLUGIN_MIGRATION_TITLE "壓縮檔增強功能已移轉"
     IDS_ARCHIVE_PLUGIN_MIGRATION_BODY "舊的 7-Zip 下載套件已停用。請安裝並啟用壓縮檔原生增強套件以預覽及解壓縮 7z、RAR；內建 ZIP 功能不受影響。"
+    IDS_COLUMN_RATING "分級"
+    IDS_SORT_LOW_HIGH "低→高"
+    IDS_SORT_HIGH_LOW "高→低"
+    IDS_SORT_SHORT_LONG "短→長"
+    IDS_SORT_LONG_SHORT "長→短"
+    IDS_RATING_SET_FAILED_TITLE "無法設定分級"
+    IDS_RATING_SET_FAILED "這個檔案不支援分級，或者它是唯讀的、正被佔用。"
 END

@@ -413,6 +413,8 @@ std::vector<ui::FluentMenuItem> BuildSortMenu(const BackgroundViewOptions& optio
         { CmdSortAccessed, ui::SortColumn::Accessed, l10n::StringId::ColumnAccessed },
         { CmdSortType, ui::SortColumn::Type, l10n::StringId::ColumnType },
         { CmdSortSize, ui::SortColumn::Size, l10n::StringId::ColumnSize },
+        { CmdSortRating, ui::SortColumn::MediaRating, l10n::StringId::ColumnRating },
+        { CmdSortDuration, ui::SortColumn::MediaDuration, l10n::StringId::ColumnMediaDuration },
         { CmdSortPath, ui::SortColumn::Path, l10n::StringId::ColumnPath },
     };
     for (const auto& row : rows) {
@@ -420,6 +422,9 @@ std::vector<ui::FluentMenuItem> BuildSortMenu(const BackgroundViewOptions& optio
         // Search results and the recycle bin carry no creation / access times.
         if ((row.column == ui::SortColumn::Created || row.column == ui::SortColumn::Accessed) &&
             options.show_path) continue;
+        // 分级 / 时长 only where the folder has the media columns.
+        if (row.column >= ui::SortColumn::MediaTaken &&
+            (!options.media_sort || options.show_path || options.indexed_search)) continue;
         auto child = Item(row.command, l10n::Get(row.label).c_str(), L"", nullptr,
                           options.can_sort && !(options.indexed_search &&
                           (row.column == ui::SortColumn::Type || row.column == ui::SortColumn::Path)));

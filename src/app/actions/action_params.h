@@ -3,7 +3,7 @@
 //
 // A spec is "name:kind" words: kinds are bool, string, path, folder,
 // folders, paths, pane, setting, any, selector, or the values with | (for
-// example "by:name|modified|type|size|created desc:bool pane:pane"). An
+// example "by:name|modified|type|size|created|rating|duration desc:bool pane:pane"). An
 // action without a spec runs as its menu row does; one with choices takes
 // "choice" (a choice's title or its position).
 #pragma once
@@ -18,7 +18,7 @@ namespace pulse::app::actions {
 
 // The spec of `id`, or "" when it takes no arguments.
 std::string_view ArgSpec(std::string_view id) noexcept;
-// {"by":"name|modified|type|size|created","desc":"bool"}.
+// {"by":"name|modified|type|size|created|rating|duration","desc":"bool"}.
 json::Value ArgSpecJson(std::string_view spec);
 
 // The best matches for `query` (words split on spaces; Chinese, pinyin or

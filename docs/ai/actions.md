@@ -115,7 +115,7 @@ constexpr std::pair<std::string_view, Runner> kRunners[] = {
 ```cpp
 {"tab.pin", "tab:tab pin:bool"},
 {"file.move_to", "items:paths dest:folder"},
-{"view.sort", "by:name|modified|type|size|created desc:bool pane:pane"},
+{"view.sort", "by:name|modified|type|size|created|rating|duration desc:bool pane:pane"},
 ```
 
 类型就是写给模型看的文字。常用的有：

@@ -50,6 +50,8 @@ enum MenuCmd : int {
     CmdFolderSortMixed,   // 文件夹优先：与文件混排
     CmdSortCreated = 31,  // 排序方式：创建日期
     CmdSortAccessed = 32, // 排序方式：访问日期
+    CmdSortRating = 33,   // 排序方式：分级
+    CmdSortDuration = 34, // 排序方式：时长
     CmdLayoutSingle = 50,
     CmdLayoutTwoVertical,
     CmdLayoutTwoHorizontal,
@@ -277,6 +279,7 @@ struct BackgroundViewOptions {
     bool can_sort = true;
     bool indexed_search = false;
     bool show_path = false;
+    bool media_sort = false; // image/video listings: Rating and Duration
     bool filesystem = true;
     int group_by = 0;        // app::GroupBy value
     bool can_group = false;  // real folders, Recent, search results, tag views

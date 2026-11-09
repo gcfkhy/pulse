@@ -10,6 +10,7 @@
 #include "folder_alias.h"
 #include "app_wall_hint.h"
 #include "arrival_select.h"
+#include "media_rating.h"
 #include "pane_column_input.h"
 #include "keymap.h"
 #include "../ui/ui_renderer.h"
@@ -3184,6 +3185,15 @@ LRESULT HandleLButtonDown(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARA
         if (hit.region == ui::HitTestResult::DetailsResize) {
             s->detailsPanelResizing = true;
             SetCapture(hwnd);
+            return 0;
+        }
+        if (hit.region == ui::HitTestResult::DetailsRating) {
+            // Clicking the star the file already has clears the rating. (Handled here,
+            // not in the else-if chain below, which is at the compiler's nesting limit.)
+            if (hit.index >= 1 && hit.index <= 5 && vm.details.can_rate) {
+                const uint8_t next = vm.details.rating == hit.index ? uint8_t{0} : static_cast<uint8_t>(hit.index);
+                if (app::SetSelectedRating(*s, next)) InvalidateRect(hwnd, nullptr, FALSE);
+            }
             return 0;
         }
         if (hit.region == ui::HitTestResult::DetailsPreviewEnable) {

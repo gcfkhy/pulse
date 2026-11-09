@@ -45,6 +45,8 @@
 #include "details_column_menu.h"
 #include "entry_group.h"
 #include "context_menu.h"
+#include "media_props.h"
+#include "media_rating.h"
 #include "actions/action_args.h"
 #include "ai_mcp_run.h"
 #include "ai_settings.h"
@@ -5931,7 +5933,7 @@ void TestActionPolicy() {
     }
     {
         const json::Value spec = act::ArgSpecJson(act::ArgSpec("view.sort"));
-        Check(spec.get_string("by") == "name|modified|type|size|created" && spec.get_string("desc") == "bool",
+        Check(spec.get_string("by") == "name|modified|type|size|created|rating|duration" && spec.get_string("desc") == "bool",
               L"find_actions: view.sort's args");
         Check(act::ArgSpec("window.overview").empty(), L"find_actions: an action without args has no spec");
     }
@@ -8401,6 +8403,27 @@ void TestOptionalColumns() {
     Check(created_row != folder_sort.end() && created_row->radio && has_command(folder_sort, CmdSortAccessed) &&
           !has_command(search_sort, CmdSortCreated) && !has_command(search_sort, CmdSortAccessed),
           L"optional columns: sort menu offers created / accessed for folders only");
+
+    Check(media::StarsFromRating(0) == 0 && media::StarsFromRating(1) == 1 && media::StarsFromRating(25) == 2 &&
+          media::StarsFromRating(50) == 3 && media::StarsFromRating(75) == 4 && media::StarsFromRating(99) == 5 &&
+          format::RatingStars(0).empty() && format::RatingStars(3) == std::wstring(3, L'\x2605') &&
+          format::RatingStars(9).size() == 5,
+          L"rating: System.Rating maps to 1-5 stars, unrated draws nothing");
+    Check(CanRateName(L"a.jpg") && CanRateName(L"clip.MP4") && CanRateName(L"song.mp3") && CanRateName(L"x.M4A") &&
+          !CanRateName(L"song.wav") && !CanRateName(L"track.flac") && !CanRateName(L"notes.txt"),
+          L"rating: photos, videos and mp3 / m4a / wma can be rated; wav, flac and documents cannot");
+
+    BackgroundViewOptions media_options;
+    media_options.media_sort = true;
+    media_options.sort_column = SortColumn::MediaRating;
+    const auto media_sort = BuildSortMenu(media_options);
+    const auto rating_row = std::find_if(media_sort.begin(), media_sort.end(),
+        [](const auto& item) { return item.command == CmdSortRating; });
+    Check(media_sort.size() == 13 && rating_row != media_sort.end() && rating_row->radio &&
+          has_command(media_sort, CmdSortDuration) && !has_command(folder_sort, CmdSortRating) &&
+          !has_command(folder_sort, CmdSortDuration) && !has_command(search_sort, CmdSortRating) &&
+          !has_command(search_sort, CmdSortDuration),
+          L"media sort: rating and duration appear for media listings only");
 }
 
 } // namespace

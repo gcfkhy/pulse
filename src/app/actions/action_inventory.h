@@ -314,6 +314,8 @@ inline constexpr MenuCmdLink kMenuCmdLinks[] = {
     {CmdFolderSortMixed, {"view.folders_first"}},
     {CmdSortCreated, {"view.sort"}},
     {CmdSortAccessed, {"view.sort"}},
+    {CmdSortRating, {"view.sort"}},
+    {CmdSortDuration, {"view.sort"}},
     {CmdLayoutSingle, {"window.layout"}},
     {CmdLayoutTwoVertical, {"window.layout"}},
     {CmdLayoutTwoHorizontal, {"window.layout"}},

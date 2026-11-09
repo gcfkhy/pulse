@@ -670,6 +670,7 @@ SortColumn MainRenderer::MediaSortColumn(ColumnKind kind) noexcept {
     case ColumnKind::MediaAlbum: return SortColumn::MediaAlbum;
     case ColumnKind::MediaDuration: return SortColumn::MediaDuration;
     case ColumnKind::MediaFps: return SortColumn::MediaFps;
+    case ColumnKind::MediaRating: return SortColumn::MediaRating;
     default: return SortColumn::Name;
     }
 }
@@ -686,6 +687,7 @@ std::wstring MainRenderer::MediaColumnLabel(ColumnKind kind, uint8_t media_colum
     case ColumnKind::MediaAlbum: return pulse::l10n::Get(StringId::ColumnMediaAlbum);
     case ColumnKind::MediaDuration: return pulse::l10n::Get(StringId::ColumnMediaDuration);
     case ColumnKind::MediaFps: return pulse::l10n::Get(StringId::ColumnMediaFps);
+    case ColumnKind::MediaRating: return pulse::l10n::Get(StringId::ColumnRating);
     default: return std::wstring();
     }
 }
@@ -698,9 +700,11 @@ MainRenderer::DetailsColumnLayout MainRenderer::MediaColumns(
     using K = ColumnKind;
     std::vector<Col> cols;
     switch (vm.media_columns) {
-    case 1: cols = {{K::MediaTaken, 150, 2}, {K::MediaDims, 112, 1}, {K::MediaCamera, 160, 0}}; break;
-    case 2: cols = {{K::MediaTitle, 220, 0}, {K::MediaArtist, 160, 2}, {K::MediaAlbum, 180, 1}, {K::MediaDuration, 76, 3}}; break;
-    case 3: cols = {{K::MediaDuration, 84, 2}, {K::MediaDims, 120, 1}, {K::MediaFps, 72, 0}}; break;
+    // 分级 (MediaRating) is the same in every kind: fixed width, hidden last.
+    case 1: cols = {{K::MediaTaken, 150, 2}, {K::MediaDims, 112, 1}, {K::MediaCamera, 160, 0}, {K::MediaRating, 96, 3}}; break;
+    case 2: cols = {{K::MediaTitle, 220, 0}, {K::MediaArtist, 160, 2}, {K::MediaAlbum, 180, 1}, {K::MediaDuration, 76, 3},
+                    {K::MediaRating, 96, 4}}; break;
+    case 3: cols = {{K::MediaDuration, 84, 2}, {K::MediaDims, 120, 1}, {K::MediaFps, 72, 0}, {K::MediaRating, 96, 3}}; break;
     default: return out;
     }
     // User-selected columns take precedence; media uses only the spare name width.
@@ -716,7 +720,7 @@ MainRenderer::DetailsColumnLayout MainRenderer::MediaColumns(
                              35.0f * scale_;
         default_widths.push_back(std::max(c.dip * scale_, header));
         const int slot = MediaColumnSlot(c.kind, vm.media_columns);
-        const float manual = vm.media_column_widths[vm.media_columns - 1][slot];
+        const float manual = slot < 0 ? 0.0f : vm.media_column_widths[vm.media_columns - 1][slot];
         widths.push_back(manual > 1.0f ? std::max(48.0f, manual) * scale_
                                       : std::max(c.dip * scale_, header));
     }
@@ -3826,7 +3830,7 @@ void MainRenderer::DrawSinglePane(const WindowViewModel& vm, const PaneViewModel
                 break;
             case ColumnKind::MediaTaken: case ColumnKind::MediaDims: case ColumnKind::MediaCamera:
             case ColumnKind::MediaTitle: case ColumnKind::MediaArtist: case ColumnKind::MediaAlbum:
-            case ColumnKind::MediaDuration: case ColumnKind::MediaFps: {
+            case ColumnKind::MediaDuration: case ColumnKind::MediaFps: case ColumnKind::MediaRating: {
                 const ColumnKind media_kind = columns.kinds[static_cast<size_t>(col)];
                 drawCol(MediaColumnLabel(media_kind, pane.media_columns), MediaSortColumn(media_kind), cw,
                         media_kind == ColumnKind::MediaDuration || media_kind == ColumnKind::MediaFps);

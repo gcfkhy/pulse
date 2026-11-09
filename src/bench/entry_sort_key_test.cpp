@@ -230,7 +230,7 @@ int main(int argc, char** argv) {
         link.name = L"z-folder.lnk"; link.link_target = L"C:\\Folder"; link.link_target_is_dir = true;
         bool bottom = true, top = true, mixed = true;
         for (const auto direction : {ui::SortDirection::Asc, ui::SortDirection::Desc}) {
-            for (int column = 0; column <= static_cast<int>(ui::SortColumn::MediaFps); ++column) {
+            for (int column = 0; column <= static_cast<int>(ui::SortColumn::MediaRating); ++column) {
                 const auto col = static_cast<ui::SortColumn>(column);
                 const app::ScopedFolderSortMode mode(app::FolderSortMode::FoldersLast);
                 for (const auto& item : {folder, link}) {

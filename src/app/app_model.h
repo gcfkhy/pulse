@@ -168,6 +168,7 @@ struct Tab {
     mutable fs::SnapshotPtr media_snapshot;
     mutable std::shared_ptr<const MediaColumnsState> media_state;
     uint64_t media_resort_revision = 0;
+    const void* media_resort_snapshot = nullptr;  // the listing the last live re-sort looked at
     uint64_t media_resorted_at = 0;
     ColumnStripState column_strip; // listings shown beside the list in column view
     std::wstring git_root;

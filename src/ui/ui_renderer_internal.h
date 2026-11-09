@@ -1959,8 +1959,19 @@ void ClearTextWidthCache() {
                 if ((d.collapsed_mask >> def.id) & 1u) { y += 6.0f * s; continue; }
                 switch (def.id) {
                 case 0: { // 基本信息
+                    const bool has_duration = !d.duration_text.empty();
                     const int rows = (d.is_dir ? 7 : 6) +
-                                     static_cast<int>(d.preview_properties.size());
+                                     static_cast<int>(d.preview_properties.size()) +
+                                     (has_duration ? 1 : 0) + (d.can_rate ? 1 : 0);
+                    if (d.can_rate) {
+                        // 位置 / 类型 / 大小 (and 时长) come first; the stars sit in the value column.
+                        const float row_top = y + static_cast<float>(3 + (has_duration ? 1 : 0)) * 18.0f * s;
+                        const float star_w = 18.0f * s;
+                        for (size_t i = 0; i < out.rating_stars.size(); ++i) {
+                            const float left = x + 100.0f * s + static_cast<float>(i) * star_w;
+                            out.rating_stars[i] = D2D1::RectF(left, row_top, left + star_w, row_top + 18.0f * s);
+                        }
+                    }
                     y += static_cast<float>(rows) * 18.0f * s + 8.0f * s;
                     break;
                 }
