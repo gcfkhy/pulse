@@ -4971,5 +4971,7 @@
 #define IDS_COLUMN_STRIP_SCROLL_LEFT                                                     6401
 #define IDS_COLUMN_STRIP_SCROLL_RIGHT                                                    6402
 #define IDS_COLUMN_STRIP_WHEEL_HINT                                                      6403
+#define IDS_SORT_HINT_RATING                                                             6404
+#define IDS_SORT_HINT_DURATION                                                           6405
 
 #endif  // PULSE_STRING_IDS_H

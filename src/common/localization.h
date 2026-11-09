@@ -4963,6 +4963,8 @@ enum class StringId : UINT {
     ColumnStripScrollLeft = IDS_COLUMN_STRIP_SCROLL_LEFT,
     ColumnStripScrollRight = IDS_COLUMN_STRIP_SCROLL_RIGHT,
     ColumnStripWheelHint = IDS_COLUMN_STRIP_WHEEL_HINT,
+    SortHintRating = IDS_SORT_HINT_RATING,
+    SortHintDuration = IDS_SORT_HINT_DURATION,
 };
 
 bool IsLanguageId(std::wstring_view id) noexcept;

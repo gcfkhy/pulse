@@ -4979,3 +4979,5 @@ ColumnStripScrollLeft	IDS_COLUMN_STRIP_SCROLL_LEFT	6401	向左移动栏目	Scrol
 ColumnStripScrollRight	IDS_COLUMN_STRIP_SCROLL_RIGHT	6402	向右移动栏目	Scroll columns right
 ColumnStripWheelHint	IDS_COLUMN_STRIP_WHEEL_HINT	6403	鼠标滚轮也可横向滚动	The mouse wheel also scrolls sideways
 
+SortHintRating	IDS_SORT_HINT_RATING	6404	按星级评分	By star rating
+SortHintDuration	IDS_SORT_HINT_DURATION	6405	按播放时长	By playing time

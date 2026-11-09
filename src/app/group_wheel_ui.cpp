@@ -4,6 +4,7 @@
 #include "entry_group.h"
 #include "entry_sort.h"
 #include "media_columns_ui.h"
+#include "media_folder.h"
 #include "window_registry.h"
 #include "../common/text_format.h"
 #include "../common/localization.h"
@@ -161,6 +162,11 @@ constexpr SortStyle kSortColumns[] = {
      ui::command_icons::Icon::Sort, 0xA78BFA, 0x6D28D9},
     {ui::SortColumn::Mtime, l10n::StringId::ColumnModified, l10n::StringId::SortHintModified,
      ui::command_icons::Icon::History, 0x34D399, 0x0F766E},
+    // 分级 / 时长 are offered in media folders only (OpenSortWheel).
+    {ui::SortColumn::MediaRating, l10n::StringId::ColumnRating, l10n::StringId::SortHintRating,
+     ui::command_icons::Icon::Star, 0xFBBF24, 0xB45309},
+    {ui::SortColumn::MediaDuration, l10n::StringId::ColumnMediaDuration, l10n::StringId::SortHintDuration,
+     ui::command_icons::Icon::Timer, 0x38BDF8, 0x0369A1},
     {ui::SortColumn::Created, l10n::StringId::ColumnCreated, l10n::StringId::SortHintCreated,
      ui::command_icons::Icon::Add, 0x60A5FA, 0x1D4ED8},
     {ui::SortColumn::Accessed, l10n::StringId::ColumnAccessed, l10n::StringId::SortHintAccessed,
@@ -217,6 +223,28 @@ std::wstring SortValue(const fs::DirEntry& e, ui::SortColumn col) {
     }
     default: return TypeText(e);
     }
+}
+
+// The preview files' 分级 (stars) and 时长 (seconds), by sample index: only a
+// few have a value, the rest stay unknown and follow in either direction.
+constexpr uint8_t kSampleRating[] = {0, 0, 0, 5, 0, 0, 3};
+constexpr uint32_t kSampleSeconds[] = {0, 0, 0, 0, 0, 0, 222};
+
+bool IsMediaSortStyle(ui::SortColumn col) {
+    return col == ui::SortColumn::MediaRating || col == ui::SortColumn::MediaDuration;
+}
+
+uint64_t SampleMediaValue(size_t index, ui::SortColumn col) {
+    if (index >= std::size(kSampleRating)) return 0;
+    return col == ui::SortColumn::MediaRating ? kSampleRating[index]
+                                              : uint64_t{kSampleSeconds[index]} * 10'000'000u;
+}
+
+std::wstring SampleMediaText(size_t index, ui::SortColumn col) {
+    const uint64_t value = SampleMediaValue(index, col);
+    if (value == 0) return L"\x2014";
+    return col == ui::SortColumn::MediaRating ? format::RatingStars(static_cast<uint8_t>(value))
+                                              : app::media::FormatDuration(value);
 }
 
 std::vector<std::wstring> SplitBar(const std::wstring& text) {
@@ -405,6 +433,7 @@ void OpenSortWheel(AppState& s) {
     if (kind == L"starred" || kind == L"recent") return;
     const bool show_path = kind == L"search" || kind == L"saved-search" || kind == L"recycle";
     const bool indexed = (kind == L"search" || kind == L"saved-search") && !tab->content_results;
+    const bool media = !show_path && !indexed && app::MediaSortOffered(*tab);
     const std::vector<fs::DirEntry> entries = SampleEntries(show_path);
 
     ui::GroupWheelData data;
@@ -417,6 +446,7 @@ void OpenSortWheel(AppState& s) {
         if (indexed && (col.column == ui::SortColumn::Type || col.column == ui::SortColumn::Path)) continue;
         // Same rule as the sort menu: no creation / access times in search or the recycle bin.
         if (show_path && (col.column == ui::SortColumn::Created || col.column == ui::SortColumn::Accessed)) continue;
+        if (IsMediaSortStyle(col.column) && !media) continue;
         ui::GroupWheelOption o;
         o.value = static_cast<int>(col.column);
         o.icon = static_cast<int>(col.icon);
@@ -428,6 +458,10 @@ void OpenSortWheel(AppState& s) {
             o.directions = {l10n::Get(l10n::StringId::SortOldNew), l10n::Get(l10n::StringId::SortNewOld)};
         else if (col.column == ui::SortColumn::Size)
             o.directions = {l10n::Get(l10n::StringId::SortSmallLarge), l10n::Get(l10n::StringId::SortLargeSmall)};
+        else if (col.column == ui::SortColumn::MediaRating)
+            o.directions = {l10n::Get(l10n::StringId::SortLowHigh), l10n::Get(l10n::StringId::SortHighLow)};
+        else if (col.column == ui::SortColumn::MediaDuration)
+            o.directions = {l10n::Get(l10n::StringId::SortShortLong), l10n::Get(l10n::StringId::SortLongShort)};
         else
             o.directions = {az, za};
         std::vector<size_t> order(entries.size());
@@ -439,12 +473,38 @@ void OpenSortWheel(AppState& s) {
                 const auto mode = app::FolderSortModeFromInt(f);
                 std::partial_sort(order.begin(), order.begin() + static_cast<std::ptrdiff_t>(top), order.end(),
                                   [&](size_t a, size_t b) {
-                                      return app::EntryLess(entries[a], entries[b], col.column, dir, mode);
+                                      if (!IsMediaSortStyle(col.column))
+                                          return app::EntryLess(entries[a], entries[b], col.column, dir, mode);
+                                      // Media values are not in the sample entries: order them by the
+                                      // sample table, unknown rows last in either direction, names
+                                      // following the direction as in the list.
+                                      const auto& ea = entries[a];
+                                      const auto& eb = entries[b];
+                                      if (ea.is_dir != eb.is_dir && mode != app::FolderSortMode::Mixed)
+                                          return (mode == app::FolderSortMode::FoldersFirst) == ea.is_dir;
+                                      const uint64_t va = ea.is_dir ? 0 : SampleMediaValue(a, col.column);
+                                      const uint64_t vb = eb.is_dir ? 0 : SampleMediaValue(b, col.column);
+                                      if ((va != 0) != (vb != 0)) return va != 0;
+                                      int cmp = va < vb ? -1 : va > vb ? 1 : 0;
+                                      if (cmp == 0) {
+                                          cmp = app::EntryLess(ea, eb, ui::SortColumn::Name,
+                                                               ui::SortDirection::Asc, app::FolderSortMode::Mixed)
+                                                    ? -1
+                                                    : (app::EntryLess(eb, ea, ui::SortColumn::Name,
+                                                                      ui::SortDirection::Asc,
+                                                                      app::FolderSortMode::Mixed) ? 1 : 0);
+                                      }
+                                      if (dir == ui::SortDirection::Desc) cmp = -cmp;
+                                      return cmp < 0;
                                   });
                 auto& rows = o.files[static_cast<size_t>(d * 3 + f)];
                 for (size_t i = 0; i < top; ++i) {
                     const auto& e = entries[order[i]];
-                    rows.push_back({e.name, SortValue(e, col.column), Swatch(e)});
+                    rows.push_back({e.name,
+                                    IsMediaSortStyle(col.column) ? (e.is_dir ? std::wstring(L"\x2014")
+                                                                             : SampleMediaText(order[i], col.column))
+                                                                 : SortValue(e, col.column),
+                                    Swatch(e)});
                 }
             }
         }

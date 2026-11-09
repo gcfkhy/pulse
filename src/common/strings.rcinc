@@ -4953,6 +4953,8 @@ BEGIN
     IDS_COLUMN_STRIP_SCROLL_LEFT "向左移动栏目"
     IDS_COLUMN_STRIP_SCROLL_RIGHT "向右移动栏目"
     IDS_COLUMN_STRIP_WHEEL_HINT "鼠标滚轮也可横向滚动"
+    IDS_SORT_HINT_RATING "按星级评分"
+    IDS_SORT_HINT_DURATION "按播放时长"
 END
 
 LANGUAGE 0x09, 0x01
@@ -9905,6 +9907,8 @@ BEGIN
     IDS_COLUMN_STRIP_SCROLL_LEFT "Scroll columns left"
     IDS_COLUMN_STRIP_SCROLL_RIGHT "Scroll columns right"
     IDS_COLUMN_STRIP_WHEEL_HINT "The mouse wheel also scrolls sideways"
+    IDS_SORT_HINT_RATING "By star rating"
+    IDS_SORT_HINT_DURATION "By playing time"
 END
 
 // Traditional Chinese (Taiwan), generated from the Simplified entries above.
