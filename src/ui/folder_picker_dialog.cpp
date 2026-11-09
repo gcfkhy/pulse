@@ -2717,7 +2717,7 @@ private:
             layout_settings_.sidebar_width=renderer_.SidebarWidthDip();
         } else if (column_resizing_>=0) {
             layout_settings_.column_widths=renderer_.ResizeDetailsColumnDivider(
-                PaneBounds(),layout_settings_.column_widths,column_resizing_,x,vm_.pane.cloud_status_column);
+                PaneBounds(),layout_settings_.column_widths,column_resizing_,x,vm_.pane.ExtraColumns());
         }
         Relayout(); Invalidate();
     }
@@ -3865,7 +3865,7 @@ private:
         case R::ColumnDivider:
             if (double_click) {
                 std::array<float,4> search{};
-                renderer_.AutoFitColumnDivider(PaneBounds(),layout_settings_.column_widths,false,search,hit.index,vm_.pane.cloud_status_column);
+                renderer_.AutoFitColumnDivider(PaneBounds(),layout_settings_.column_widths,false,search,hit.index,vm_.pane.ExtraColumns());
                 Relayout();
             } else {
                 column_resizing_=hit.index;

@@ -38,10 +38,10 @@ int main() {
     check(pulse::index::QueryUsesAttrs(pulse::index::ParseQuery(NormalizeGlobalSearchQuery(L">10mb"))), "smart size unit filter compiled");
     const auto converted = EvaluateGlobalSearchCalculation(L"5kg to lb");
     check(converted && converted->alternatives.size() == 3 && value(converted->alternatives[0].query.c_str(), 5000), "alternate unit pills retain original source precision");
-    check(MatchGlobalSearchCommands(L">").size() == 6 && MatchGlobalSearchCommands(L"主题").empty(), "commands require prefix");
+    check(MatchGlobalSearchCommands(L">").size() == 4 && MatchGlobalSearchCommands(L"主题").empty(), "commands require prefix");
     check(MatchGlobalSearchCommands(L">主题") == std::vector{GlobalSearchCommand::ToggleTheme}, "theme command matching");
     check(MatchGlobalSearchCommands(L">clear history") == std::vector{GlobalSearchCommand::ClearHistory}, "multiple command keywords");
-    check(MatchGlobalSearchCommands(L">清空暂存区") == std::vector{GlobalSearchCommand::ClearStaging}, "full localized command matching");
+    check(MatchGlobalSearchCommands(L">清空搜索历史") == std::vector{GlobalSearchCommand::ClearHistory}, "full localized command matching");
     check(MatchGlobalSearchCommands(L">not-a-command").empty(), "unknown command rejected");
     return failures ? 1 : 0;
 }

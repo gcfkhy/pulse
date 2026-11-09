@@ -692,7 +692,7 @@ std::wstring MainRenderer::MediaColumnLabel(ColumnKind kind, uint8_t media_colum
 
 MainRenderer::DetailsColumnLayout MainRenderer::MediaColumns(
     const D2D1_RECT_F& pane_bounds, const PaneViewModel& vm) const {
-    auto out = DetailsColumns(pane_bounds, vm.details_column_dividers, false, {}, vm.cloud_status_column);
+    auto out = DetailsColumns(pane_bounds, vm.details_column_dividers, false, {}, DetailsExtraColumns{vm.cloud_status_column, 0, 0});
     if (!compositor_ || !compositor_->HeaderFormat()) return out;
     struct Col { ColumnKind kind; float dip; int drop; };
     using K = ColumnKind;

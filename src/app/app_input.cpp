@@ -238,6 +238,7 @@ void ClearDropFeedback(AppState& s) {
     s.dropParent = false;
     s.dropBreadcrumb = -1;
     s.dropSidebar = -1;
+    s.dragFilesOver = false;
     s.dropQuickAccess = false;
     s.dropFavorite = -1;
     s.dropFavoriteAdd = false;
@@ -435,6 +436,13 @@ static DWORD ResolveDropTargetImpl(AppState& s, const std::vector<std::wstring>&
     s.dropLaunchShortcut.clear();
     s.dropBadge = l10n::Get(l10n::StringId::DragHintReleaseCancel);
     s.dropBadgeMove = false;
+    s.dropBadgeX = float(pt.x);
+    s.dropBadgeY = float(pt.y);
+    // Files from outside (or another pane) are over the window.
+    if (!sources.empty() && !ShellItemDrag(sources)) {
+        if (!s.dragFilesOver) InvalidateRect(s.hwnd, nullptr, FALSE);
+        s.dragFilesOver = true;
+    }
     if (sources.empty() || !(allowed & (DROPEFFECT_COPY | DROPEFFECT_MOVE | DROPEFFECT_LINK)))
         return DROPEFFECT_NONE;
 
@@ -2979,7 +2987,6 @@ LRESULT HandleLButtonDown(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARA
         if (hit.region == ui::HitTestResult::DetailsRating) {
             // Clicking the star the file already has clears the rating. (Handled here,
             // not in the else-if chain below, which is at the compiler's nesting limit.)
-            s->dragPending = false;
             if (hit.index >= 1 && hit.index <= 5 && vm.details.can_rate) {
                 const uint8_t next = vm.details.rating == hit.index ? uint8_t{0} : static_cast<uint8_t>(hit.index);
                 if (app::SetSelectedRating(*s, next)) InvalidateRect(hwnd, nullptr, FALSE);
@@ -4778,7 +4785,7 @@ LRESULT HandleRButtonUp(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                     for (int i = 0; i < columns.count; ++i)
                         visible |= 1u << static_cast<uint32_t>(columns.kinds[static_cast<size_t>(i)]);
                     search = slot.pane.is_search;
-                    media = !search && slot.pane.media_columns != 0;
+                    media = !search && slot.pane.rating_columns != 0;
                 }
                 ShowDetailsColumnMenu(*s, sp, visible, search, media);
                 shown = true;

@@ -169,8 +169,6 @@ std::vector<ui::FluentMenuItem> FilterSettings(const std::wstring& query) {
         case I::SettingsNotifyIcon: haystack += L" " + l10n::Get(I::SettingsNotifyIconDesc); break;
         case I::SettingsShellTags: haystack += L" " + l10n::Get(I::SettingsShellTagsDesc); break;
         case I::SettingsConfirmDelete: haystack += L" " + l10n::Get(I::SettingsConfirmDeleteDesc); break;
-        case I::SettingsTrayIcon: haystack += L" " + l10n::Get(I::SettingsTrayIconDesc); break;
-        case I::TrayHideWhenEmpty: haystack += L" " + l10n::Get(I::TrayHideWhenEmptyDesc); break;
         case I::SettingsLanDiscovery: haystack += L" " + l10n::Get(I::SettingsLanDiscoveryDesc); break;
         case I::SettingsLanCache: haystack += L" " + l10n::Get(I::SettingsLanCacheDesc); break;
         case I::SettingsNetworkRecent: haystack += L" " + l10n::Get(I::SettingsNetworkRecentDesc); break;

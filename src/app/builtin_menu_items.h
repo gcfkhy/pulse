@@ -40,7 +40,6 @@ enum class BuiltinMenuItem : uint8_t {
     GroupIntoFolder,
     DissolveFolder,
     SetAlias,
-    StageToTray,
     CopyToTarget,
     MoveToTarget,
     BatchRename,

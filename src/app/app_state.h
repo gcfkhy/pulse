@@ -726,6 +726,7 @@ struct AppState : AppCoreOwner {
     int dropFavorite = -1;         // 收藏栏: files over this favorite folder (index into the bar)
     bool dropFavoriteAdd = false;  // 收藏栏's empty part: what is dropped gets starred
     std::wstring dropBadge;
+    bool dragFilesOver = false;      // an OLE file drag is over this window
     float dropBadgeX = 0.0f;
     float dropBadgeY = 0.0f;
     bool dropBadgeMove = false;

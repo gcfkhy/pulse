@@ -295,15 +295,6 @@ void CheckGlobalSearchRouting(AppState& s, Report& log) {
     }
     log.Check(explorer_unchanged, "no new Explorer frame or existing Explorer navigation during routing and settling");
     popup.Shutdown();
-    events.stage_paths({file.wstring(), file.wstring()});
-    const auto staged = events.staged_paths();
-    const auto normalized_file = fs::NormalizePath(file.wstring());
-    log.Check(std::count(staged.begin(), staged.end(), normalized_file) == 1 && !s.core.tray.batches().empty(),
-        "search staging shares the main tray and deduplicates paths");
-    events.unstage_path(file.wstring());
-    const auto removed = events.staged_paths();
-    log.Check(std::find(removed.begin(), removed.end(), normalized_file) == removed.end(),
-        "search unstaging removes the shared main tray item");
     const bool before_dark = s.darkMode;
     events.toggle_theme();
     log.Check(s.darkMode != before_dark && s.appPrefs.theme_mode == (before_dark ? 1 : 2),

@@ -123,7 +123,6 @@ BuiltinMenuItem BuiltinItemForCommand(int command) {
     case CmdGroupIntoFolder: return BuiltinMenuItem::GroupIntoFolder;
     case CmdDissolveFolder: return BuiltinMenuItem::DissolveFolder;
     case CmdSetAlias: return BuiltinMenuItem::SetAlias;
-    case CmdStageToTray: return BuiltinMenuItem::StageToTray;
     case CmdCopyToTarget: return BuiltinMenuItem::CopyToTarget;
     case CmdMoveToTarget: return BuiltinMenuItem::MoveToTarget;
     case CmdBatchRename: return BuiltinMenuItem::BatchRename;

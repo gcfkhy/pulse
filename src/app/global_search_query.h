@@ -5,7 +5,7 @@
 #include <vector>
 
 namespace pulse::app {
-enum class GlobalSearchCommand { ToggleTheme, ToggleView, OpenStaging, ClearStaging, ContinueSearch, ClearHistory };
+enum class GlobalSearchCommand { ToggleTheme, ToggleView, ContinueSearch, ClearHistory };
 std::vector<GlobalSearchCommand> MatchGlobalSearchCommands(std::wstring_view raw);
 struct GlobalSearchCalculationAlternative {
     std::wstring text;

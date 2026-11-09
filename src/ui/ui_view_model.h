@@ -68,6 +68,10 @@ enum class SortDirection { Asc, Desc };
 inline constexpr bool IsMediaSortColumn(SortColumn column) noexcept {
     return column == SortColumn::Rating || column == SortColumn::Duration;
 }
+// Media*: the 媒体文件夹专用列 orders (not Rating / Duration, which sit after them).
+inline constexpr bool IsMediaPropsSortColumn(SortColumn column) noexcept {
+    return column >= SortColumn::MediaTaken && column <= SortColumn::MediaFps;
+}
 
 struct TabView {
     std::wstring title;
@@ -376,10 +380,10 @@ struct PaneViewModel {
     bool cloud_status_column = false;
     // Photo / video folder: the Details view may add 分级 and 时长 (details_column_set.h
     // bits); `forced` are shown even when not ticked, because the list is sorted by them.
-    uint32_t media_columns = 0;
+    uint32_t rating_columns = 0;
     uint32_t forced_columns = 0;
     DetailsExtraColumns ExtraColumns() const noexcept {
-        return {cloud_status_column, media_columns, forced_columns};
+        return {cloud_status_column, rating_columns, forced_columns};
     }
     bool is_query_search = false;
     bool is_content_search = false;

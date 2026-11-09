@@ -180,9 +180,7 @@ struct GlobalSearchWindow::Impl {
     std::wstring browse_folder;
     std::vector<std::wstring> browse_history, marked_paths;
     std::vector<std::wstring> breadcrumb_paths;
-    bool grid_view = false, tray_open = false;
-    size_t tray_offset = 0;
-    D2D1_RECT_F tray_bounds{};
+    bool grid_view = false;
     bool row_drag_pending = false, row_dragging = false;
     POINT row_drag_start{};
     int timeline_first = -1, timeline_last = -1, timeline_anchor = -1;
@@ -261,7 +259,7 @@ struct GlobalSearchWindow::Impl {
     uint64_t layout_epoch = 1;
     enum Hot { HotNone, HotRow, HotScope, HotAddPlace, HotKind, HotDate, HotMode, HotEsc, HotHandoff, HotPreviewOpen,
                HotPreviewLocation, HotPreviewCopy, HotRecentQuery, HotClearFilters, HotSearchContent,
-               HotView, HotBack, HotExitFolder, HotTray, HotStage, HotTrayItem, HotTrayRemove, HotTrayClear, HotTileSize, HotToken, HotCalculation, HotTimeline, HotAlternative, HotTrayPanel, HotBreadcrumb,
+               HotView, HotBack, HotExitFolder, HotTileSize, HotToken, HotCalculation, HotTimeline, HotAlternative, HotBreadcrumb,
                HotSearchScope, HotSearchClear, HotSearchField };
     struct HotSpot { D2D1_RECT_F rect; Hot kind; int index; };
     std::vector<HotSpot> hot;
@@ -831,8 +829,6 @@ struct GlobalSearchWindow::Impl {
         switch (command) {
         case app::GlobalSearchCommand::ToggleTheme: return Text(StringId::TooltipToggleTheme);
         case app::GlobalSearchCommand::ToggleView: return Text(StringId::AiCtlStepView);
-        case app::GlobalSearchCommand::OpenStaging: return Text(StringId::TrayShelfTitle);
-        case app::GlobalSearchCommand::ClearStaging: return Text(StringId::TrayMenuClear);
         case app::GlobalSearchCommand::ContinueSearch: return Text(StringId::GlobalSearchHandoff);
         case app::GlobalSearchCommand::ClearHistory: return Text(StringId::SearchHistoryClear);
         }
@@ -843,8 +839,6 @@ struct GlobalSearchWindow::Impl {
         switch (commands[static_cast<size_t>(selected)]) {
         case app::GlobalSearchCommand::ToggleTheme: if (events.toggle_theme) events.toggle_theme(); break;
         case app::GlobalSearchCommand::ToggleView: grid_view = !grid_view; break;
-        case app::GlobalSearchCommand::OpenStaging: tray_open = true; break;
-        case app::GlobalSearchCommand::ClearStaging: if (events.clear_staging) events.clear_staging(); break;
         case app::GlobalSearchCommand::ContinueSearch:
             if (handoff) {
                 auto request = MakeHandoff(); request.query = app::NormalizeGlobalSearchQuery(last_search_query);
@@ -1028,11 +1022,9 @@ struct GlobalSearchWindow::Impl {
         const bool alt = (GetKeyState(VK_MENU) & 0x8000) != 0;
         if (ctrl && key == 'A' && keyboard_nav && !command_mode) { MarkRange(0, static_cast<int>(rows.size()) - 1); swallow_char = 1; Invalidate(); return true; }
         if (ctrl && key == 'K') { swallow_char = 11; POINT point{Px(ListLeft() + 90), Px(ListTop() + 45)}; ClientToScreen(hwnd, &point); ResultMenu(point); return true; }
-        if (alt && key == 'A') { StageSelection(); return true; }
         if (alt && (key == '1' || key == '2')) { grid_view = key == '2'; BuildLayout(); Invalidate(); return true; }
         if (ctrl && key == VK_SPACE) { ToggleMarked(); swallow_char = L' '; return true; }
         if (key == VK_RETURN && calculation && !shift) { CopyCalculation(ctrl); return true; }
-        if (key == VK_ESCAPE && tray_open) { tray_open = false; Invalidate(); return true; }
         if (key == VK_RIGHT && keyboard_nav && !IsGrid()) { EnterFolder(); return true; }
         if (IsGrid() && keyboard_nav && (key == VK_LEFT || key == VK_RIGHT)) {
             const int previous = selected;
@@ -1401,8 +1393,7 @@ struct GlobalSearchWindow::Impl {
         preview.SetSearchQuery(content_mode ? query : std::wstring{});
         // These overlays share the parent surface; child HWNDs otherwise cover them.
         // Hide only the surface so closing an overlay preserves decoding and scroll state.
-        const bool occluded = (tray_open && events.staged_paths) ||
-            (scope_tooltip_visible && !TooltipText().empty());
+        const bool occluded = scope_tooltip_visible && !TooltipText().empty();
         if (occluded) {
             if (preview.visible()) {
                 ClearPreviewMessages();
@@ -1801,16 +1792,6 @@ struct GlobalSearchWindow::Impl {
             if (!row.app && row.recycle_path.empty() && !IsMarked(row.path)) marked_paths.push_back(row.path);
         }
     }
-    void StageSelection() {
-        if (!events.stage_paths || stale || command_mode || calculation) return;
-        auto paths = marked_paths;
-        if (paths.empty() && selected >= 0 && selected < static_cast<int>(rows.size())) {
-            const auto& row = rows[static_cast<size_t>(selected)];
-            if (!row.path.empty() && !row.app && row.recycle_path.empty()) paths.push_back(row.path);
-        }
-        if (!paths.empty()) { events.stage_paths(paths); ShowToast(Text(StringId::TrayStagedBadge)); }
-        Invalidate();
-    }
     void CopyFiles() {
         if (command_mode || calculation || stale) return;
         auto paths = marked_paths;
@@ -1851,7 +1832,6 @@ struct GlobalSearchWindow::Impl {
         items.back().separator_after = true;
         add(4, StringId::CopyPath, L"\xE71B", L"Ctrl+C");
         add(7, StringId::Copy, L"\xE8C8");
-        if (events.stage_paths) add(5, StringId::CtxAddToTray, L"\xE7B8", L"Alt+A");
         if (handoff) add(6, StringId::GlobalSearchHandoff, L"\xE721", L"Shift+Enter");
         const auto menu_generation = generation;
         const auto menu_path = rows[static_cast<size_t>(selected)].path;
@@ -1868,7 +1848,6 @@ struct GlobalSearchWindow::Impl {
         case 2: EnterFolder(); break;
         case 3: Open(true); break;
         case 4: CopyPath(); break;
-        case 5: StageSelection(); break;
         case 6: Handoff(); break;
         case 7: CopyFiles(); break;
         default: break;
@@ -2092,24 +2071,8 @@ struct GlobalSearchWindow::Impl {
         }
         if (truncated) status += L" \x00b7 " + Text(StringId::GlobalSearchTruncatedShort);
         float right = width - 16;
-        if (events.staged_paths) {
-            const auto staged = events.staged_paths();
-            const auto title = Text(StringId::TrayShelfTitle) + L" " + std::to_wstring(staged.size());
-            const float w = TextWidth(title, 12) + 20;
-            const D2D1_RECT_F rect{right - w, mid - 14, right, mid + 14};
-            AddHot(rect, HotTray); FillC(rect, tray_open ? p.sel : p.chip, 7);
-            LabelC(title, {rect.left + 10, rect.top, rect.right - 10, rect.bottom}, 12, p.muted);
-            right = rect.left - 10;
-        }
         if (!marked_paths.empty()) {
             status = std::to_wstring(marked_paths.size()) + L" " + Text(StringId::GlobalSearchSelect);
-            const float w = TextWidth(Text(StringId::CtxAddToTray), 12) + 20;
-            if (right - w > x + 100) {
-                D2D1_RECT_F rect{right - w, mid - 14, right, mid + 14};
-                AddHot(rect, HotStage); FillC(rect, p.chip, 7);
-                LabelC(Text(StringId::CtxAddToTray), {rect.left + 10, rect.top, rect.right - 10, rect.bottom}, 12, p.muted);
-                right = rect.left - 10;
-            }
         }
         handoff_rect = {};
         if (handoff) {
@@ -2133,30 +2096,6 @@ struct GlobalSearchWindow::Impl {
             right = KeyHint(hint.key, Text(hint.label), right, mid, p.muted, p.key) - 14;
         }
         LabelC(status, {x, mid - 10, std::min(right, x + status_w + 2), mid + 10}, 12, p.muted);
-    }
-    void DrawTray(const Palette& p) {
-        if (!tray_open || !events.staged_paths) return;
-        const auto paths = events.staged_paths();
-        const float right = width - 14, left = std::max(14.0f, right - 310);
-        const size_t visible = std::min(paths.size(), static_cast<size_t>(std::max(1.0f, (height - 180) / 32)));
-        tray_offset = std::min(tray_offset, paths.size() - visible);
-        const float bottom = ListBottom() - 8, top = bottom - 82 - static_cast<float>(visible) * 32;
-        tray_bounds = {left, top, right, bottom}; AddHot(tray_bounds, HotTrayPanel);
-        FillC({left, top, right, bottom}, dark ? Color(0x2b2c32) : Color(0xffffff), 10); StrokeC({left, top, right, bottom}, p.line, 10);
-        LabelC(Text(StringId::TrayShelfTitle) + L" " + std::to_wstring(paths.size()), {left + 12, top + 6, right - 12, top + 34}, 13, p.text, true);
-        for (size_t i = 0; i < visible; ++i) {
-            const size_t index = tray_offset + i;
-            const float y = top + 38 + static_cast<float>(i) * 32;
-            AddHot({left + 8, y, right - 38, y + 30}, HotTrayItem, static_cast<int>(index));
-            AddHot({right - 34, y, right - 8, y + 30}, HotTrayRemove, static_cast<int>(index));
-            LabelC(LeafName(paths[index]), {left + 12, y, right - 38, y + 30}, 12, p.text);
-            LabelC(L"\x00d7", {right - 30, y, right - 8, y + 30}, 14, p.muted);
-        }
-        if (paths.empty()) LabelC(Text(StringId::StagingTrayEmpty), {left + 12, top + 34, right - 12, bottom - 10}, 12, p.faint);
-        else {
-            AddHot({left + 10, bottom - 34, right - 10, bottom - 6}, HotTrayClear);
-            LabelC(Text(StringId::TrayMenuClear), {left + 12, bottom - 34, right - 12, bottom - 6}, 12, p.muted);
-        }
     }
     void Paint() {
         PAINTSTRUCT paint{}; BeginPaint(hwnd, &paint);
@@ -2187,7 +2126,6 @@ struct GlobalSearchWindow::Impl {
             DrawList(p, now);
             DrawPreview(p);
             DrawFooter(p);
-            DrawTray(p);
             DrawScopeTooltip(theme);
             const HRESULT rendered = target->EndDraw();
             if (FAILED(rendered)) {
@@ -2238,24 +2176,6 @@ struct GlobalSearchWindow::Impl {
                 browse_history.push_back(browse_folder); browse_folder = breadcrumb_paths[static_cast<size_t>(index)]; Changed();
             }
             break;
-        case HotStage: StageSelection(); break;
-        case HotTray: tray_open = !tray_open; Invalidate(); break;
-        case HotTrayClear: if (events.clear_staging) events.clear_staging(); Invalidate(); break;
-        case HotTrayRemove:
-        case HotTrayItem:
-            if (events.staged_paths) {
-                const auto paths = events.staged_paths();
-                if (index >= 0 && index < static_cast<int>(paths.size())) {
-                    const auto path = paths[static_cast<size_t>(index)];
-                    if (spot->kind == HotTrayRemove) { if (events.unstage_path) events.unstage_path(path); }
-                    else {
-                        const auto route = events.open_path; Hide();
-                        if (!route || !route(path, false, true)) OpenResult(path, true);
-                        return;
-                    }
-                }
-            }
-            Invalidate(); break;
         case HotCalculation: CopyCalculation(false); break;
         case HotAlternative:
             if (calculation && index >= 0 && index < static_cast<int>(calculation->alternatives.size())) {
@@ -2439,10 +2359,6 @@ struct GlobalSearchWindow::Impl {
         case WM_LBUTTONUP:
             if (tile_size_dragging) { UpdateTileSize(static_cast<float>(GET_X_LPARAM(lp)) / scale); tile_size_dragging = false; Invalidate(); }
             if (timeline_anchor >= 0) { timeline_anchor = -1; Changed(); }
-            if (row_dragging) {
-                const auto* spot = HitAt(static_cast<float>(GET_X_LPARAM(lp)) / scale, static_cast<float>(GET_Y_LPARAM(lp)) / scale);
-                if (spot && spot->kind == HotTray) StageSelection();
-            }
             row_drag_pending = row_dragging = false;
             if (GetCapture() == hwnd) ReleaseCapture();
             return 0;
@@ -2465,10 +2381,6 @@ struct GlobalSearchWindow::Impl {
         }
         case WM_MOUSEWHEEL: {
             POINT point{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)}; ScreenToClient(hwnd, &point);
-            if (tray_open && Contains(tray_bounds, point.x / scale, point.y / scale)) {
-                const int steps = GET_WHEEL_DELTA_WPARAM(wp) / WHEEL_DELTA;
-                tray_offset = static_cast<size_t>(std::max(0, static_cast<int>(tray_offset) - steps * 3)); Invalidate(); return 0;
-            }
             if (PreviewWidth() > 0 && point.x / scale >= ListRight()) {
                 if (preview.visible()) SendMessageW(preview.hwnd(), message, wp, lp);
                 return 0;

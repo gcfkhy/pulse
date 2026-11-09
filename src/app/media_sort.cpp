@@ -423,7 +423,7 @@ bool ResortForMediaSort(AppState& s) {
     bool waiting = false;
     const uint64_t now = GetTickCount64();
     const bool busy = s.scrollAnimating || s.scrollbarDragging ||
-        s.renameIndex >= 0 || s.marqueeActive || s.dragPending ||
+        s.renameIndex >= 0 || s.listSelection.BandActive() || s.listSelection.PendingFile() ||
         (GetKeyState(VK_LBUTTON) & 0x8000) != 0 || (GetKeyState(VK_RBUTTON) & 0x8000) != 0;
     ForEachPane(s, [&](Pane& pane) {
         Tab* tab = pane.ActiveTab();

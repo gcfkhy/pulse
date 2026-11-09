@@ -195,8 +195,6 @@ std::vector<GlobalSearchCommand> MatchGlobalSearchCommands(std::wstring_view raw
     static constexpr CommandWords commands[] = {
         {GlobalSearchCommand::ToggleTheme, L"theme dark light 主题 主題 深色 浅色 淺色 外观 外觀 切换 切換"},
         {GlobalSearchCommand::ToggleView, L"view list thumbnails 视图 視圖 列表 缩略图 縮圖 切换 切換"},
-        {GlobalSearchCommand::OpenStaging, L"open staging tray 打开暂存区 開啟暫存區"},
-        {GlobalSearchCommand::ClearStaging, L"clear staging tray 清空暂存区 清空暫存區"},
         {GlobalSearchCommand::ContinueSearch, L"continue search main 在主界面继续搜索 在主介面繼續搜尋"},
         {GlobalSearchCommand::ClearHistory, L"clear search history 清空搜索历史 清空搜尋歷史"}
     };

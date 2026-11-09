@@ -126,21 +126,6 @@ GlobalSearchEvents MakeGlobalSearchEvents(AppState& s) {
         if (core->searchHistory.Clear() && core->searchHistory.persist)
             core->searchHistoryWriter.Submit(core->searchHistory);
     };
-    events.stage_paths = [core](const std::vector<std::wstring>& paths) {
-        if (AppState* window = core->windows.MostRecent()) StagePaths(*window, paths, std::nullopt);
-    };
-    events.staged_paths = [core] {
-        std::vector<std::wstring> paths;
-        for (const auto& batch : core->tray.batches())
-            for (const auto& item : batch.items) paths.push_back(item.path);
-        return paths;
-    };
-    events.unstage_path = [core](const std::wstring& path) {
-        if (AppState* window = core->windows.MostRecent()) UnstagePath(*window, path);
-    };
-    events.clear_staging = [core] {
-        if (AppState* window = core->windows.MostRecent()) ClearTrayWithUndo(*window);
-    };
     events.open_path = [core](const std::wstring& path, bool directory, bool location) {
         AppState* window = core->windows.MostRecent();
         if (!window || (!directory && !location)) return false;

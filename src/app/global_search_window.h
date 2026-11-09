@@ -46,10 +46,6 @@ struct GlobalSearchContext {
 struct GlobalSearchEvents {
     // After hiding the popup; true means the host owns this open request.
     std::function<bool(const std::wstring& path, bool directory, bool location)> open_path;
-    std::function<void(const std::vector<std::wstring>& paths)> stage_paths;
-    std::function<std::vector<std::wstring>()> staged_paths;
-    std::function<void(const std::wstring& path)> unstage_path;
-    std::function<void()> clear_staging;
     std::function<void()> toggle_theme;
     std::function<void()> clear_search_history;
     std::function<void(int width, int height)> resized;          // DIP, after a user resize

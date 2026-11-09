@@ -1752,7 +1752,7 @@ void FillPaneViewModel(ui::PaneViewModel& out, const Pane& pane, const PlacesCat
     if (g_media_decorator && tab) g_media_decorator(*tab, out);
     // A media column order without those columns on screen (switched off,
     // another folder) sorts by name (SortEntries); show it as such.
-    if (!out.media_columns && out.sort_column >= ui::SortColumn::MediaTaken) out.sort_column = ui::SortColumn::Name;
+    if (!out.media_columns && ui::IsMediaPropsSortColumn(out.sort_column)) out.sort_column = ui::SortColumn::Name;
     if (g_dup_decorator && tab && tab->current_path.starts_with(L"pulse:ai-list:"))
         g_dup_decorator(tab->current_path, out);
 }
@@ -1877,7 +1877,7 @@ void FillPaneViewModelBody(ui::PaneViewModel& out, const Pane& pane, const Place
     // (that column must stay visible). Same rule as the sort picker.
     if (!out.is_search && out.is_file_system) {
         const bool sorted_by_media = ui::IsMediaSortColumn(tab->sort_column);
-        if (tab->media_folder || sorted_by_media) out.media_columns = ui::kDetailsColumnsMedia;
+        if (tab->media_folder || sorted_by_media) out.rating_columns = ui::kDetailsColumnsMedia;
         // Like Explorer, the two columns come as a pair: sorting by either shows both.
         if (sorted_by_media) out.forced_columns = ui::kDetailsColumnsMedia;
     }

@@ -190,7 +190,7 @@ bool Less(const fs::DirEntry& a, const fs::DirEntry& b, ui::SortColumn col,
         if (dir == ui::SortDirection::Desc) cmp = -cmp;
         return cmp < 0;
     }
-    if (col >= ui::SortColumn::MediaTaken) {
+    if (ui::IsMediaPropsSortColumn(col)) {
         if (ma && mb) {
             if (ma->known != mb->known) return ma->known;
             if (ma->known) {
@@ -313,7 +313,7 @@ void SortRows(std::vector<fs::DirEntry>& entries, ui::SortColumn col, ui::SortDi
     }
     const bool keyed = !name_keys.empty();
     std::vector<MediaSortKey> media_keys;
-    if (col >= ui::SortColumn::MediaTaken && t_media_sort_folder) {
+    if (ui::IsMediaPropsSortColumn(col) && t_media_sort_folder) {
         if (const MediaSortKeySource source = g_media_sort_keys.load(std::memory_order_acquire))
             source(*t_media_sort_folder, entries, col, media_keys);
         if (media_keys.size() != n) media_keys.clear();

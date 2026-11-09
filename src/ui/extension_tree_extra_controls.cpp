@@ -68,13 +68,6 @@ bool DrawExtensionExtraControl(const extensions::UiNode& node, const ExtensionCo
     const auto bounds = visual.bounds;
     auto state = visual.state;
     switch (node.type) {
-    case UiNodeType::TrayCard: {
-        fluent::TrayCardSpec spec;
-        spec.bounds = bounds; spec.summary = summary.empty() ? text : summary; spec.detail = detail;
-        spec.item_count = node.item_count; spec.move_intent = node.move_intent; spec.state = state;
-        painter.DrawTrayCard(spec);
-        return true;
-    }
     case UiNodeType::CommandSearch: {
         const auto placeholder = WideExtra(node.placeholder), keycap = WideExtra(node.keycap);
         fluent::CommandSearchBoxSpec spec;
@@ -129,22 +122,6 @@ bool DrawExtensionExtraControl(const extensions::UiNode& node, const ExtensionCo
                 spec.tag_colors[spec.tag_count++] = HexColor(value);
         }
         painter.DrawFileRowContent(spec);
-        return true;
-    }
-    case UiNodeType::StagingTray: {
-        const auto helper = WideExtra(node.helper), count = WideExtra(node.count_label), action = WideExtra(node.action_text);
-        fluent::StagingTrayPanelSpec spec;
-        spec.bounds = bounds; spec.title = text; spec.helper = helper; spec.count_label = count;
-        spec.action_text = action; spec.item_count = node.item_count; spec.state = state;
-        spec.action_hovered = state.hovered && visual.hover_part == 0;
-        spec.expanded = state.checked;
-        painter.DrawStagingTrayPanel(spec);
-        return true;
-    }
-    case UiNodeType::StagingItem: {
-        fluent::StagingItemSpec spec;
-        spec.bounds = bounds; spec.name = text; spec.state = state; spec.missing = node.missing;
-        painter.DrawStagingItem(spec);
         return true;
     }
     case UiNodeType::StatusBar: {

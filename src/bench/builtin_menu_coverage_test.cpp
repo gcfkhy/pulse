@@ -69,7 +69,7 @@ int main() {
     const Mapping added[] = {
         {CmdOpenPath, BuiltinMenuItem::OpenPath}, {CmdGroupIntoFolder, BuiltinMenuItem::GroupIntoFolder},
         {CmdDissolveFolder, BuiltinMenuItem::DissolveFolder}, {CmdSetAlias, BuiltinMenuItem::SetAlias},
-        {CmdStageToTray, BuiltinMenuItem::StageToTray}, {CmdCopyToTarget, BuiltinMenuItem::CopyToTarget},
+        {CmdCopyToTarget, BuiltinMenuItem::CopyToTarget},
         {CmdMoveToTarget, BuiltinMenuItem::MoveToTarget}, {CmdBatchRename, BuiltinMenuItem::BatchRename},
         {CmdCompareSideBySide, BuiltinMenuItem::CompareSideBySide}, {CmdCloudKeep, BuiltinMenuItem::CloudKeep},
         {CmdCloudFree, BuiltinMenuItem::CloudFree}, {CmdEjectDrive, BuiltinMenuItem::EjectDrive},
@@ -138,16 +138,16 @@ int main() {
     rows = {Row(CmdOpen), Row(CmdCut), Row(CmdCopy), Row(CmdDelete), Row(CmdRename)};
     ApplyBuiltinMenuPrefs(rows, prefs); check(rows.size() == 5, "fixed commands also survive as standalone rows");
     prefs.builtin_hidden = 0;
-    prefs.SetBuiltinOrder(BuiltinMenuSurface::Item, {BuiltinMenuItem::StageToTray, BuiltinMenuItem::CopyPath, BuiltinMenuItem::Properties});
-    rows = {Row(CmdOpen), Row(CmdCopyPath), Row(CmdStageToTray), Row(CmdProperties)};
+    prefs.SetBuiltinOrder(BuiltinMenuSurface::Item, {BuiltinMenuItem::SetAlias, BuiltinMenuItem::CopyPath, BuiltinMenuItem::Properties});
+    rows = {Row(CmdOpen), Row(CmdCopyPath), Row(CmdSetAlias), Row(CmdProperties)};
     rows[1].separator_after = true;
     ApplyBuiltinMenuPrefs(rows, prefs, BuiltinMenuSurface::Item);
-    check(rows[0].command == CmdOpen && rows[1].command == CmdStageToTray && rows[2].command == CmdCopyPath &&
+    check(rows[0].command == CmdOpen && rows[1].command == CmdSetAlias && rows[2].command == CmdCopyPath &&
         rows[3].command == CmdProperties && rows[1].separator_after && !rows[2].separator_after && WellFormed(rows),
         "custom order moves newly configurable rows while keeping fixed row and separator slots");
     prefs.SetBuiltinVisible(BuiltinMenuItem::Properties, false); ApplyBuiltinMenuPrefs(rows, prefs, BuiltinMenuSurface::Item);
     check(rows.size() == 3 && WellFormed(rows), "hiding final sorted row leaves no trailing separator");
-    prefs.SetBuiltinVisible(BuiltinMenuItem::StageToTray, false); prefs.SetBuiltinVisible(BuiltinMenuItem::CopyPath, false);
+    prefs.SetBuiltinVisible(BuiltinMenuItem::SetAlias, false); prefs.SetBuiltinVisible(BuiltinMenuItem::CopyPath, false);
     ApplyBuiltinMenuPrefs(rows, prefs, BuiltinMenuSurface::Item);
     check(rows.size() == 1 && rows[0].command == CmdOpen && WellFormed(rows), "hiding a complete sorted group leaves no orphan separator");
     std::printf("Checks: %d Failures: %d\n", checks, failures);
