@@ -163,37 +163,6 @@ struct ChangeFlag {
 
 } // namespace
 
-bool IsMediaSortName(std::wstring_view name) {
-    if (IsPictureName(name)) return true;
-    const std::wstring ext = LowerExt(name);
-    return !ext.empty() && preview::IsVideoExtension(ext);
-}
-
-// Rating and duration properties also exist on audio; read them when those
-// sorts are active, even though the extra columns only appear for photo/video.
-static bool IsMediaPropertyName(std::wstring_view name) {
-    if (IsMediaSortName(name)) return true;
-    const std::wstring ext = LowerExt(name);
-    return !ext.empty() && preview::IsAudioExtension(ext);
-}
-
-bool HasMediaProperties(std::wstring_view name) { return IsMediaPropertyName(name); }
-
-// Windows only writes a rating into formats that have a writable property
-// handler; the audio formats below do, WAV / FLAC / OGG do not.
-bool CanRateName(std::wstring_view name) {
-    if (IsMediaSortName(name)) return true;
-    const std::wstring ext = LowerExt(name);
-    return ext == L".mp3" || ext == L".m4a" || ext == L".wma";
-}
-
-bool EntriesHaveMedia(const std::vector<fs::DirEntry>& entries, size_t limit) {
-    const size_t n = (std::min)(entries.size(), limit);
-    for (size_t i = 0; i < n; ++i)
-        if (!entries[i].is_dir && IsMediaSortName(entries[i].name)) return true;
-    return false;
-}
-
 struct MediaSortCache::Impl {
     struct Item {
         std::wstring path;
@@ -404,7 +373,7 @@ bool RequestMediaSort(AppState& s) {
             files.reserve((std::min)(tab->snapshot->size(), kRequestLimit));
             for (const auto& entry : *tab->snapshot) {
                 if (files.size() >= kRequestLimit) break;
-                if (entry.is_dir || entry.cloud_recall || !IsMediaPropertyName(entry.name)) continue;
+                if (entry.is_dir || entry.cloud_recall || !HasMediaProperties(entry.name)) continue;
                 MediaSortRequest req;
                 req.path = entry.full_path.empty() ? ChildPath(tab->current_path, entry.name) : entry.full_path;
                 req.modified = FileTimeTicks(entry.mtime);

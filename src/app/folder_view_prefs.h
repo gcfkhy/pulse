@@ -1,4 +1,7 @@
 #pragma once
+#include "../common/preview_extensions.h"
+#include <algorithm>
+#include <iterator>
 
 #include "../ui/view_layout.h"
 #include <map>
@@ -22,7 +25,23 @@ struct FolderLastIcon {
 // #58-7b: a folder never given a view opens in Large icons when its files
 // are mostly pictures: at least six, and 60% or more of the files (folders
 // do not count). Judged by extension only, from the listing already loaded.
-bool IsPictureName(std::wstring_view name);
+inline bool IsPictureName(std::wstring_view name) {
+    const size_t dot = name.find_last_of(L'.');
+    if (dot == std::wstring_view::npos || dot == 0 || name.size() - dot > 6) return false;
+    wchar_t buffer[8]{};
+    const size_t length = name.size() - dot;
+    for (size_t i = 0; i < length; ++i) {
+        const wchar_t c = name[dot + i];
+        buffer[i] = c >= L'A' && c <= L'Z' ? static_cast<wchar_t>(c - L'A' + L'a') : c;
+    }
+    const std::wstring_view ext(buffer, length);
+    if (preview::IsImageExtension(ext)) return true;
+    // Camera raw files: what photo folders are full of.
+    static constexpr std::wstring_view kRaw[] = {L".dng", L".cr2", L".cr3", L".nef", L".arw",
+                                                 L".orf", L".rw2", L".raf", L".pef", L".srw"};
+    return std::find(std::begin(kRaw), std::end(kRaw), ext) != std::end(kRaw);
+}
+
 bool MostlyPictures(size_t files, size_t pictures);
 
 // This PC (the empty path) has no folder key but keeps its own choice, like

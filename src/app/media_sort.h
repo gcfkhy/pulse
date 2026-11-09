@@ -1,7 +1,10 @@
 #pragma once
+#include "folder_view_prefs.h"
+#include "../common/preview_extensions.h"
 #include "../fs/fs_enum.h"
 #include "../fs/fs_snapshot.h"
 #include "../ui/ui_view_model.h"
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -25,13 +28,46 @@ struct MediaSortValue {
     uint8_t rating = 0; // 0 unrated, 1-5
 };
 
+// These name checks are header-only so every target that links app_model.cpp
+// (the picker DLL, tests) resolves them without media_sort.cpp.
+namespace media_names {
+inline std::wstring LowerExt(std::wstring_view name) {
+    const size_t dot = name.find_last_of(L'.');
+    if (dot == std::wstring_view::npos || dot == 0 || name.size() - dot > 8) return {};
+    std::wstring ext(name.substr(dot));
+    for (wchar_t& c : ext)
+        c = c >= L'A' && c <= L'Z' ? static_cast<wchar_t>(c - L'A' + L'a') : c;
+    return ext;
+}
+} // namespace media_names
+
 // Image, camera raw, or video: folders of these get Rating / Duration sorts.
-bool IsMediaSortName(std::wstring_view name);
-bool EntriesHaveMedia(const std::vector<fs::DirEntry>& entries, size_t limit = 400);
-// Photos, videos and audio files have a playing time / rating to read.
-bool HasMediaProperties(std::wstring_view name);
-// The ones Windows can write a star rating into: photos, videos, MP3 / M4A / WMA.
-bool CanRateName(std::wstring_view name);
+inline bool IsMediaSortName(std::wstring_view name) {
+    if (IsPictureName(name)) return true;
+    const std::wstring ext = media_names::LowerExt(name);
+    return !ext.empty() && preview::IsVideoExtension(ext);
+}
+inline bool EntriesHaveMedia(const std::vector<fs::DirEntry>& entries, size_t limit = 400) {
+    const size_t n = (std::min)(entries.size(), limit);
+    for (size_t i = 0; i < n; ++i)
+        if (!entries[i].is_dir && IsMediaSortName(entries[i].name)) return true;
+    return false;
+}
+// Photos, videos and audio files have a playing time / rating to read. Rating
+// and duration properties also exist on audio; read them when those sorts are
+// active, even though the extra columns only appear for photo/video.
+inline bool HasMediaProperties(std::wstring_view name) {
+    if (IsMediaSortName(name)) return true;
+    const std::wstring ext = media_names::LowerExt(name);
+    return !ext.empty() && preview::IsAudioExtension(ext);
+}
+// The ones Windows can write a star rating into: photos, videos, MP3 / M4A / WMA
+// (WAV / FLAC / OGG have no writable property handler).
+inline bool CanRateName(std::wstring_view name) {
+    if (IsMediaSortName(name)) return true;
+    const std::wstring ext = media_names::LowerExt(name);
+    return ext == L".mp3" || ext == L".m4a" || ext == L".wma";
+}
 
 class MediaSortCache {
 public:
