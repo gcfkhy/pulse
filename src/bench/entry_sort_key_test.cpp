@@ -76,7 +76,7 @@ bool SameOrder(std::vector<fs::DirEntry> rows, ui::SortColumn col, ui::SortDirec
 
 bool AllOrders(const std::vector<fs::DirEntry>& rows) {
     const ui::SortColumn cols[] = {ui::SortColumn::Name, ui::SortColumn::Size, ui::SortColumn::Mtime,
-                                   ui::SortColumn::Type, ui::SortColumn::Rating, ui::SortColumn::Duration};
+                                   ui::SortColumn::Type};
     const app::FolderSortMode modes[] = {app::FolderSortMode::FoldersFirst, app::FolderSortMode::FoldersLast,
                                          app::FolderSortMode::Mixed};
     bool ok = true;
@@ -230,7 +230,7 @@ int main(int argc, char** argv) {
         link.name = L"z-folder.lnk"; link.link_target = L"C:\\Folder"; link.link_target_is_dir = true;
         bool bottom = true, top = true, mixed = true;
         for (const auto direction : {ui::SortDirection::Asc, ui::SortDirection::Desc}) {
-            for (int column = 0; column <= static_cast<int>(ui::SortColumn::MediaFps); ++column) {
+            for (int column = 0; column <= static_cast<int>(ui::SortColumn::MediaRating); ++column) {
                 const auto col = static_cast<ui::SortColumn>(column);
                 const app::ScopedFolderSortMode mode(app::FolderSortMode::FoldersLast);
                 for (const auto& item : {folder, link}) {
@@ -438,38 +438,6 @@ int main(int argc, char** argv) {
             }
         }
         Check(same, "top-K matches full sort: CJK natural names, size ties, directions, folder modes");
-        // Unrated / unknown duration stay last in both directions, like folder sizes.
-        const auto file = [](const wchar_t* name, uint8_t rating, uint32_t duration_ms) {
-            fs::DirEntry e;
-            e.name = name;
-            e.media_rating = rating;
-            e.media_duration_ms = duration_ms;
-            return e;
-        };
-        std::vector<fs::DirEntry> rows = {file(L"zero", 0, 0), file(L"five", 5, 90'000),
-                                          file(L"two", 2, 10'000), file(L"also", 0, 0)};
-        const auto names = [](std::vector<fs::DirEntry> list, ui::SortColumn col, ui::SortDirection dir) {
-            app::SetFolderSortMode(app::FolderSortMode::Mixed);
-            app::SortEntries(list, col, dir);
-            std::wstring out;
-            for (const auto& e : list) {
-                if (!out.empty()) out += L' ';
-                out += e.name;
-            }
-            return out;
-        };
-        Check(names(rows, ui::SortColumn::Rating, ui::SortDirection::Asc) == L"two five also zero" &&
-                  names(rows, ui::SortColumn::Rating, ui::SortDirection::Desc) == L"five two also zero",
-              "rating: stars first, unrated last in both directions");
-        Check(names(rows, ui::SortColumn::Duration, ui::SortDirection::Asc) == L"two five also zero" &&
-                  names(rows, ui::SortColumn::Duration, ui::SortDirection::Desc) == L"five two also zero",
-              "duration: known times first, unknown last in both directions");
-        Check(SameOrder(rows, ui::SortColumn::Rating, ui::SortDirection::Asc) &&
-                  SameOrder(rows, ui::SortColumn::Rating, ui::SortDirection::Desc) &&
-                  SameOrder(rows, ui::SortColumn::Duration, ui::SortDirection::Asc) &&
-                  SameOrder(rows, ui::SortColumn::Duration, ui::SortDirection::Desc),
-              "rating/duration: SortEntries matches EntryLess");
-        app::SetFolderSortMode(app::FolderSortMode::FoldersFirst);
     }
     std::printf("== entry sort key tests: %s ==\n", failures ? "FAIL" : "PASS");
     return failures ? 1 : 0;

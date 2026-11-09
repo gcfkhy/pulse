@@ -98,7 +98,7 @@ namespace pulse::app { bool RunMediaColumnResizeCapture(); }
 #include "folder_sizes_ui.h"
 #include "media_columns_ui.h"
 #include "media_props.h"
-#include "media_sort.h"
+#include "media_rating.h"
 #include "saved_search.h"
 #include "search_query.h"
 #include "settings_controller.h"
@@ -2679,7 +2679,6 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
             if (TickChangeTracking(*s)) dirty = true;
             if (s->renderer.MtimeBoundaryDue()) dirty = true;   // 修改时间提示: a mark aged
             static bool folderSizeResortWaiting = false;
-            static bool mediaSortResortWaiting = false;
             if (s->folderSizes.TakeChanged()) {
                 dirty = true;
                 folderSizeResortWaiting = true;
@@ -2695,12 +2694,7 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
                 dirty = true;
             }
             if (s->mediaResortWaiting) s->mediaResortWaiting = ResortForMediaProps(*s);
-            // New 分级 / 时长 values also redraw the details panel and the columns.
-            const bool mediaValuesChanged = s->mediaSort.TakeChanged();
-            if (mediaValuesChanged) dirty = true;
-            if (app::RequestMediaSort(*s) || mediaValuesChanged) mediaSortResortWaiting = true;
-            if (mediaSortResortWaiting) mediaSortResortWaiting = app::ResortForMediaSort(*s);
-            if (s->mediaSort.TakeRatingFailures() > 0)
+            if (app::TakeRatingFailures() > 0)
                 s->notification_toast.ShowError(hwnd, l10n::Get(l10n::StringId::RatingSetFailedTitle),
                                                 l10n::Get(l10n::StringId::RatingSetFailed));
             if (DrainDirNotifies(*s)) {
@@ -3825,7 +3819,7 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
                 s->watches.Stop();
                 const uint64_t watches_ms = timer.Lap();
                 s->folderSizes.Stop();
-                s->mediaSort.Stop();
+                app::StopRatingWriter();
                 const uint64_t sizes_ms = timer.Lap();
                 s->settings.ResetUi();
                 s->settings.Stop();

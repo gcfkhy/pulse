@@ -10,7 +10,7 @@
 #include "folder_alias.h"
 #include "app_wall_hint.h"
 #include "arrival_select.h"
-#include "media_sort.h"
+#include "media_rating.h"
 #include "pane_column_input.h"
 #include "keymap.h"
 #include "../ui/ui_renderer.h"
@@ -4778,7 +4778,6 @@ LRESULT HandleRButtonUp(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                 s->context_menu.Close();
                 uint32_t visible = 0xFFFFFFFFu;
                 bool search = false;
-                bool media = false;
                 if (hit.pane_index < static_cast<int>(vm.pane_slots.size())) {
                     const auto& slot = vm.pane_slots[static_cast<size_t>(hit.pane_index)];
                     const auto columns = s->renderer.DetailsColumns(
@@ -4787,9 +4786,8 @@ LRESULT HandleRButtonUp(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                     for (int i = 0; i < columns.count; ++i)
                         visible |= 1u << static_cast<uint32_t>(columns.kinds[static_cast<size_t>(i)]);
                     search = slot.pane.is_search;
-                    media = !search && slot.pane.rating_columns != 0;
                 }
-                ShowDetailsColumnMenu(*s, sp, visible, search, media);
+                ShowDetailsColumnMenu(*s, sp, visible, search);
                 shown = true;
             } else if (hit.pane_index >= 0 ||
                 (mx >= content.left && mx < content.right && my >= content.top && my < content.bottom)) {

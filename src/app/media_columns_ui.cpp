@@ -84,6 +84,7 @@ std::wstring Cell(const MediaColumnsState& state, int source, ui::SortColumn col
     case ui::SortColumn::MediaAlbum: return props->album;
     case ui::SortColumn::MediaDuration: return media::FormatDuration(props->duration);
     case ui::SortColumn::MediaFps: return media::FormatFrameRate(props->fps_milli);
+    case ui::SortColumn::MediaRating: return format::RatingStars(props->rating);
     default: return {};
     }
 }
@@ -139,6 +140,7 @@ void SortKeys(const std::wstring& folder, const std::vector<fs::DirEntry>& entri
             break;
         case ui::SortColumn::MediaDuration: key.number = props->duration; key.known = key.number != 0; break;
         case ui::SortColumn::MediaFps: key.number = props->fps_milli; key.known = key.number != 0; break;
+        case ui::SortColumn::MediaRating: key.number = props->rating; key.known = key.number != 0; break;
         default: break;
         }
     }
@@ -240,6 +242,10 @@ int MediaFolderKindFor(const Tab& tab) {
     return static_cast<int>(media::Classify(tally));
 }
 
+bool MediaSortOffered(const Tab& tab) {
+    return MediaFolderKindFor(tab) != 0 || tab.sort_column >= ui::SortColumn::MediaTaken;
+}
+
 }  // namespace pulse::app
 
 namespace pulse {
@@ -273,13 +279,15 @@ bool ResortForMediaProps(AppState& s) {
             tab->pending_generation != 0 || tab->content_results || tab->search_content_active ||
             !tab->media_state || tab->media_state->kind == app::media::Kind::None ||
             tab->snapshot_path != tab->current_path || !tab->held_renames.empty() ||
-            tab->snapshot->size() > kLiveResortLimit || tab->media_resort_revision == revision)
+            tab->snapshot->size() > kLiveResortLimit ||
+            (tab->media_resort_revision == revision && tab->media_resort_snapshot == tab->snapshot.get()))
             return;
         if (busy || now - tab->media_resorted_at < kResortIntervalMs) {
             waiting = true;
             return;
         }
         tab->media_resort_revision = revision;
+        tab->media_resort_snapshot = tab->snapshot.get();
         tab->media_resorted_at = now;
         auto sorted = std::make_shared<std::vector<fs::DirEntry>>(*tab->snapshot);
         {
@@ -309,6 +317,7 @@ bool ResortForMediaProps(AppState& s) {
         moved->snapshot = tab->snapshot;
         tab->media_state = std::move(moved);
         tab->media_snapshot = tab->snapshot;
+        tab->media_resort_snapshot = tab->snapshot.get();
         tab->order_held = false;
         if (!all) {
             if (names.empty()) tab->ClearSelection();

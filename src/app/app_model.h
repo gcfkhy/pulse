@@ -168,13 +168,8 @@ struct Tab {
     mutable fs::SnapshotPtr media_snapshot;
     mutable std::shared_ptr<const MediaColumnsState> media_state;
     uint64_t media_resort_revision = 0;
+    const void* media_resort_snapshot = nullptr;  // the listing the last live re-sort looked at
     uint64_t media_resorted_at = 0;
-    // Rating / Duration order: MediaSortCache revision the rows were sorted
-    // with, and when they last moved for newly read properties.
-    uint64_t media_sort_signature = 0;
-    uint64_t media_sort_resorted_at = 0;
-    const void* media_request_id = nullptr; // snapshot whose files were last queued for reading
-    bool media_folder = false;              // the listing holds photos or videos (Rating / Duration)
     ColumnStripState column_strip; // listings shown beside the list in column view
     std::wstring git_root;
     std::shared_ptr<std::vector<fs::DirEntry>> search_entries;

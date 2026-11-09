@@ -47,17 +47,6 @@ inline std::wstring LocalFileTime(const FILETIME& time,
     return text;
 }
 
-// 222000 -> "3:42", 3723000 -> "1:02:03"; 0 (unknown) -> "".
-inline std::wstring PlayingTime(uint32_t duration_ms) {
-    if (!duration_ms) return {};
-    const uint32_t total = (duration_ms + 500) / 1000;
-    const uint32_t hours = total / 3600, minutes = total / 60 % 60, seconds = total % 60;
-    wchar_t text[32]{};
-    if (hours) swprintf_s(text, L"%u:%02u:%02u", hours, minutes, seconds);
-    else swprintf_s(text, L"%u:%02u", minutes, seconds);
-    return text;
-}
-
 // 3 -> three filled stars; 0 (unrated) -> "".
 inline std::wstring RatingStars(uint8_t rating) {
     return rating ? std::wstring(static_cast<size_t>(rating > 5 ? 5 : rating), L'\x2605') : std::wstring();

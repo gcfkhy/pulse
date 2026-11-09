@@ -190,7 +190,7 @@ bool Less(const fs::DirEntry& a, const fs::DirEntry& b, ui::SortColumn col,
         if (dir == ui::SortDirection::Desc) cmp = -cmp;
         return cmp < 0;
     }
-    if (ui::IsMediaPropsSortColumn(col)) {
+    if (col >= ui::SortColumn::MediaTaken) {
         if (ma && mb) {
             if (ma->known != mb->known) return ma->known;
             if (ma->known) {
@@ -241,25 +241,6 @@ bool Less(const fs::DirEntry& a, const fs::DirEntry& b, ui::SortColumn col,
         cmp = _wcsicmp(a.full_path.c_str(), b.full_path.c_str());
         if (cmp == 0) cmp = ItemNameCompare(a, b, na, nb);
         break;
-    case ui::SortColumn::Duration: {
-        const uint32_t da = a.media_duration_ms, db = b.media_duration_ms;
-        if ((da == 0) != (db == 0)) return da != 0;
-        // Unknown rows trail the rest and keep A→Z in either direction.
-        if (da == 0) return ItemNameCompare(a, b, na, nb) < 0;
-        if (da < db) cmp = -1;
-        else if (da > db) cmp = 1;
-        else cmp = ItemNameCompare(a, b, na, nb);
-        break;
-    }
-    case ui::SortColumn::Rating: {
-        const uint8_t ra = a.media_rating, rb = b.media_rating;
-        if ((ra == 0) != (rb == 0)) return ra != 0;
-        if (ra == 0) return ItemNameCompare(a, b, na, nb) < 0;
-        if (ra < rb) cmp = -1;
-        else if (ra > rb) cmp = 1;
-        else cmp = ItemNameCompare(a, b, na, nb);
-        break;
-    }
     default:  // Media*: above
         break;
     }
@@ -313,7 +294,7 @@ void SortRows(std::vector<fs::DirEntry>& entries, ui::SortColumn col, ui::SortDi
     }
     const bool keyed = !name_keys.empty();
     std::vector<MediaSortKey> media_keys;
-    if (ui::IsMediaPropsSortColumn(col) && t_media_sort_folder) {
+    if (col >= ui::SortColumn::MediaTaken && t_media_sort_folder) {
         if (const MediaSortKeySource source = g_media_sort_keys.load(std::memory_order_acquire))
             source(*t_media_sort_folder, entries, col, media_keys);
         if (media_keys.size() != n) media_keys.clear();

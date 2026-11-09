@@ -87,8 +87,7 @@ const char* SortName(ui::SortColumn column) {
     case ui::SortColumn::MediaAlbum: return "album";
     case ui::SortColumn::MediaDuration: return "length";
     case ui::SortColumn::MediaFps: return "frame_rate";
-    case ui::SortColumn::Rating: return "rating";
-    case ui::SortColumn::Duration: return "duration";
+    case ui::SortColumn::MediaRating: return "rating";
     }
     return "name";
 }

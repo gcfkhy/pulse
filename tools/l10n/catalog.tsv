@@ -4969,9 +4969,6 @@ ArchivePluginRequired	IDS_ARCHIVE_PLUGIN_REQUIRED	6388	需要压缩包插件。�
 ArchivePluginMigrationTitle	IDS_ARCHIVE_PLUGIN_MIGRATION_TITLE	6389	压缩包增强功能已迁移	Archive features have moved to plugins	壓縮檔增強功能已移轉
 ArchivePluginMigrationBody	IDS_ARCHIVE_PLUGIN_MIGRATION_BODY	6390	旧的 7-Zip 下载包已停用。请安装并启用压缩包原生增强包以预览和解压 7z、RAR；内置 ZIP 功能不受影响。	The old 7-Zip download pack is retired. Install and enable the native archive extension to preview and extract 7z and RAR files. Built-in ZIP features remain available.	舊的 7-Zip 下載套件已停用。請安裝並啟用壓縮檔原生增強套件以預覽及解壓縮 7z、RAR；內建 ZIP 功能不受影響。
 ColumnRating	IDS_COLUMN_RATING	6391	分级	Rating
-ColumnDuration	IDS_COLUMN_DURATION	6392	时长	Duration
-SortHintRating	IDS_SORT_HINT_RATING	6393	按星级评分	By star rating
-SortHintDuration	IDS_SORT_HINT_DURATION	6394	按播放时长	By playing time
 SortLowHigh	IDS_SORT_LOW_HIGH	6395	低→高	Low→High
 SortHighLow	IDS_SORT_HIGH_LOW	6396	高→低	High→Low
 SortShortLong	IDS_SORT_SHORT_LONG	6397	短→长	Short→Long

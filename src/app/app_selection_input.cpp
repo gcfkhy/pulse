@@ -1,7 +1,7 @@
 #include "app_input.h"
 #include "app_commands.h"
 #include "app_navigation.h"
-#include "media_sort.h"
+#include "media_rating.h"
 
 namespace pulse {
 bool HandleListCharacter(AppState& s, wchar_t ch) {

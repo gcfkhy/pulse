@@ -195,7 +195,6 @@ struct AppState : AppCoreOwner {
     decltype(AppCore::tagAdsDiscoveryChecked)& tagAdsDiscoveryChecked = core.tagAdsDiscoveryChecked;
     decltype(AppCore::index)& index = core.index;
     decltype(AppCore::folderSizes)& folderSizes = core.folderSizes;
-    decltype(AppCore::mediaSort)& mediaSort = core.mediaSort;
     decltype(AppCore::changes)& changes = core.changes;
     decltype(AppCore::networkIndex)& networkIndex = core.networkIndex;
     decltype(AppCore::contentSearch)& contentSearch = core.contentSearch;

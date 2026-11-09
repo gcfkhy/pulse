@@ -28,7 +28,7 @@
 #include "../global_search_controller.h"
 #include "../tab_controller.h"
 #include "../app_navigation.h"
-#include "../media_sort.h"
+#include "../media_columns_ui.h"
 #include "../reopen_closed.h"
 #include "../tab_transfer.h"
 #include "../window_factory.h"
@@ -135,8 +135,7 @@ BackgroundViewOptions ViewOptions(AppState&, const Tab& tab) {
     o.can_sort = kind != L"recent";
     o.indexed_search = search && !tab.content_results;
     o.show_path = search || kind == L"recycle";
-    o.media_sort = !o.show_path && !o.indexed_search &&
-        (ui::IsMediaSortColumn(tab.sort_column) || (tab.snapshot && EntriesHaveMedia(*tab.snapshot)));
+    o.media_sort = !o.show_path && !o.indexed_search && MediaSortOffered(tab);
     o.group_virtual = search || IsTagViewKind(kind) || kind == L"recycle";
     o.can_group = !tab.content_results && (real || kind == L"recent" || o.group_virtual);
     o.group_by = tab.group_by;

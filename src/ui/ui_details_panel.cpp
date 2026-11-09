@@ -472,7 +472,7 @@ void MainRenderer::DrawDetailsPanel(const WindowViewModel& vm, const D2D1_RECT_F
                         d.size_pending ? pulse::l10n::Get(pulse::l10n::StringId::Calculating)
                                                 : d.size_text, iy);
                 if (!d.duration_text.empty())
-                    infoRow(pulse::l10n::Get(pulse::l10n::StringId::ColumnDuration).c_str(), d.duration_text, iy);
+                    infoRow(pulse::l10n::Get(pulse::l10n::StringId::ColumnMediaDuration).c_str(), d.duration_text, iy);
                 if (d.can_rate) {
                     // 分级: five stars, filled up to the rating (or up to the hovered star).
                     text(pulse::l10n::Get(pulse::l10n::StringId::ColumnRating),

@@ -20,6 +20,7 @@ struct Props {
     uint32_t track = 0;       // 0 unknown
     uint32_t fps_milli = 0;   // frames per 1000 s; 0 unknown
     uint64_t duration = 0;    // 100 ns; 0 unknown
+    uint8_t rating = 0;       // 分级: 1-5 stars (System.Rating); 0 unrated or unknown
     std::wstring camera, title, artist, album;
 };
 
@@ -50,6 +51,9 @@ uint64_t Revision();
 std::shared_ptr<const Props> Find(const std::wstring& path, uint64_t mtime, uint64_t size);
 // Requests still waiting or being read.
 size_t Pending();
+// Drops what is cached for `path` (after its rating was written) so the next
+// request reads it again whatever its modified time says; moves Revision().
+void Forget(const std::wstring& path);
 
 // Every cached file directly inside `prefix` (a folder path ending in a
 // backslash, spelt as the requests spelt it), whatever version it was read

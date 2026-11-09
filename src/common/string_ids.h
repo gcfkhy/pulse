@@ -4962,9 +4962,6 @@
 #define IDS_ARCHIVE_PLUGIN_MIGRATION_TITLE                                               6389
 #define IDS_ARCHIVE_PLUGIN_MIGRATION_BODY                                                6390
 #define IDS_COLUMN_RATING                                                                6391
-#define IDS_COLUMN_DURATION                                                              6392
-#define IDS_SORT_HINT_RATING                                                             6393
-#define IDS_SORT_HINT_DURATION                                                           6394
 #define IDS_SORT_LOW_HIGH                                                                6395
 #define IDS_SORT_HIGH_LOW                                                                6396
 #define IDS_SORT_SHORT_LONG                                                              6397

@@ -670,6 +670,7 @@ SortColumn MainRenderer::MediaSortColumn(ColumnKind kind) noexcept {
     case ColumnKind::MediaAlbum: return SortColumn::MediaAlbum;
     case ColumnKind::MediaDuration: return SortColumn::MediaDuration;
     case ColumnKind::MediaFps: return SortColumn::MediaFps;
+    case ColumnKind::MediaRating: return SortColumn::MediaRating;
     default: return SortColumn::Name;
     }
 }
@@ -686,25 +687,24 @@ std::wstring MainRenderer::MediaColumnLabel(ColumnKind kind, uint8_t media_colum
     case ColumnKind::MediaAlbum: return pulse::l10n::Get(StringId::ColumnMediaAlbum);
     case ColumnKind::MediaDuration: return pulse::l10n::Get(StringId::ColumnMediaDuration);
     case ColumnKind::MediaFps: return pulse::l10n::Get(StringId::ColumnMediaFps);
+    case ColumnKind::MediaRating: return pulse::l10n::Get(StringId::ColumnRating);
     default: return std::wstring();
     }
 }
 
 MainRenderer::DetailsColumnLayout MainRenderer::MediaColumns(
     const D2D1_RECT_F& pane_bounds, const PaneViewModel& vm) const {
-    // 分级 stays beside the media columns; 时长 is already one of them for video and music.
-    const uint32_t not_duration = ~kDetailsColumnDuration;
-    auto out = DetailsColumns(pane_bounds, vm.details_column_dividers, false, {},
-        DetailsExtraColumns{vm.cloud_status_column, vm.rating_columns & not_duration,
-                            vm.forced_columns & not_duration});
+    auto out = DetailsColumns(pane_bounds, vm.details_column_dividers, false, {}, vm.cloud_status_column);
     if (!compositor_ || !compositor_->HeaderFormat()) return out;
     struct Col { ColumnKind kind; float dip; int drop; };
     using K = ColumnKind;
     std::vector<Col> cols;
     switch (vm.media_columns) {
-    case 1: cols = {{K::MediaTaken, 150, 2}, {K::MediaDims, 112, 1}, {K::MediaCamera, 160, 0}}; break;
-    case 2: cols = {{K::MediaTitle, 220, 0}, {K::MediaArtist, 160, 2}, {K::MediaAlbum, 180, 1}, {K::MediaDuration, 76, 3}}; break;
-    case 3: cols = {{K::MediaDuration, 84, 2}, {K::MediaDims, 120, 1}, {K::MediaFps, 72, 0}}; break;
+    // 分级 (MediaRating) is the same in every kind: fixed width, hidden last.
+    case 1: cols = {{K::MediaTaken, 150, 2}, {K::MediaDims, 112, 1}, {K::MediaCamera, 160, 0}, {K::MediaRating, 96, 3}}; break;
+    case 2: cols = {{K::MediaTitle, 220, 0}, {K::MediaArtist, 160, 2}, {K::MediaAlbum, 180, 1}, {K::MediaDuration, 76, 3},
+                    {K::MediaRating, 96, 4}}; break;
+    case 3: cols = {{K::MediaDuration, 84, 2}, {K::MediaDims, 120, 1}, {K::MediaFps, 72, 0}, {K::MediaRating, 96, 3}}; break;
     default: return out;
     }
     // User-selected columns take precedence; media uses only the spare name width.
@@ -720,7 +720,7 @@ MainRenderer::DetailsColumnLayout MainRenderer::MediaColumns(
                              35.0f * scale_;
         default_widths.push_back(std::max(c.dip * scale_, header));
         const int slot = MediaColumnSlot(c.kind, vm.media_columns);
-        const float manual = vm.media_column_widths[vm.media_columns - 1][slot];
+        const float manual = slot < 0 ? 0.0f : vm.media_column_widths[vm.media_columns - 1][slot];
         widths.push_back(manual > 1.0f ? std::max(48.0f, manual) * scale_
                                       : std::max(c.dip * scale_, header));
     }
@@ -773,7 +773,7 @@ MainRenderer::DetailsColumnLayout MainRenderer::DetailsColumns(
         return name_only;
     }
     auto columns = DetailsColumns(pane_bounds, vm.details_column_dividers, vm.is_search,
-                                  vm.search_column_dividers, vm.ExtraColumns());
+                                  vm.search_column_dividers, vm.cloud_status_column);
     // An AI cleanup list explains each row in the type column (原因). When the
     // pane is too narrow for both, the reason outranks the modified date.
     if (!vm.type_column_label.empty() && !columns.Has(ColumnKind::Type)) {
@@ -793,7 +793,6 @@ MainRenderer::DetailsColumnLayout MainRenderer::DetailsColumns(
     if (manual || !columns.Has(ColumnKind::Date) || !columns.Has(ColumnKind::Type) ||
         !columns.Has(ColumnKind::Size) || columns.Has(ColumnKind::Created) ||
         columns.Has(ColumnKind::Accessed) || columns.Has(ColumnKind::Status) ||
-        columns.Has(ColumnKind::Rating) || columns.Has(ColumnKind::Duration) ||
         vm.view_mode != ViewMode::Details ||
         !compositor_ || !compositor_->FileNameFormat()) return columns;
     const std::array<std::wstring, 3> labels{
@@ -883,9 +882,6 @@ MainRenderer::ColumnAutoWidths MainRenderer::AutoColumnWidths() const {
         for (StringId id : kinds) type = std::max(type, measure(fmt, pulse::l10n::Get(id)) + chip);
         type = std::max(type, measure(fmt, L"AutoCAD " + pulse::l10n::Get(StringId::TypeFile)) + chip);
         float size = std::max(header_w(StringId::ColumnSize), measure(fmt, L"1023.9") + kSizeUnitDip);
-        const float rating = std::max(header_w(StringId::ColumnRating),
-                                      measure(fmt, pulse::format::RatingStars(5)));
-        const float duration = std::max(header_w(StringId::ColumnDuration), measure(fmt, L"00:00:00"));
         // Status: a 16 DIP glyph, a gap, then the longest state label.
         float status = header_w(StringId::ColumnStatus);
         for (StringId id : {StringId::CloudStateOnline, StringId::CloudStateLocal, StringId::CloudStatePinned})
@@ -896,8 +892,6 @@ MainRenderer::ColumnAutoWidths MainRenderer::AutoColumnWidths() const {
         out.type = std::clamp(type + pad, 64.0f, 196.0f);
         out.size = std::clamp(size + pad, 60.0f, 112.0f);
         out.status = std::clamp(status + pad, 72.0f, 160.0f);
-        out.rating = std::clamp(rating + pad, 64.0f, 136.0f);
-        out.duration = std::clamp(duration + pad, 64.0f, 120.0f);
     }
     auto_widths_ = out;
     auto_widths_scale_ = scale_;
@@ -1120,7 +1114,7 @@ MainRenderer::DetailsColumnLayout MainRenderer::DetailsColumns(
     const DetailsColumnWidths& dividers,
     bool search_view,
     const std::array<float, 4>& search_dividers,
-    const DetailsExtraColumns& extra) const {
+    bool status_column) const {
     DetailsColumnLayout out;
     const auto content = DetailsContentRect(pane_bounds, scale_);
     out.left = content.left + margin_;
@@ -1137,8 +1131,7 @@ MainRenderer::DetailsColumnLayout MainRenderer::DetailsColumns(
     meta.reserve(6);
     // Display order: details_column_order. Search results carry no creation /
     // access times. Status is drawn only in cloud folders; it has no stored
-    // width (always content-fitted). Rating / Duration likewise, and only in
-    // photo / video folders; they follow the orderable columns.
+    // width (always content-fitted).
     out.reorderable = true;
     auto fitted_width = [&](ColumnKind kind) {
         switch (kind) {
@@ -1147,25 +1140,17 @@ MainRenderer::DetailsColumnLayout MainRenderer::DetailsColumns(
         case ColumnKind::Created: return fitted.created;
         case ColumnKind::Accessed: return fitted.accessed;
         case ColumnKind::Type: return fitted.type;
-        case ColumnKind::Rating: return fitted.rating;
-        case ColumnKind::Duration: return fitted.duration;
         default: return fitted.size;
         }
     };
-    std::vector<uint8_t> shown_order(details_order_.begin(), details_order_.end());
-    shown_order.push_back(static_cast<uint8_t>(ColumnKind::Rating));
-    shown_order.push_back(static_cast<uint8_t>(ColumnKind::Duration));
-    for (const uint8_t raw : shown_order) {
+    for (const uint8_t raw : details_order_) {
         const ColumnKind kind = static_cast<ColumnKind>(raw);
         const float automatic = fitted_width(kind);
-        const uint32_t bit = 1u << static_cast<uint32_t>(kind);
-        if (!(details_columns_ & bit) && !(extra.forced & bit)) continue;
+        if (!(details_columns_ & (1u << static_cast<uint32_t>(kind)))) continue;
         const bool status = kind == ColumnKind::Status;
-        const bool media = kind == ColumnKind::Rating || kind == ColumnKind::Duration;
-        if (status && (!extra.status || search_view)) continue;
-        if (media && (search_view || !(extra.media & bit))) continue;
+        if (status && (!status_column || search_view)) continue;
         const int slot = ManualColumnSlot(kind, search_view);
-        if (slot < 0 && !status && !media) continue;
+        if (slot < 0 && !status) continue;
         const float manual = slot < 0 ? 0.0f
             : ManualWidthDip(search_view ? search_dividers[static_cast<size_t>(slot)]
                                          : dividers[static_cast<size_t>(slot)]);
@@ -1191,8 +1176,7 @@ MainRenderer::DetailsColumnLayout MainRenderer::DetailsColumns(
     // Low-value columns go first when the name would get too narrow.
     while (total - automatic_sum() < min_name + (path_column ? min_path : 0.0f) && meta.size() > 1) {
         if (!drop(ColumnKind::Accessed) && !drop(ColumnKind::Created) && !drop(ColumnKind::Type) &&
-            !drop(ColumnKind::Status) && !drop(ColumnKind::Rating) && !drop(ColumnKind::Duration) &&
-            !drop(ColumnKind::Date)) break;
+            !drop(ColumnKind::Status) && !drop(ColumnKind::Date)) break;
     }
     const float floor_flex = (kDetailsMinNameDip + (path_column ? kDetailsMinPathDip : 0.0f)) * scale_;
     const float available = std::max(0.0f, total - floor_flex);
@@ -1302,9 +1286,9 @@ DetailsColumnOrder MainRenderer::ReorderedColumns(const DetailsColumnLayout& lay
 void MainRenderer::AutoFitColumnDivider(const D2D1_RECT_F& pane_bounds,
                                         DetailsColumnWidths& dividers, bool search_view,
                                         std::array<float, 4>& search_dividers, int divider_index,
-                                        const DetailsExtraColumns& extra) const {
+                                        bool status_column) const {
     const DetailsColumnLayout layout =
-        DetailsColumns(pane_bounds, dividers, search_view, search_dividers, extra);
+        DetailsColumns(pane_bounds, dividers, search_view, search_dividers, status_column);
     if (divider_index < 0 || divider_index >= layout.count - 1) return;
     for (int side : {divider_index, divider_index + 1}) {
         const int slot = ManualColumnSlot(layout.kinds[static_cast<size_t>(side)], search_view);
@@ -1475,8 +1459,8 @@ DetailsColumnWidths MainRenderer::ResizeMediaDetailsColumnDivider(
 DetailsColumnWidths MainRenderer::ResizeDetailsColumnDivider(
     const D2D1_RECT_F& pane_bounds,
     const DetailsColumnWidths& dividers,
-    int divider_index, float cursor_x, const DetailsExtraColumns& extra) const {
-    return ResizeColumns(DetailsColumns(pane_bounds, dividers, false, {}, extra), dividers, false,
+    int divider_index, float cursor_x, bool status_column) const {
+    return ResizeColumns(DetailsColumns(pane_bounds, dividers, false, {}, status_column), dividers, false,
                          divider_index, cursor_x, scale_);
 }
 
@@ -2838,12 +2822,6 @@ void MainRenderer::DrawMorphFrom(const PaneViewModel& vm, const motion::ViewMorp
                              ? SmartListDate(e.accessed_value) : e.accessed_text,
                          left, avail, DWRITE_TEXT_ALIGNMENT_LEADING);
                     break;
-                case ColumnKind::Rating:
-                    draw(e.rating_text, left, avail, DWRITE_TEXT_ALIGNMENT_LEADING);
-                    break;
-                case ColumnKind::Duration:
-                    draw(e.duration_text, left, avail, DWRITE_TEXT_ALIGNMENT_LEADING);
-                    break;
                 case ColumnKind::Type: {
                     const std::wstring chip = vm.is_changes ? std::wstring() : TypeChipLabel(e.name, e.is_dir);
                     const float chipW = TypeChipWidthDip(chip) * scale_;
@@ -3767,10 +3745,10 @@ void MainRenderer::DrawSinglePane(const WindowViewModel& vm, const PaneViewModel
         FillRect(dc, brStrokeDivider_.get(), x, y + column_header_height_ - 1, w, 1);
         const DetailsColumnLayout columns = AnimateColumns(DetailsColumns(bounds, pane), pane_index);
         if (pane_index >= 0 && pane_index < static_cast<int>(painted_columns_.size())) {
-            uint32_t mask = columns.two_line ? kPaintedTwoLine : 0u;
+            uint32_t mask = columns.two_line ? (1u << 8) : 0u;
             for (int col = 0; col < columns.count; ++col) {
                 // This PC's 总大小 and the media columns are no global columns
-                // (and kPaintedTwoLine is the two-line layout).
+                // (and bit 8 is two_line).
                 if (columns.kinds[static_cast<size_t>(col)] >= ColumnKind::Total) continue;
                 mask |= 1u << static_cast<uint32_t>(columns.kinds[static_cast<size_t>(col)]);
             }
@@ -3872,7 +3850,7 @@ void MainRenderer::DrawSinglePane(const WindowViewModel& vm, const PaneViewModel
                 break;
             case ColumnKind::MediaTaken: case ColumnKind::MediaDims: case ColumnKind::MediaCamera:
             case ColumnKind::MediaTitle: case ColumnKind::MediaArtist: case ColumnKind::MediaAlbum:
-            case ColumnKind::MediaDuration: case ColumnKind::MediaFps: {
+            case ColumnKind::MediaDuration: case ColumnKind::MediaFps: case ColumnKind::MediaRating: {
                 const ColumnKind media_kind = columns.kinds[static_cast<size_t>(col)];
                 drawCol(MediaColumnLabel(media_kind, pane.media_columns), MediaSortColumn(media_kind), cw,
                         media_kind == ColumnKind::MediaDuration || media_kind == ColumnKind::MediaFps);
@@ -3886,12 +3864,6 @@ void MainRenderer::DrawSinglePane(const WindowViewModel& vm, const PaneViewModel
                 break;
             case ColumnKind::Status:
                 drawCol(pulse::l10n::Get(pulse::l10n::StringId::ColumnStatus), SortColumn::Name, cw, false, false);
-                break;
-            case ColumnKind::Rating:
-                drawCol(pulse::l10n::Get(pulse::l10n::StringId::ColumnRating), SortColumn::Rating, cw, false);
-                break;
-            case ColumnKind::Duration:
-                drawCol(pulse::l10n::Get(pulse::l10n::StringId::ColumnDuration), SortColumn::Duration, cw, false);
                 break;
             }
         };
@@ -3958,8 +3930,6 @@ void MainRenderer::DrawSinglePane(const WindowViewModel& vm, const PaneViewModel
             case ColumnKind::Created: b.name = pulse::l10n::Get(pulse::l10n::StringId::ColumnCreated); break;
             case ColumnKind::Accessed: b.name = pulse::l10n::Get(pulse::l10n::StringId::ColumnAccessed); break;
             case ColumnKind::Status: b.name = pulse::l10n::Get(pulse::l10n::StringId::ColumnStatus); break;
-            case ColumnKind::Rating: b.name = pulse::l10n::Get(pulse::l10n::StringId::ColumnRating); break;
-            case ColumnKind::Duration: b.name = pulse::l10n::Get(pulse::l10n::StringId::ColumnDuration); break;
             case ColumnKind::Total: b.name = pulse::l10n::Get(pulse::l10n::StringId::ColumnTotalSize); break;
             default: b.name = MediaColumnLabel(columns.kinds[static_cast<size_t>(active_divider)], pane.media_columns); break;
             }
@@ -6891,14 +6861,6 @@ void MainRenderer::DrawList(const PaneViewModel& vm, float x, float y, float w, 
                         if (textAvail > 1.0f)
                             draw_detail_text(fit(look.label, textAvail), textLeft, textAvail,
                                              DWRITE_TEXT_ALIGNMENT_LEADING);
-                        break;
-                    }
-                    case ColumnKind::Rating:
-                    case ColumnKind::Duration: {
-                        const std::wstring& text = detailsColumns.kinds[static_cast<size_t>(col)] == ColumnKind::Rating
-                            ? e.rating_text : e.duration_text;
-                        if (!text.empty())
-                            draw_detail_text(fit(text, avail), left, avail, DWRITE_TEXT_ALIGNMENT_LEADING);
                         break;
                     }
                     case ColumnKind::Created:

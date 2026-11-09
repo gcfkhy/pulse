@@ -59,19 +59,11 @@ int FluentSvgIdForGlyph(std::wstring_view glyph);
 
 // Values are persisted (folder sort prefs, session): append only.
 // Media*: 媒体文件夹专用列 (PaneViewModel::media_columns), read by app/media_props.
-// Rating / Duration: read by app/media_sort (photo and video folders).
 enum class SortColumn { Name, Mtime, Type, Size, Path, Created, Accessed,
                         MediaTaken, MediaDims, MediaCamera, MediaTitle, MediaArtist, MediaAlbum,
-                        MediaDuration, MediaFps, Rating, Duration };
+                        MediaDuration, MediaFps, MediaRating };
 enum class SortDirection { Asc, Desc };
 
-inline constexpr bool IsMediaSortColumn(SortColumn column) noexcept {
-    return column == SortColumn::Rating || column == SortColumn::Duration;
-}
-// Media*: the 媒体文件夹专用列 orders (not Rating / Duration, which sit after them).
-inline constexpr bool IsMediaPropsSortColumn(SortColumn column) noexcept {
-    return column >= SortColumn::MediaTaken && column <= SortColumn::MediaFps;
-}
 
 struct TabView {
     std::wstring title;
@@ -110,8 +102,6 @@ struct ListEntryView {
     std::wstring thumb_path;
     std::wstring created_text;   // empty when the source has no creation time
     std::wstring accessed_text;
-    std::wstring rating_text;    // 分级 / 时长 columns; empty = unrated / unknown
-    std::wstring duration_text;
     DWORD attrs = 0;
     uint64_t size_value = 0;
     uint64_t modified_value = 0;
@@ -378,13 +368,6 @@ struct PaneViewModel {
     bool is_search = false;   // search results add a display-only 路径 column
     // Folder under a Cloud Files sync root: the Details view adds 状态.
     bool cloud_status_column = false;
-    // Photo / video folder: the Details view may add 分级 and 时长 (details_column_set.h
-    // bits); `forced` are shown even when not ticked, because the list is sorted by them.
-    uint32_t rating_columns = 0;
-    uint32_t forced_columns = 0;
-    DetailsExtraColumns ExtraColumns() const noexcept {
-        return {cloud_status_column, rating_columns, forced_columns};
-    }
     bool is_query_search = false;
     bool is_content_search = false;
     // Tag views (pulse:tag: / pulse:tags:): the condition bar and 细分 row.

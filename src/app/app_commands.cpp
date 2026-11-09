@@ -31,7 +31,6 @@
 #include "favorites_bar.h"
 #include "tray_reveal.h"
 #include "group_wheel_ui.h"
-#include "media_sort.h"
 #include "global_search_controller.h"
 #include "../ui/lumatext_renderer.h"
 #include "../ui/fluent_menu.h"
@@ -1418,7 +1417,7 @@ void DispatchMenuCommand(AppState& s, int cmd) {
     case app::CmdSortRating:
     case app::CmdSortDuration:
         if (const auto* tab = ActiveTab(s))
-            SetSort(s, cmd == app::CmdSortRating ? ui::SortColumn::Rating : ui::SortColumn::Duration,
+            SetSort(s, cmd == app::CmdSortRating ? ui::SortColumn::MediaRating : ui::SortColumn::MediaDuration,
                     tab->sort_direction);
         break;
     case app::CmdSortAscending:
@@ -2562,8 +2561,7 @@ void ShowBackgroundContextMenu(AppState& s, POINT screen_pt) {
     view_options.indexed_search = (kind == L"search" || kind == L"saved-search") && !tab->content_results;
     view_options.show_path = kind == L"search" || kind == L"saved-search" || kind == L"recycle";
     view_options.media_sort = !view_options.show_path && !view_options.indexed_search &&
-        (ui::IsMediaSortColumn(tab->sort_column) ||
-         (tab->snapshot && app::EntriesHaveMedia(*tab->snapshot)));
+        app::MediaSortOffered(*tab);
     view_options.filesystem = !tab->current_path.empty() && !fs::IsVirtualPath(tab->current_path);
     view_options.group_virtual = kind == L"search" || kind == L"saved-search" || app::IsTagViewKind(kind) || kind == L"recycle";
     view_options.can_group = !tab->content_results &&
@@ -3718,8 +3716,7 @@ void ShowSortDropdown(AppState& s) {
     options.indexed_search = (kind == L"search" || kind == L"saved-search") && !tab->content_results;
     options.show_path = kind == L"search" || kind == L"saved-search" || kind == L"recycle";
     options.media_sort = !options.show_path && !options.indexed_search &&
-        (ui::IsMediaSortColumn(tab->sort_column) ||
-         (tab->snapshot && app::EntriesHaveMedia(*tab->snapshot)));
+        app::MediaSortOffered(*tab);
     options.group_virtual = kind == L"search" || kind == L"saved-search" || app::IsTagViewKind(kind) || kind == L"recycle";
     options.can_group = !tab->content_results &&
         ((!tab->current_path.empty() && !fs::IsVirtualPath(tab->current_path)) || kind == L"recent" ||

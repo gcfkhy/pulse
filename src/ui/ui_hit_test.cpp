@@ -1558,8 +1558,6 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
             case ColumnKind::Size: out.column = SortColumn::Size; break;
             case ColumnKind::Created: out.column = SortColumn::Created; break;
             case ColumnKind::Accessed: out.column = SortColumn::Accessed; break;
-            case ColumnKind::Rating: out.column = SortColumn::Rating; break;
-            case ColumnKind::Duration: out.column = SortColumn::Duration; break;
             case ColumnKind::Status:   // display-only, but it can be dragged
                 if (!columns.reorderable) out.region = HitTestResult::Pane;
                 break;

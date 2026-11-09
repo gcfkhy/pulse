@@ -260,7 +260,7 @@ std::wstring AppPrefs::ToJson() const {
     out += std::to_wstring(folder_sort_mode >= 0 && folder_sort_mode <= 2 ? folder_sort_mode : 0);
     out += L",\n  \"details_columns\":";
     out += std::to_wstring(ui::NormalizeDetailsColumns(details_columns));
-    out += L",\n  \"details_columns_v\":3";
+    out += L",\n  \"details_columns_v\":2";
     out += L",\n  \"details_column_order\":\"";
     out += ui::FormatDetailsColumnOrder(details_column_order);
     out += L"\"";
@@ -563,10 +563,8 @@ bool AppPrefs::FromJson(const std::wstring& json) {
         json, L"details_columns", static_cast<int>(ui::kDetailsColumnsDefault))));
     // v2 added 状态 (cloud folders only) to the default set; masks saved
     // before it existed get it switched on once.
-    // v3 did the same for 分级 / 时长 (photo and video folders only).
-    const int details_columns_version = pulse::json::ExtractInt(json, L"details_columns_v", 1);
-    if (details_columns_version < 2) details_columns |= ui::kDetailsColumnStatus;
-    if (details_columns_version < 3) details_columns |= ui::kDetailsColumnsMedia;
+    if (pulse::json::ExtractInt(json, L"details_columns_v", 1) < 2)
+        details_columns |= ui::kDetailsColumnStatus;
     // Absent before column reordering existed: the classic order.
     details_column_order = ui::ParseDetailsColumnOrder(pulse::json::ExtractString(
         json, L"details_column_order", ui::FormatDetailsColumnOrder(ui::kDetailsColumnOrderDefault)));

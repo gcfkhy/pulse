@@ -17,6 +17,9 @@ void SetMediaColumnsEnabled(bool on) noexcept;
 // The media::Kind value of the tab's folder (0: not a media folder, or the
 // setting is off): the group wheel offers that kind's media groups.
 int MediaFolderKindFor(const Tab& tab);
+// The tab's folder gets the media columns, or its list is already sorted by one:
+// its sort menu then lists 分级 and 时长.
+bool MediaSortOffered(const Tab& tab);
 
 }  // namespace pulse::app
 

@@ -19,18 +19,17 @@ namespace app {
 inline constexpr int kDetailsColumnToggleBase = 33000;
 inline constexpr int kDetailsColumnsReset = 33100;
 
-// Name (always on, disabled), modified, created, accessed, type, [rating,
-// duration], size, [status,] then reset. `visible` holds the columns the pane
-// currently draws (1 << ColumnKind); a chosen column outside it gets a reason
-// badge ("No room", or "Not in search" for created / accessed in search
-// results). `media` adds 分级 / 时长, which only photo and video folders offer.
+// Name (always on, disabled), modified, created, accessed, type, size, then reset.
+// `visible` holds the columns the pane currently draws (1 << ColumnKind); a
+// chosen column outside it gets a reason badge ("No room", or "Not in search"
+// for created / accessed in search results).
 std::vector<ui::FluentMenuItem> BuildDetailsColumnMenu(uint32_t mask, uint32_t visible = 0xFFFFFFFFu,
-                                                       bool search = false, bool media = false);
+                                                       bool search = false);
 // The mask after choosing `command`; unknown commands leave it unchanged.
 uint32_t ApplyDetailsColumnCommand(uint32_t mask, int command);
 
 } // namespace app
 
-void ShowDetailsColumnMenu(AppState& s, POINT screen_pt, uint32_t visible, bool search, bool media = false);
+void ShowDetailsColumnMenu(AppState& s, POINT screen_pt, uint32_t visible, bool search);
 
 } // namespace pulse

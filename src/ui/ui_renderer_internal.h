@@ -347,10 +347,6 @@ void ClearTextWidthCache() {
         entry.accessed_text = list_time(source.atime);
         entry.created_value = time_value(source.ctime);
         entry.accessed_value = time_value(source.atime);
-        if (!source.is_dir) {
-            entry.rating_text = pulse::format::RatingStars(source.media_rating);
-            entry.duration_text = pulse::format::PlayingTime(source.media_duration_ms);
-        }
         entry.path = !source.full_path.empty() ? source.full_path
                      : (fs::IsVirtualPath(vm.path) ? L"" : JoinDirName(vm.path, source.name));
         if (!entry.path.empty()) entry.alias = app::AliasStore::Instance().Shown(entry.path);
