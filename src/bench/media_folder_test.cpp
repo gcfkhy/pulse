@@ -150,13 +150,16 @@ int main() {
           "dot files, bare names and trailing dots are not media");
     Check(KindOfName(L"archive.jpg.zip") == Kind::None, "only the last extension counts");
 
-    Check(Classify(Make(4, 0, 0, 0)) == Kind::None, "four photos are too few");
+    Check(Classify(Make(4, 0, 0, 0)) == Kind::Mixed, "four photos are too few for a photo folder: mixed");
     Check(Classify(Make(5, 0, 0, 0)) == Kind::Photo, "five photos make a photo folder");
     Check(Classify(Make(6, 0, 0, 4)) == Kind::Photo, "60% photos is enough");
-    Check(Classify(Make(5, 0, 0, 4)) == Kind::None, "55% photos is not");
+    Check(Classify(Make(5, 0, 0, 4)) == Kind::Mixed, "55% photos is not a photo folder: mixed");
     Check(Classify(Make(0, 12, 0, 3)) == Kind::Music, "a music folder with cover and cue files");
     Check(Classify(Make(0, 0, 7, 2)) == Kind::Video, "a video folder");
-    Check(Classify(Make(4, 4, 4, 0)) == Kind::None, "a mix with no majority");
+    Check(Classify(Make(4, 4, 4, 0)) == Kind::Mixed, "a mix with no majority: mixed");
+    Check(Classify(Make(0, 0, 1, 0)) == Kind::Mixed && Classify(Make(0, 0, 3, 8)) == Kind::Mixed,
+          "a folder with a few videos still offers 分级 / 时长");
+    Check(Classify(Make(0, 0, 0, 12)) == Kind::None, "no media file: no media columns");
     Check(Classify(Make(5, 0, 0, 0, 30)) == Kind::Photo, "subfolders count neither way");
     Check(Classify(Make(0, 0, 0, 0, 30)) == Kind::None, "only folders");
 

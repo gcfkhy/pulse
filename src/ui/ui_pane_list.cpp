@@ -705,6 +705,7 @@ MainRenderer::DetailsColumnLayout MainRenderer::MediaColumns(
     case 2: cols = {{K::MediaTitle, 220, 0}, {K::MediaArtist, 160, 2}, {K::MediaAlbum, 180, 1}, {K::MediaDuration, 76, 3},
                     {K::MediaRating, 96, 4}}; break;
     case 3: cols = {{K::MediaDuration, 84, 2}, {K::MediaDims, 120, 1}, {K::MediaFps, 72, 0}, {K::MediaRating, 96, 3}}; break;
+    case 4: cols = {{K::MediaDuration, 84, 1}, {K::MediaRating, 96, 0}}; break;   // Mixed: no dominant kind
     default: return out;
     }
     // User-selected columns take precedence; media uses only the spare name width.

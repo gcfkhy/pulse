@@ -16,6 +16,10 @@ inline void ResizePaneColumn(Tab& tab, const ui::PaneViewModel& view,
         tab.media_column_widths[view.media_columns - 1] =
             renderer.ResizeMediaColumnDivider(bounds, current, divider, cursor_x);
         tab.details_column_dividers = renderer.ResizeMediaDetailsColumnDivider(bounds, current, divider, cursor_x);
+    } else if (view.media_columns != 0) {   // mixed media: 分级 / 时长 are fixed, the rest resize as usual
+        auto current = view;
+        current.details_column_dividers = tab.details_column_dividers;
+        tab.details_column_dividers = renderer.ResizeMediaDetailsColumnDivider(bounds, current, divider, cursor_x);
     } else
         tab.details_column_dividers = renderer.ResizeDetailsColumnDivider(
             bounds, tab.details_column_dividers, divider, cursor_x, view.cloud_status_column);

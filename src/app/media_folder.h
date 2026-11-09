@@ -9,7 +9,9 @@
 
 namespace pulse::app::media {
 
-enum class Kind : uint8_t { None = 0, Photo = 1, Music = 2, Video = 3 };
+// Mixed: media files but no dominant kind, or too few of them: only the
+// 分级 and 时长 columns, which every kind of media file can have.
+enum class Kind : uint8_t { None = 0, Photo = 1, Music = 2, Video = 3, Mixed = 4 };
 
 namespace detail {
 inline bool ExtIs(std::wstring_view ext, const wchar_t* const* list) noexcept {
@@ -61,16 +63,21 @@ struct Tally {
 };
 
 // At least kMinFiles files, and one kind makes up at least 60% of them
-// (folders do not count either way).
+// (folders do not count either way): that kind's own columns. Any other
+// folder that holds a media file is Mixed; one without any is None.
 constexpr uint32_t kMinFiles = 5;
 inline Kind Classify(const Tally& t) noexcept {
-    if (t.files < kMinFiles) return Kind::None;
-    const uint32_t top = t.photo >= t.music && t.photo >= t.video ? t.photo
-                       : t.music >= t.video ? t.music : t.video;
-    if (top == 0 || uint64_t{top} * 5u < uint64_t{t.files} * 3u) return Kind::None;
-    if (top == t.photo) return Kind::Photo;
-    if (top == t.music) return Kind::Music;
-    return Kind::Video;
+    if (t.photo + t.music + t.video == 0) return Kind::None;
+    if (t.files >= kMinFiles) {
+        const uint32_t top = t.photo >= t.music && t.photo >= t.video ? t.photo
+                           : t.music >= t.video ? t.music : t.video;
+        if (top != 0 && uint64_t{top} * 5u >= uint64_t{t.files} * 3u) {
+            if (top == t.photo) return Kind::Photo;
+            if (top == t.music) return Kind::Music;
+            return Kind::Video;
+        }
+    }
+    return Kind::Mixed;
 }
 
 // System.Rating is 1-99 (1, 25, 50, 75, 99 are the 1-5 star presets Explorer
