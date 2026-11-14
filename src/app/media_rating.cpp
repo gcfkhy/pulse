@@ -94,7 +94,8 @@ struct Writer {
             read.size = (static_cast<uint64_t>(data.nFileSizeHigh) << 32) | data.nFileSizeLow;
             read.attrs = data.dwFileAttributes;
             read.kind = media::KindOfName(LeafName(job.path));
-            if (read.kind != media::Kind::None) media::Request(&owner, {std::move(read)});
+            // Refresh, not Request: the previous file's read-back may still be running.
+            if (read.kind != media::Kind::None) media::Refresh(&owner, {std::move(read)});
         }
         if (com) CoUninitialize();
     }

@@ -262,16 +262,26 @@ void Cancel(const void* owner) {
     CancelLocked(s, owner);
 }
 
-void Request(const void* owner, std::vector<Job> jobs) {
+// `replace`: Request (the owner's folder changed). Otherwise Refresh: the jobs
+// join the owner's live generation, so its earlier reads are not cancelled.
+static void Enqueue(const void* owner, std::vector<Job> jobs, bool replace) {
     Shared& s = State();
     bool start = false;
     {
         std::lock_guard lock(s.m);
-        // This owner's previous folder; then its new files go first.
-        CancelLocked(s, owner);
-        std::erase_if(s.owners, [](const auto& entry) { return entry.second.expired(); });
-        auto generation = std::make_shared<std::atomic<bool>>(false);
-        s.owners[owner] = generation;
+        std::shared_ptr<std::atomic<bool>> generation;
+        if (!replace) {
+            // CancelLocked erases the entry, so a live one was never cancelled.
+            if (const auto found = s.owners.find(owner); found != s.owners.end())
+                generation = found->second.lock();
+        }
+        if (!generation) {
+            // This owner's previous folder; then its new files go first.
+            CancelLocked(s, owner);
+            std::erase_if(s.owners, [](const auto& entry) { return entry.second.expired(); });
+            generation = std::make_shared<std::atomic<bool>>(false);
+            s.owners[owner] = generation;
+        }
         std::deque<Job> fresh;
         for (Job& job : jobs) {
             if (job.kind == Kind::None || Current(s, job)) continue;
@@ -286,6 +296,14 @@ void Request(const void* owner, std::vector<Job> jobs) {
     }
     if (start) std::thread(Run).detach();
     s.wake.notify_one();
+}
+
+void Request(const void* owner, std::vector<Job> jobs) {
+    Enqueue(owner, std::move(jobs), true);
+}
+
+void Refresh(const void* owner, std::vector<Job> jobs) {
+    Enqueue(owner, std::move(jobs), false);
 }
 
 std::shared_ptr<const Props> Find(const std::wstring& path, uint64_t mtime, uint64_t size) {

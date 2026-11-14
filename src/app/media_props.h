@@ -45,6 +45,9 @@ Props ReadProps(const Job& job);
 // Replaces whatever `owner` still has queued (its folder changed) and reads
 // these first; paths whose cached values are current are skipped.
 void Request(const void* owner, std::vector<Job> jobs);
+// Reads these again for `owner` without dropping what it already has queued or
+// in flight (one file re-read after its rating was written, then the next).
+void Refresh(const void* owner, std::vector<Job> jobs);
 // Stops queued work and rejects completion of this owner's in-flight read.
 void Cancel(const void* owner);
 // Only publications directly inside this folder invalidate its ordering.
