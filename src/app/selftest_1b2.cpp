@@ -551,7 +551,8 @@ void TestBreadcrumb() {
           fromVm[2].path == L"\\\\192.0.2.10\\share\\folder",
           L"breadcrumb: click target stays UNC not CWD-relative");
 
-    // UNC workspace gets the network glyph/color and a 服务器 badge.
+    // Workspaces: 当前 marks the active one, 服务器 an inactive UNC one; an
+    // expanded workspace lists its panes, then its frequent folders.
     auto colorIs = [](const D2D1_COLOR_F& c, uint32_t rgb) {
         const auto want = ui::HexColor(rgb);
         return c.r == want.r && c.g == want.g && c.b == want.b;
@@ -561,26 +562,39 @@ void TestBreadcrumb() {
     cat.PinWorkspace(L"C:\\local", L"local", 0, { L"C:\\local" });
     cat.PinWorkspace(L"\\\\server\\share", L"nas", 0, { L"\\\\server\\share" });
     cat.workspaces[1].frequent.push_back({ L"\\\\server\\share\\sub", 3 });
-    const auto wvm = BuildWindowViewModel(pane, sidebar, true, false, true, &cat, 0);
-    const auto workspaces = std::find_if(wvm.sidebar.begin(), wvm.sidebar.end(),
-        [](const auto& section) {
-            return section.id == static_cast<int>(SidebarSectionId::Workspaces);
-        });
-    Check(workspaces != wvm.sidebar.end() && workspaces->items.size() == 3,
-          L"sidebar: workspace group holds both workspaces + frequent child");
-    if (workspaces != wvm.sidebar.end() && workspaces->items.size() == 3) {
-        const auto& local = workspaces->items[0];
-        const auto& nas = workspaces->items[1];
-        const auto& sub = workspaces->items[2];
-        Check(local.badge.empty() && local.icon_glyph == L"\xE8B7",
-              L"sidebar: local workspace keeps default glyph, no badge");
-        Check(nas.badge == L"当前 · 服务器" && nas.icon_glyph == L"\xE968" &&
-              colorIs(nas.icon_color, 0x38BDF8),
-              L"sidebar: active UNC workspace shows server badge + network glyph");
-        Check(sub.badge.empty() && sub.icon_glyph == L"\xE968" &&
-              colorIs(sub.icon_color, 0x38BDF8),
-              L"sidebar: UNC frequent child gets network glyph, no badge");
+    cat.workspaces[1].expanded = true;
+    cat.active_workspace = 0;
+    auto workspace_items = [&] {
+        const auto wvm = BuildWindowViewModel(pane, sidebar, true, false, true, &cat, 0);
+        const auto section = std::find_if(wvm.sidebar.begin(), wvm.sidebar.end(),
+            [](const auto& group) {
+                return group.id == static_cast<int>(SidebarSectionId::Workspaces);
+            });
+        return section == wvm.sidebar.end() ? std::vector<ui::SidebarItem>{} : section->items;
+    };
+    auto items = workspace_items();
+    Check(items.size() == 4, L"sidebar: workspace group holds both workspaces, the expanded one's pane and frequent child");
+    if (items.size() == 4) {
+        const auto& local = items[0];
+        const auto& nas = items[1];
+        const auto& pane_child = items[2];
+        const auto& frequent = items[3];
+        Check(local.workspace_active && local.badge == l10n::Get(l10n::StringId::Current) &&
+              !nas.workspace_active && nas.badge == l10n::Get(l10n::StringId::Server),
+              L"sidebar: active workspace shows 当前, an inactive UNC one 服务器");
+        Check(pane_child.indent == 1 && pane_child.workspace_child_number == 1 &&
+              pane_child.workspace_parent_index == 1 && pane_child.path == L"\\\\server\\share",
+              L"sidebar: an expanded workspace lists its panes");
+        Check(frequent.indent == 1 && frequent.workspace_child_number == 0 &&
+              frequent.path == L"\\\\server\\share\\sub" && frequent.badge.empty() &&
+              colorIs(frequent.icon_color, 0x94A3B8),
+              L"sidebar: then its frequent folders, muted and without a badge");
     }
+    cat.active_workspace = 1;
+    items = workspace_items();
+    Check(items.size() == 4 && items[0].badge.empty() &&
+          items[1].badge == l10n::Get(l10n::StringId::Current),
+          L"sidebar: 当前 wins over 服务器 on the active UNC workspace");
 
     const auto access = BuildSidebarModel();
     const ui::SidebarItem* desktop = nullptr;
@@ -1135,13 +1149,17 @@ void TestBlankPaneClickNavigation() {
         }
         {
             // #80: the This PC title is a link, its chevron folds, and every other
-            // header stays a plain fold toggle.
+            // header stays a plain fold toggle, except 网络位置, whose title
+            // opens the network view.
             auto vm = BuildVm(*state, false);
             const int drives_id = static_cast<int>(app::SidebarSectionId::Drives);
-            bool drives_link = false, others_plain = true;
+            const int networks_id = static_cast<int>(app::SidebarSectionId::Networks);
+            bool drives_link = false, networks_link = false, others_plain = true;
             for (auto& group : vm.sidebar) {
                 group.collapsed = true;
-                if (group.id == drives_id) {
+                if (group.id == networks_id) {
+                    networks_link = group.navigable;
+                } else if (group.id == drives_id) {
                     drives_link = group.navigable;
                     // The self-test state lists no volumes; an empty section is
                     // not laid out, so give it one row to keep the header.
@@ -1156,7 +1174,8 @@ void TestBlankPaneClickNavigation() {
                     others_plain = others_plain && !group.navigable;
                 }
             }
-            Check(drives_link && others_plain, L"sidebar: only the This PC header is a link");
+            Check(drives_link && networks_link && others_plain,
+                  L"sidebar: only the This PC and 网络位置 headers are links");
             const auto sidebar = state->renderer.SidebarRect(1000, 700);
             bool title_link = false, chevron_folds = false, others_fold = true;
             for (float y = sidebar.top; y < sidebar.bottom; y += 2.0f) {
@@ -1165,7 +1184,7 @@ void TestBlankPaneClickNavigation() {
                 if (title.region != ui::HitTestResult::SidebarHeader) continue;
                 const bool drives = title.sidebar_section == drives_id;
                 if (drives) title_link |= title.sub_index == 1;
-                else others_fold = others_fold && title.sub_index != 1;
+                else if (title.sidebar_section != networks_id) others_fold = others_fold && title.sub_index != 1;
                 const auto chevron = state->renderer.HitTest(vm, D2D1::RectF(0, 0, 1000, 700),
                     sidebar.right - 20.0f, y);
                 if (drives && chevron.region == ui::HitTestResult::SidebarHeader)
@@ -1320,6 +1339,9 @@ void TestBlankPaneClickNavigation() {
         layout.panes.push_back(std::move(other));
         layout.layout = LayoutPreset::TwoVertical;
         RebuildLayoutRoot(layout);
+        // The new pane would grow in from the edge; the clicks below aim at
+        // where it settles.
+        state->paneLayoutMotion = {};
         const auto split_vm = BuildVm(*state, false);
         Check(split_vm.pane_slots.size() == 2, L"blank pane: real split layout exposes both panes");
         if (split_vm.pane_slots.size() == 2) {
@@ -1634,12 +1656,18 @@ void TestAddressSearchHistoryInteraction(float scale = 1.0f, bool dark = false) 
     Check(submitted.name == L"new-unmatched-query-72941" &&
           !state->pendingIndexSearches.empty() && state->searchHistory.entries.size() == 2,
           L"search history: Enter with no matching history submits the typed query");
-    Check(submitted.kind == spec.kind && submitted.custom_exts == spec.custom_exts &&
-          submitted.exclude_name == spec.exclude_name &&
+    // A name search's filters are written in the box (NameQueryDraft), so a
+    // query typed over the restored one keeps the scope and only the filters
+    // it spells out.
+    Check(submitted.kind == index::SearchKind::Any && submitted.custom_exts.empty() &&
+          submitted.exclude_name.empty() &&
           SplitSearchQueryText(raw).path_prefix == SplitSearchQueryText(CompileSearchQuery(spec)).path_prefix,
-          L"search history: typed continuation keeps restored scope and filters");
+          L"search history: a query typed over the restored one keeps its scope, its filters follow the box");
+    // Submitting hands focus to the results, which closes the search box.
+    if (!state->addressSearching) ShowAddressSearch(*state);
     run_popup(3);
     Check(!state->searchScopePending, L"search history: scope transition consumes pending request");
+    if (!state->addressSearching) ShowAddressSearch(*state);
     run_popup(4);
     HideAddressEditor(*state, false);
     if (state->hwndAddressEdit) DestroyWindow(state->hwndAddressEdit);
@@ -2592,12 +2620,17 @@ void TestContextMenuPrefs() {
               old_file.share && old_file.rotate && old_file.system_extra && !old_file.print &&
               old_file.migrated,
               L"prefs: version 2 files turn 发送到 / system groups on once, keep other switches");
+        ContextMenuPrefs v3_file;
+        v3_file.persist = false;
+        Check(v3_file.FromJson(L"{\"version\":3,\"categories\":{\"share\":false,\"rotate\":false}}") &&
+              !v3_file.share && !v3_file.rotate && v3_file.wallpaper,
+              L"prefs: version 3 files keep a group the user switched off");
         ContextMenuPrefs current_file;
         current_file.persist = false;
-        Check(current_file.FromJson(L"{\"version\":3,\"categories\":{\"share\":false,\"rotate\":false}}") &&
+        Check(current_file.FromJson(L"{\"version\":4,\"categories\":{\"share\":false,\"rotate\":false}}") &&
               !current_file.share && !current_file.rotate && current_file.wallpaper &&
               !current_file.migrated,
-              L"prefs: version 3 files keep a group the user switched off");
+              L"prefs: current (version 4) files load as they are");
     }
     ContextMenuPrefs with_share;
     with_share.persist = false;
@@ -2717,9 +2750,20 @@ void TestContextMenuPrefs() {
     Check(row_prefs.RowEnabled(slow_key, CtxMenuCategory::Software, true),
           L"prefs: toggling a slow-disabled row back on clears the skip (#77)");
 
-    Check(has(L"用 记事本 打开") && has(L"用 画图 打开") && !has(L"用 Word 打开") &&
+    Check(has(L"用 记事本 打开") && has(L"用 画图 打开") && has(L"用 Word 打开") &&
           has(L"打开方式…"),
-          L"prefs: static open-with MRU capped at 2 plus 打开方式");
+          L"prefs: every static open-with recommendation stays by default, plus 打开方式");
+    ContextMenuPrefs mru_capped = prefs;
+    mru_capped.open_with_mru = 2;
+    const auto capped = ApplyExplorerPrefs(mru_capped, raw);
+    auto capped_has = [&](std::wstring_view text) {
+        for (const auto& e : capped)
+            if (e.text == text) return true;
+        return false;
+    };
+    Check(capped_has(L"用 记事本 打开") && capped_has(L"用 画图 打开") && !capped_has(L"用 Word 打开") &&
+          capped_has(L"打开方式…"),
+          L"prefs: a set open-with cap of 2 keeps the first two plus 打开方式");
     Check(filtered.size() >= 4 && filtered[0].text == L"Bandizip" &&
           filtered[1].text == L"合并 PDF",
           L"prefs: order is flyout then type verb");
@@ -2819,9 +2863,9 @@ void TestContextMenuPrefs() {
         ApplyBuiltinMenuPrefs(untouched, ContextMenuPrefs{});
         Check(untouched.size() == untouched_size, L"menu: default prefs keep every Pulse command");
         Check(BuiltinItemForCommand(CmdOpen) == BuiltinMenuItem::Count &&
-                  BuiltinItemForCommand(CmdProperties) == BuiltinMenuItem::Count &&
+                  BuiltinItemForCommand(CmdProperties) == BuiltinMenuItem::Properties &&
                   BuiltinItemForCommand(CmdUnpinQuickAccess) == BuiltinMenuItem::QuickAccess,
-              L"menu: 打开 and 属性 can never be hidden");
+              L"menu: 打开 can never be hidden; 属性 has its own switch");
 
         // Drag-to-reorder on the settings preview: per-surface order, saved
         // by key, applied by moving rows among their slots.
@@ -2843,8 +2887,10 @@ void TestContextMenuPrefs() {
         default_order.SetBuiltinOrder(BuiltinMenuSurface::Item, BuiltinMenuDefaultOrder(BuiltinMenuSurface::Item));
         Check(default_order.builtin_order[0].empty() && default_order.ToJson().find(L"open_new_tab,") == std::wstring::npos,
               L"prefs: the table order is stored as no order");
+        // A missing row comes back after the nearest earlier table row the
+        // saved order has (or first, with none); 查看 heads the table.
         const auto cleaned = NormalizeBuiltinMenuOrder(BuiltinMenuSurface::Background,
-            { BuiltinMenuItem::Undo, BuiltinMenuItem::Undo, BuiltinMenuItem::RowStar });
+            { BuiltinMenuItem::Undo, BuiltinMenuItem::Undo, BuiltinMenuItem::RowStar, BuiltinMenuItem::View });
         Check(cleaned.size() == BuiltinMenuDefaultOrder(BuiltinMenuSurface::Background).size() &&
                   cleaned.front() == BuiltinMenuItem::Undo &&
                   std::count(cleaned.begin(), cleaned.end(), BuiltinMenuItem::Undo) == 1 &&
@@ -4076,7 +4122,7 @@ void TestFolderSorts() {
           prefs.folder_sorts.Find(L"pulse:this-pc") == newest &&
           !prefs.folder_sorts.Set(L"pulse:this-pc", newest),
           L"folder sorts: This PC empty path saves under its stable virtual key");
-    const auto invalid_column = static_cast<SortColumn>(static_cast<int>(SortColumn::MediaFps) + 1);
+    const auto invalid_column = static_cast<SortColumn>(static_cast<int>(SortColumn::MediaRating) + 1);
     Check(!prefs.folder_sorts.Set(L"pulse:search:x", newest) &&
           !prefs.folder_sorts.Set(L"relative", newest) &&
           !prefs.folder_sorts.Set(L"C:\\Bad", { static_cast<SortColumn>(-1), SortDirection::Asc }) &&
@@ -7872,7 +7918,9 @@ void TestOpsThroughShell() {
         Check(got && got_token == token, L"ctx: RSP_CTX_ITEMS arrives for the session");
         bool clean = true;
         for (const auto& it : got_items) {
-            const bool invalid = it.text.empty() || ipc::IsBuiltinContextVerb(it.verb, false);
+            // Explorer's 打开方式 flyout comes whole, 选择其他应用 (openas) included.
+            const bool invalid = it.text.empty() ||
+                (ipc::IsBuiltinContextVerb(it.verb, false) && !ipc::IsOpenWithSubmenuVerb(it.verb));
             if (invalid) {
                 clean = false;
                 LogLine(L"[info] ctx: unfiltered verb='%s' text='%s'\n",
@@ -8913,15 +8961,17 @@ void TestKeymap() {
     const k::Keymap junk = k::Keymap::FromPrefs({L"Bogus=F8", L"CopyPath=Nope", L"=", L"Layout=Shift", L"Open=F9"});
     Check(junk.AllDefault(), L"keymap: unknown, malformed and fixed entries are ignored");
 
-    // Numbered groups: only the modifiers move.
+    // Numbered groups: only the modifiers move. Alt+digits toggle favorite
+    // tags, so the tabs move to a modifier no other group uses.
     k::Keymap ranges;
-    ranges.SetRangeMods(KeyAction::TabNumber, A);
-    const T tab3 = ranges.Translate(KeyChord{A, '3'});
+    const uint8_t alt_shift = static_cast<uint8_t>(A | S);
+    ranges.SetRangeMods(KeyAction::TabNumber, alt_shift);
+    const T tab3 = ranges.Translate(KeyChord{alt_shift, '3'});
     Check(tab3.kind == T::Rewrite && tab3.target == KeyChord{C, '3'} && tab3.action == KeyAction::TabNumber,
-          L"keymap: Alt+3 reaches tab 3");
+          L"keymap: Alt+Shift+3 reaches tab 3");
     Check(ranges.Translate(KeyChord{C, '3'}).kind == T::Swallow, L"keymap: Ctrl+3 is free after the move");
-    Check(ranges.ToPrefs() == std::vector<std::wstring>{L"TabNumber=Alt"} &&
-          k::Keymap::FromPrefs({L"TabNumber=Alt"}).RangeMods(KeyAction::TabNumber) == A,
+    Check(ranges.ToPrefs() == std::vector<std::wstring>{L"TabNumber=Alt+Shift"} &&
+          k::Keymap::FromPrefs({L"TabNumber=Alt+Shift"}).RangeMods(KeyAction::TabNumber) == alt_shift,
           L"keymap: range modifiers stored");
 
     // Shift steps backwards for Ctrl+Tab and the window switcher.
