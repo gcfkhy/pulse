@@ -3429,9 +3429,13 @@ MainRenderer::TabStripMetrics MainRenderer::ComputeTabStrip(
         if (m.overflow) {
             m.max_scroll = std::max(0.0f, x - gap - m.view_right);
             if (m.active >= 0 && m.active != tab_scroll_active_) {
+                // A neighbour stays in view on either side of a newly active tab.
                 const auto& active = m.item_rects[static_cast<size_t>(m.active)];
-                if (active.left < m.view_left + tab_scroll_) tab_scroll_ = active.left - m.view_left;
-                if (active.right > m.view_right + tab_scroll_) tab_scroll_ = active.right - m.view_right;
+                const float margin = std::min(m.pitch, (m.view_right - m.view_left) * 0.25f);
+                if (active.left - margin < m.view_left + tab_scroll_)
+                    tab_scroll_ = active.left - margin - m.view_left;
+                if (active.right + margin > m.view_right + tab_scroll_)
+                    tab_scroll_ = active.right + margin - m.view_right;
             }
             tab_scroll_ = std::clamp(tab_scroll_, 0.0f, m.max_scroll);
             m.scroll = tab_scroll_;
