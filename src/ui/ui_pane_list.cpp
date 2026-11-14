@@ -3086,7 +3086,7 @@ void MainRenderer::DrawPaneEmptyState(const WindowViewModel& vm, const PaneViewM
         const int first = pane.is_file_system ? 0 : 1;
         const int count = 2 - first;
         const SearchEmptyLayout layout = MakeSearchEmptyLayout(bounds, scale_, count);
-        if (layout.show_art) DrawNoSelectionSvg(layout.art, theme.bg.r > 0.5f ? 0.68f : 1.0f);
+        if (layout.show_art) DrawNoSelectionSvg(layout.art, 1.0f);
         painter_.DrawText(pulse::l10n::Get(pane.is_file_system ? pulse::l10n::StringId::EmptyFilterTry
                                                                : pulse::l10n::StringId::NoMatches),
                           layout.title, compositor_->HeaderFormat(), theme.text,
@@ -3111,7 +3111,7 @@ void MainRenderer::DrawPaneEmptyState(const WindowViewModel& vm, const PaneViewM
         app::SearchEmptyAction actions[3];
         const int count = app::SearchEmptyActions(pane.search_query, actions);
         const SearchEmptyLayout layout = MakeSearchEmptyLayout(bounds, scale_, count);
-        if (layout.show_art) DrawNoSelectionSvg(layout.art, theme.bg.r > 0.5f ? 0.68f : 1.0f);
+        if (layout.show_art) DrawNoSelectionSvg(layout.art, 1.0f);
         painter_.DrawText(pulse::l10n::Get(count > 0 ? pulse::l10n::StringId::EmptySearchTry
                                                      : pulse::l10n::StringId::NoMatches),
                           layout.title, compositor_->HeaderFormat(), theme.text,
@@ -3145,7 +3145,7 @@ void MainRenderer::DrawPaneEmptyState(const WindowViewModel& vm, const PaneViewM
         }
         if (pane.is_starred || pane.is_recent) {
             const PaneEmptyLayout layout = MakePaneEmptyLayout(bounds, scale_, false);
-            const float svg_opacity = theme.bg.r > 0.5f ? 0.68f : 1.0f;
+            const float svg_opacity = 1.0f;
             if (!DrawCuratedEmptyStateSvg(pane.is_starred, layout.art, svg_opacity)) {
                 fluent::EmptyStateSpec fallback;
                 fallback.bounds = bounds;
@@ -3176,7 +3176,7 @@ void MainRenderer::DrawPaneEmptyState(const WindowViewModel& vm, const PaneViewM
         // assets/no-selection-state.svg (same style as other empty states).
         const PaneEmptyLayout layout =
             MakePaneEmptyLayout(bounds, scale_, false, 320.0f / 240.0f);
-        const float svg_opacity = theme.bg.r > 0.5f ? 0.68f : 1.0f;
+        const float svg_opacity = 1.0f;
         if (!DrawNoSelectionSvg(layout.art, svg_opacity)) {
             fluent::EmptyStateSpec fallback;
             fallback.bounds = bounds;
@@ -3196,7 +3196,7 @@ void MainRenderer::DrawPaneEmptyState(const WindowViewModel& vm, const PaneViewM
     // says why; "this folder is empty" would be wrong.
     if (!pane.snapshot && !pane.banner_title.empty()) return;
     const PaneEmptyLayout layout = MakePaneEmptyLayout(bounds, scale_, pane.can_create);
-    const float svgOpacity = theme.bg.r > 0.5f ? 0.68f : 1.0f;
+    const float svgOpacity = 1.0f;
     if (!DrawEmptyStateSvg(layout.art, svgOpacity)) {
         const float icon = std::min(72.0f * scale_, layout.art.bottom - layout.art.top);
         DrawFolderIcon((layout.art.left + layout.art.right - icon) * 0.5f,
@@ -4069,10 +4069,12 @@ IDWriteTextFormat* MainRenderer::NameSemiboldFormat() {
     IDWriteTextFormat* base = compositor_ ? compositor_->FileNameFormat() : nullptr;
     IDWriteFactory2* factory = compositor_ ? compositor_->DwriteFactory() : nullptr;
     if (!base || !factory) return nullptr;
-    if (name_semibold_format_.get() && name_semibold_base_ == base && name_semibold_size_ == base->GetFontSize())
+    if (name_semibold_format_.get() && name_semibold_base_.get() == base && name_semibold_size_ == base->GetFontSize())
         return name_semibold_format_.get();
     name_semibold_format_.reset();
-    name_semibold_base_ = base;
+    base->AddRef();
+    name_semibold_base_.reset();
+    name_semibold_base_.p = base;
     name_semibold_size_ = base->GetFontSize();
     wchar_t family[128]{};
     wchar_t locale[LOCALE_NAME_MAX_LENGTH]{};
@@ -4115,9 +4117,11 @@ bool MainRenderer::DrawTruncatedName(const std::wstring& name, float x, float y,
     const bool semibold = name_semibold_ && name_semibold_format_.get();
     IDWriteTextFormat* base_fmt = semibold ? name_semibold_format_.get() : compositor_->FileNameFormat();
     const size_t format_slot = semibold ? 1u : 0u;
-    if (name_nowrap_bases_[format_slot] != base_fmt || !name_nowrap_formats_[format_slot].get()) {
+    if (name_nowrap_bases_[format_slot].get() != base_fmt || !name_nowrap_formats_[format_slot].get()) {
         name_nowrap_formats_[format_slot].reset();
-        name_nowrap_bases_[format_slot] = base_fmt;
+        base_fmt->AddRef();
+        name_nowrap_bases_[format_slot].reset();
+        name_nowrap_bases_[format_slot].p = base_fmt;
         wchar_t family[128]{};
         wchar_t locale[LOCALE_NAME_MAX_LENGTH]{};
         if (SUCCEEDED(base_fmt->GetFontFamilyName(family, ARRAYSIZE(family))) &&
@@ -4451,11 +4455,33 @@ constexpr ULONGLONG kWallGlideMs = 280;
 // PaneWallRows calls of the same frame (the probe runs in the background), so
 // replaced rows are freed a while later instead of under a live layout.
 constexpr ULONGLONG kWallRetireMs = 2000;
-void RetireWallRows(std::shared_ptr<const WallRows> rows) {
-    static std::vector<std::pair<ULONGLONG, std::shared_ptr<const WallRows>>> retired;
+struct RetiredWallRows {
+    std::vector<std::pair<ULONGLONG, std::shared_ptr<const WallRows>>> rows;
+    UINT_PTR timer = 0;
+    ~RetiredWallRows() { if (timer) KillTimer(nullptr, timer); }
+};
+RetiredWallRows& RetiredWalls() {
+    static RetiredWallRows state;
+    return state;
+}
+void CollectRetiredWalls() {
+    auto& state = RetiredWalls();
     const ULONGLONG now = GetTickCount64();
-    std::erase_if(retired, [now](const auto& r) { return now - r.first >= kWallRetireMs; });
-    if (rows) retired.emplace_back(now, std::move(rows));
+    std::erase_if(state.rows, [now](const auto& row) { return now - row.first >= kWallRetireMs; });
+    if (state.rows.empty() && state.timer) {
+        KillTimer(nullptr, state.timer);
+        state.timer = 0;
+    }
+}
+void RetireWallRows(std::shared_ptr<const WallRows> rows) {
+    CollectRetiredWalls();
+    if (!rows) return;
+    auto& state = RetiredWalls();
+    state.rows.emplace_back(GetTickCount64(), std::move(rows));
+    // A thread timer survives the closing HWND and frees retired layouts even
+    // when no window enters the photo wall again. All access stays on the UI thread.
+    if (!state.timer) state.timer = SetTimer(nullptr, 0, 250,
+        [](HWND, UINT, UINT_PTR, DWORD) { CollectRetiredWalls(); });
 }
 void RetireWallEntry(WallRowsCache& c) {
     c.job->Cancel();
@@ -4590,13 +4616,15 @@ void MainRenderer::PruneWallViews(const std::vector<PaneSlotView>& panes) const 
         return true;
     });
 }
-MainRenderer::~MainRenderer() {
+void MainRenderer::ReleaseWallViews() {
+    if (notify_hwnd_) KillTimer(notify_hwnd_, 0x574C);
     std::erase_if(WallRowsCaches(), [&](WallRowsCache& c) {
         if (c.owner != notify_hwnd_) return false;
         RetireWallEntry(c);
         return true;
     });
 }
+MainRenderer::~MainRenderer() { ReleaseWallViews(); }
 void MainRenderer::ReconcileWallAnchor(PaneViewModel& vm, const D2D1_RECT_F& bounds) const {
     if (!vm.wall || !vm.snapshot) {
         std::erase_if(WallRowsCaches(), [&](WallRowsCache& c) {

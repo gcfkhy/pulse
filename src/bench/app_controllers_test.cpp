@@ -22,6 +22,7 @@
 #include "../common/localization.h"
 #include "../common/path_utils.h"
 #include "../ui/panel_metrics.h"
+#include "../ui/window_effect_support.h"
 #include "../ui/FluentTokens.h"
 #include "../index/index_client.h"
 #include "../index/network_agent_client.h"
@@ -46,6 +47,7 @@
 #include <algorithm>
 #include <vector>
 #include <thread>
+#include <filesystem>
 
 namespace pulse::app {
 
@@ -229,10 +231,17 @@ bool TestDefaultFileManager() {
     const std::wstring scratch_path =
         L"Software\\PulseTest\\DefaultFileManager-" + std::to_wstring(GetCurrentProcessId());
     HKEY scratch = nullptr;
-    if (RegCreateKeyExW(HKEY_CURRENT_USER, scratch_path.c_str(), 0, nullptr, 0, KEY_ALL_ACCESS,
-                        nullptr, &scratch, nullptr) != ERROR_SUCCESS ||
-        RegOverridePredefKey(HKEY_CURRENT_USER, scratch) != ERROR_SUCCESS) {
-        if (scratch) RegCloseKey(scratch);
+    const LSTATUS created = RegCreateKeyExW(HKEY_CURRENT_USER, scratch_path.c_str(), 0, nullptr, 0, KEY_ALL_ACCESS,
+                                           nullptr, &scratch, nullptr);
+    if (created != ERROR_SUCCESS) {
+        std::printf("    scratch registry: RegCreateKeyExW returned %ld\n", created);
+        return Report("default file manager: scratch registry is available", false);
+    }
+    const LSTATUS redirected = RegOverridePredefKey(HKEY_CURRENT_USER, scratch);
+    if (redirected != ERROR_SUCCESS) {
+        std::printf("    scratch registry: RegOverridePredefKey returned %ld\n", redirected);
+        RegCloseKey(scratch);
+        RegDeleteTreeW(HKEY_CURRENT_USER, scratch_path.c_str());
         return Report("default file manager: scratch registry is available", false);
     }
     wchar_t module[MAX_PATH]{};
@@ -264,8 +273,8 @@ bool TestDefaultFileManager() {
         passed &= Report("default file manager: turning on takes over folders, Win+E and This PC",
             starts_off && applied && DefaultFileManagerState(reread) == DefaultManagerState::Full &&
             Read(L"Software\\Classes\\Directory\\shell", nullptr) == L"open" &&
-            Read(kWinECommand, nullptr) == L"\"" + exe + L"\"" &&
-            Read(kThisPcCommand, nullptr) == L"\"" + exe + L"\" \"" + kThisPcParsingName + L"\"" &&
+            Read(kWinECommand, nullptr) == L"\"" + exe + L"\" --shell-open pulse:win-e" &&
+            Read(kThisPcCommand, nullptr) == L"\"" + exe + L"\" --shell-open \"" + kThisPcParsingName + L"\"" &&
             Read(kThisPcShell, nullptr) == L"open");
         passed &= Report("default file manager: the other manager's commands are kept as backups",
             SnapshotExists(L"WinE") && SnapshotExists(L"ThisPc"));
@@ -543,8 +552,8 @@ bool TestExplorerShortcuts() {
     passed &= Report("explorer keys: Ctrl+Shift+N new folder, Ctrl+E / F3 search",
         is(L'N', true, true, false, A::NewFolder) && is(L'E', true, false, false, A::Search) &&
         is(VK_F3, false, false, false, A::Search));
-    passed &= Report("explorer keys: Ctrl+N is unassigned, Ctrl+Shift+W closes the window",
-        is(L'N', true, false, false, A::None) && is(L'W', true, true, false, A::CloseWindow) &&
+    passed &= Report("explorer keys: Ctrl+N opens a new window, Ctrl+Shift+W closes the window",
+        is(L'N', true, false, false, A::NewWindow) && is(L'W', true, true, false, A::CloseWindow) &&
         is(L'N', true, false, true, A::None) && is(L'N', false, false, false, A::None));
     passed &= Report("explorer keys: Ctrl+Shift+M moves the tab to a new window, Ctrl+M and Ctrl+Alt+Shift+M do not (M4e)",
         is(L'M', true, true, false, A::MoveTabToNewWindow) && is(L'M', true, false, false, A::None) &&
@@ -909,8 +918,10 @@ bool TestToolbarApps() {
                     narrow_drag.pins[2].left, narrow_drag.pins[2].right);
     ok &= Report("toolbar apps: a narrow window folds them, a file drag shows them behind the label",
         idle_folded && drag_shown);
+    ToolbarPinOptions oversized_drop = drop;
+    oversized_drop.label_width = 400;
     const auto no_room = MakeToolbarLayout(740, 1, 46, 8, 40, 224, 0, 0, 0, 34, 34, 3, 0,
-                                           ToolbarPinOptions{0, true, 400});
+                                           oversized_drop);
     ok &= Report("toolbar apps: the drop label gives way before an app does",
         no_room.pin_label.right <= no_room.pin_label.left && no_room.pins[0].right > no_room.pins[0].left);
     // 收藏栏: labels up to 168 DIP wide, the rest folds into » (toolbar redesign §8).
@@ -1562,19 +1573,31 @@ bool TestPackAutoUpdate() {
     std::wstring previous(32768, L'\0');
     const DWORD previous_size = GetEnvironmentVariableW(L"LOCALAPPDATA", previous.data(), 32768);
     previous.resize(previous_size < 32768 ? previous_size : 0);
-    wchar_t temp[MAX_PATH]{};
-    GetTempPathW(MAX_PATH, temp);
-    const std::wstring profile = std::wstring(temp) + L"pulse-pack-auto-update-" + std::to_wstring(GetCurrentProcessId());
-    pulse::app::RemovePackTree(profile);
-    SetEnvironmentVariableW(L"LOCALAPPDATA", profile.c_str());
+    std::error_code directory_error;
+    const std::wstring profile = std::filesystem::absolute(std::filesystem::path(L"bench_data") /
+        (L"pulse-pack-auto-update-" + std::to_wstring(GetCurrentProcessId()) + L"-" +
+         std::to_wstring(GetTickCount64())), directory_error).wstring();
+    const bool created = !directory_error && std::filesystem::create_directories(profile, directory_error);
+    if (!Report("pack fixture: creates an isolated workspace profile", created && !directory_error)) return false;
+    struct RestoreProfile {
+        const std::wstring& previous;
+        const std::wstring& profile;
+        ~RestoreProfile() {
+            SetEnvironmentVariableW(L"LOCALAPPDATA", previous.empty() ? nullptr : previous.c_str());
+            pulse::app::RemovePackTree(profile);
+        }
+    } restore_profile{previous, profile};
+    if (!Report("pack fixture: redirects LOCALAPPDATA", SetEnvironmentVariableW(L"LOCALAPPDATA", profile.c_str()) != FALSE))
+        return false;
     const packs::PackId raw = packs::PackId::Raw;
     const std::wstring catalog = pulse::app::kRawPackRelease.version;
     const std::wstring base = packs::PacksRoot() + L"\\" + packs::PackKey(raw);
     auto install = [&](const std::wstring& version) {
-        packs::CreateDirectoryChain(base + L"\\" + version);
-        pulse::WriteUtf8FileAtomic(base + L"\\" + version + L"\\" + packs::PackMainTool(raw), L"fixture");
-        pulse::WriteUtf8FileAtomic(base + L"\\installed.json",
-                                   L"{\"version\":\"" + version + L"\",\"dir\":\"" + version + L"\"}");
+        return packs::CreateDirectoryChain(base + L"\\" + version) &&
+            pulse::WriteUtf8FileAtomic(base + L"\\" + version + L"\\" + packs::PackMainTool(raw), L"fixture") &&
+            pulse::WriteUtf8FileAtomic(base + L"\\installed.json",
+                                       L"{\"version\":\"" + version + L"\",\"dir\":\"" + version + L"\"}") &&
+            packs::ReadInstalledPack(raw).present && packs::ReadInstalledPack(raw).version == version;
     };
     auto save = [](bool auto_update, bool enabled) {
         packs::PackSettings settings;
@@ -1598,16 +1621,15 @@ bool TestPackAutoUpdate() {
         return !settings.Packs().raw_installing;
     };
     if (!packs::PackUpdateAvailable(L"0.0.1", catalog) || !pulse::app::kRawPackRelease.file_count) {
-        SetEnvironmentVariableW(L"LOCALAPPDATA", previous.empty() ? nullptr : previous.c_str());
         return Report("pack auto-update: the RAW pack is published", false);
     }
     {
         SettingsController settings;
         SettingsControllerTestPeer::SetPackReader(settings, server);
-        install(catalog);
+        if (!Report("pack fixture: publishes the current RAW pack", install(catalog))) return false;
         passed &= Report("pack auto-update: a current pack is left alone",
             settings.AutoUpdatePacks(nullptr) == 0 && requests == 0 && !settings.Packs().raw_installing);
-        install(L"0.0.1");
+        if (!Report("pack fixture: publishes the older RAW pack", install(L"0.0.1"))) return false;
         passed &= Report("pack auto-update: nothing starts while the setting is off",
             save(false, true) && settings.AutoUpdatePacks(nullptr) == 0 && requests == 0 &&
             !settings.Packs().raw_installing);
@@ -1651,8 +1673,6 @@ bool TestPackAutoUpdate() {
             settings.AutoUpdatePacks(nullptr) == 1 && settle(settings) && !settings.TakeRawPackResult() &&
             settings.Packs().raw_notice.empty());
     }
-    SetEnvironmentVariableW(L"LOCALAPPDATA", previous.empty() ? nullptr : previous.c_str());
-    pulse::app::RemovePackTree(profile);
     return passed;
 }
 
@@ -1725,6 +1745,10 @@ bool TestCompatibleFolderUpgrade() {
 }
 
 int wmain(int argc, wchar_t** argv) {
+    if (argc == 2 && std::wstring_view(argv[1]) == L"--pack-auto-update") {
+        pulse::l10n::Initialize(GetModuleHandleW(nullptr), L"zh-CN");
+        return TestPackAutoUpdate() ? 0 : 1;
+    }
     if (argc == 2 && std::wstring_view(argv[1]) == L"--integration-compat")
         return TestCompatibleFolderUpgrade() ? 0 : 1;
     if (argc == 2 && std::wstring_view(argv[1]) == L"--explorer-takeover") {
@@ -2343,10 +2367,14 @@ int wmain(int argc, wchar_t** argv) {
     };
     settings_ui.BindUi(prefs, context, index_client, network_client,
                        std::move(ui_callbacks));
+    const bool mica_supported = pulse::ui::WindowEffectSupported(pulse::ui::WindowEffect::Mica);
+    const std::wstring before_mica = prefs.window_effect;
     settings_ui.WindowEffect(L"mica");
-    passed &= Report("settings window effect returns material invalidation",
-        prefs.window_effect == L"mica" &&
-        HasEffect(last_effect, SettingsEffect::WindowMaterial));
+    const bool mica_changed = mica_supported && before_mica != L"mica";
+    passed &= Report("settings window effect respects platform support and material invalidation",
+        prefs.window_effect == (mica_supported ? L"mica" : before_mica) &&
+        applied_effects == (mica_changed ? 1 : 0) &&
+        (mica_changed ? HasEffect(last_effect, SettingsEffect::WindowMaterial) : last_effect == SettingsEffect::None));
     settings_ui.AccentChoice(false, 0x12AB34);
     passed &= Report("settings accent is normalized and reports its side effect",
         prefs.accent_rgb == L"12AB34" && HasEffect(last_effect, SettingsEffect::Accent));
@@ -2363,12 +2391,26 @@ int wmain(int argc, wchar_t** argv) {
     passed &= Report("settings status performance toggle persists",
         prefs.show_status_performance &&
         HasEffect(last_effect, SettingsEffect::StatusBarPerformance));
+    const bool mica_alt_supported = pulse::ui::WindowEffectSupported(pulse::ui::WindowEffect::MicaAlt);
+    const std::wstring before_mica_alt = prefs.window_effect;
+    const int effects_before_mica_alt = applied_effects;
+    last_effect = SettingsEffect::None;
     settings_ui.WindowEffect(L"mica-alt");
+    const bool mica_alt_changed = mica_alt_supported && before_mica_alt != L"mica-alt";
+    passed &= Report("settings MicaAlt mutates and invalidates only when supported",
+        prefs.window_effect == (mica_alt_supported ? L"mica-alt" : before_mica_alt) &&
+        applied_effects == effects_before_mica_alt + (mica_alt_changed ? 1 : 0) &&
+        (mica_alt_changed ? HasEffect(last_effect, SettingsEffect::WindowMaterial) : last_effect == SettingsEffect::None));
     settings_ui.RowHeight(0);
     settings_ui.AccentChoice(false, 0x2468AC);
     passed &= Report("settings UI controller routes preference commands",
-        prefs.window_effect == L"mica-alt" && prefs.row_height == 28 &&
-        prefs.accent_rgb == L"2468AC" && applied_effects == 9);
+        prefs.window_effect == (mica_alt_supported ? L"mica-alt" : before_mica_alt) && prefs.row_height == 28 &&
+        prefs.accent_rgb == L"2468AC" && applied_effects == 7 + (mica_changed ? 1 : 0) + (mica_alt_changed ? 1 : 0));
+    const int effects_before_none = applied_effects;
+    settings_ui.WindowEffect(L"none");
+    passed &= Report("settings no-material choice remains available on unsupported systems",
+        prefs.window_effect == L"none" && applied_effects == effects_before_none + 1 &&
+        HasEffect(last_effect, SettingsEffect::WindowMaterial));
     settings_ui.NotifyIcon(2);
     passed &= Report("settings tray icon choice requests tray synchronization",
         prefs.notify_icon_mode == 2 && HasEffect(last_effect, SettingsEffect::TrayVisibility));

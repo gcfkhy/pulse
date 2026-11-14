@@ -39,6 +39,7 @@ FILES = [
     'sdk/native/include/pulse/tasks.h',
     'sdk/native/include/pulse/staging.h',
     'sdk/native/include/pulse/settings_pages.h',
+    'sdk/native/include/pulse/dialogs.h',
     'sdk/native/include/pulse/fileops.h',
     'sdk/native/include/pulse/ui_model.h',
     'sdk/native/ui-model.schema.json',
@@ -110,9 +111,15 @@ def catalog(root=ROOT):
     return value
 
 
+def source_bytes(root, name):
+    data = (root / name).read_bytes()
+    # Catalog header hashes describe LF source, not checkout-specific line endings.
+    return data.replace(b"\r\n", b"\n") if name.startswith("sdk/native/include/pulse/") else data
+
+
 def bundle(output, root=ROOT):
     catalog(root)
-    payload = {name: (root / name).read_bytes() for name in FILES}
+    payload = {name: source_bytes(root, name) for name in FILES}
     manifest = {"formatVersion": 1, "delivery": "source-only", "hostIncluded": False,
                 "files": {name: hashlib.sha256(data).hexdigest() for name, data in payload.items()}}
     output = Path(output)

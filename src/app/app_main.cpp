@@ -1,4 +1,6 @@
+#include "win_e_fast_entry.h"
 #include "animation_input_budget.h"
+#include "extension_store_ui.h"
 #include "archive_plugin_migration.h"
 #include "frame_perf_environment.h"
 #include <filesystem>
@@ -942,7 +944,7 @@ static app::WindowSessionSnapshot CaptureSessionWindow(AppState& w) {
     app::WindowSessionSnapshot snap;
     WINDOWPLACEMENT wp{ sizeof(wp) };
     if (GetWindowPlacement(w.hwnd, &wp)) {
-        snap.window_rect = wp.rcNormalPosition;
+        snap.window_rect = app::SavedNormalRect(w.hwnd, wp);
         snap.maximized = (wp.showCmd == SW_SHOWMAXIMIZED);
     }
     snap.layout = CaptureWindowLayout(w);
@@ -964,7 +966,7 @@ static app::SessionSnapshot CaptureWindowSession(AppState& requested, HWND reque
     app::SessionSnapshot snap;
     WINDOWPLACEMENT wp{ sizeof(wp) };
     if (GetWindowPlacement(hwnd, &wp)) {
-        snap.window_rect = wp.rcNormalPosition;
+        snap.window_rect = app::SavedNormalRect(hwnd, wp);
         snap.maximized = (wp.showCmd == SW_SHOWMAXIMIZED);
     }
     snap.dark = s.darkMode;
@@ -976,7 +978,7 @@ static app::SessionSnapshot CaptureWindowSession(AppState& requested, HWND reque
         snap.tab_groups.push_back({group.id, group.name, group.color_rgb, group.collapsed});
     for (const auto& layout : s.window_tabs.items)
         snap.layout_tabs.push_back(app::CaptureLayoutTab(*layout));
-    snap.undo_json = s.ops.UndoToJson();
+    snap.undo_snapshot = s.ops.UndoJsonSnapshot();
     snap.sidebar_collapsed = static_cast<int>(s.sidebarCollapsedMask);
     snap.sidebar_hidden = static_cast<int>(s.sidebarHiddenMask);
     snap.sidebar_order = app::NormalizeSidebarOrder(s.sidebarOrder);
@@ -1009,7 +1011,7 @@ static app::ClosedWindow CaptureClosedWindow(AppState& s, HWND hwnd) {
     app::ClosedWindow closed;
     WINDOWPLACEMENT wp{ sizeof(wp) };
     if (GetWindowPlacement(hwnd, &wp)) {
-        closed.rect = app::RestoredWindowRect(wp.rcNormalPosition);
+        closed.rect = app::RestoredWindowRect(app::SavedNormalRect(hwnd, wp));
         closed.maximized = wp.showCmd == SW_SHOWMAXIMIZED || IsZoomed(hwnd);
     }
     RememberLayoutFocus(s);
@@ -1092,9 +1094,9 @@ static void ReopenClosedWindow(AppState& from) {
 // when forced). Both writes are atomic, so a kill mid-save keeps the old file.
 static bool SaveWindowSession(AppState& s, HWND hwnd, bool force) {
     if (!SessionWritable(s) || s.appPrefs.load_failed) return false;
-    auto json = app::SessionToJson(CaptureWindowSession(s, hwnd));
-    const bool session_saved = app::SaveChangedSession(
-        json, s.sessionSavedJson, force, app::WriteSessionJson);
+    const bool session_saved = app::SaveChangedSessionSnapshot(CaptureWindowSession(s, hwnd),
+        s.sessionSavedJson, s.core.sessionSavedLayoutJson, s.core.sessionSavedUndo,
+        force, app::WriteSessionJson);
     auto prefs = s.appPrefs.ToJson();
     const bool prefs_saved = app::SaveChangedSession(
         prefs, s.prefsSavedJson, force,
@@ -1924,6 +1926,10 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
                 return st ? ResolveDropTarget(*st, srcs, pt, keys, allowed, preferred)
                           : DROPEFFECT_NONE;
             };
+            dcb.drag_scroll = [hwnd](POINT pt) {
+                AppState* st = GetAppState(hwnd);
+                return st && TickDropEdgeScroll(*st, pt);
+            };
             dcb.drag_leave = [hwnd] {
                 if (AppState* st = GetAppState(hwnd)) ClearDropFeedback(*st);
             };
@@ -2599,6 +2605,10 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
     }
 
     case WM_TIMER: {
+        if (s && wParam == ui::WindowDropTarget::kScrollTimer) {
+            if (s->dropTarget) s->dropTarget->TickScroll();
+            return 0;
+        }
         if (s && extensions::native::HandlePackageMonitoringTimer(hwnd, wParam, *s)) return 0;
         if (s && wParam == kStatusFeedbackTimer) {
             KillTimer(hwnd, kStatusFeedbackTimer);
@@ -2675,6 +2685,7 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
             TickEntryCommandProbe(*s);
             TickHotEntryProbe(*s);
             TickDialogManagement(*s);
+            TickExtensionStoreUi(*s);
             bool dirty = false;
             if (TickChangeTracking(*s)) dirty = true;
             if (s->renderer.MtimeBoundaryDue()) dirty = true;   // 修改时间提示: a mark aged
@@ -3791,6 +3802,7 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
         extensions::native::ReleasePackageOwner(hwnd);
         if (s) ClearWorkspaceActions(*s);
         if (s) CancelDeletePreflight(*s);
+        if (s) ReleaseExtensionStoreOwner(*s);
         ReleaseDeviceFolderWatch(hwnd);
         if (s) ReleaseRecycleShellWatch(*s, hwnd);
         // Closing one of several windows (M3f) tears down what the window
@@ -3824,6 +3836,7 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
                 s->settings.ResetUi();
                 s->settings.Stop();
                 const uint64_t settings_ms = timer.Lap();
+                StopExtensionStore(s->core);
                 s->update_checker.Stop();
                 s->update_installer.Stop();
                 const uint64_t updates_ms = timer.Lap();
@@ -4349,6 +4362,19 @@ int RunQuickPreviewFramePerf();
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
     pulse::app_identity::SetProcess();
+    // Isolated lifecycle regression: no main window, extensions or services.
+    if (__argc == 2 && wcscmp(__wargv[1], L"--test-instance") == 0 &&
+        GetEnvironmentVariableW(L"PULSE_TEST_DATA_DIR", nullptr, 0) &&
+        GetEnvironmentVariableW(L"PULSE_TEST_DIALOG_JUMP_AUTO_ONLY", nullptr, 0)) {
+        std::vector<wchar_t> output(32768);
+        const DWORD length = GetEnvironmentVariableW(L"PULSE_TEST_DIALOG_JUMP_CAPTURE", output.data(),
+            static_cast<DWORD>(output.size()));
+        if (!length || length >= output.size()) return 2;
+        if (FAILED(OleInitialize(nullptr))) return 3;
+        const int result = app::RunDialogJumpPlacementCapture(output.data());
+        OleUninitialize();
+        return result;
+    }
 #ifdef PULSE_WITH_TEST_HOOKS
     // The window-management probe's child must not reach normal routing.
     if (__argc == 4 && wcscmp(__wargv[1], L"--test-instance") == 0 &&
@@ -4357,6 +4383,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
         return RunTrayForegroundTestHost(__wargv[3]);
     }
 #endif
+    if (const auto fast = app::TryWinEFastEntry(__argc, __wargv,
+            [] { return app::SingleInstanceCoordinator::FindPrimaryEndpoint().has_value(); },
+            [] { app::SingleInstanceCoordinator existing;
+                 return existing.ForwardOpenPath(L"pulse:win-e", 2000); })) return *fast;
     const auto extension_startup = pulse::extensions::PrepareStartup(__argc, __wargv);
     struct ExtensionShutdown {
         ~ExtensionShutdown() { pulse::extensions::native::StopAll(); pulse::extensions::PrepareShutdown(); }

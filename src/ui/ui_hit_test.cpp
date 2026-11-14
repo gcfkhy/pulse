@@ -107,7 +107,9 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
     // Embedded hosts own the title strip and footer controls.
     if (embedded_ && (y < title_bar_height_ || y >= rect.bottom - status_height_)) return r;
 
-    const auto layout_hit = PaneLayoutHit(vm, rect, x, y, scale_, compositor_->DwriteFactory(), compositor_->SmallFormat());
+    const auto layout_hit = PaneLayoutHit(vm, rect, x, y, scale_,
+        compositor_ ? compositor_->DwriteFactory() : nullptr,
+        compositor_ ? compositor_->SmallFormat() : nullptr);
     if (layout_hit.region != HitTestResult::None) return layout_hit;
     if (vm.status.history_open) {
         const auto bounds = UndoHistoryBounds(vm, rect, scale_);
@@ -222,10 +224,11 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
         };
         if (!vertical_tabs_) {
         if (strip.overflow && y >= strip.y && y < strip.y + strip.h) {
-            if (x >= strip.view_left - strip.arrow_w && x < strip.view_left) {
+            if (strip.scroll > 0.5f && x >= strip.view_left - strip.arrow_w && x < strip.view_left) {
                 r.region = HitTestResult::TabScroll; r.index = -1; return r;
             }
-            if (x >= strip.view_right && x < strip.view_right + strip.arrow_w) {
+            if (strip.scroll < strip.max_scroll - 0.5f &&
+                x >= strip.view_right && x < strip.view_right + strip.arrow_w) {
                 r.region = HitTestResult::TabScroll; r.index = 1; return r;
             }
         }
@@ -506,7 +509,7 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
                     }
                 }
                 for (int i = 0; i < kWindowEffectCount; ++i) {
-                    if (ContainsPt(lay.effect_row[i], x, y)) {
+                    if (WindowEffectSupported(static_cast<WindowEffect>(i)) && ContainsPt(lay.effect_row[i], x, y)) {
                         r.region = HitTestResult::SettingsEffect;
                         r.index = i;
                         return r;
@@ -795,6 +798,14 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
                     r.region = HitTestResult::SettingsToggle; r.index = 31; return r;
                 }
             } else if (vm.settings_page == 5 || vm.settings_page == 8) {
+                const int store_target = HitTestSettingsStore(lay, vm, x, y);
+                if (store_target >= 0) {
+                    r.region = HitTestResult::SettingsPackAction;
+                    r.index = store_target;
+                    return r;
+                }
+                // Store surfaces must not fall through to unrelated legacy pack targets.
+                if (vm.settings_page == 8 && (vm.settings_store_browse || vm.settings_store_installed)) return r;
                 // Buttons first: they sit inside the clickable rows.
                 const std::pair<const D2D1_RECT_F*, PackAction> pack_targets[] = {
                     {&lay.pack_native_settings, PackAction::NativeSettings},
