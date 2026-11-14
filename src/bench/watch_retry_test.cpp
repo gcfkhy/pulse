@@ -108,7 +108,10 @@ void RunRecovery(const std::filesystem::path& root) {
         if (overflow && attempts >= 4) SetEvent(reconciled);
         if (!events.empty()) SetEvent(changed);
     }), "transient recovery watcher starts");
-    Check(WaitForSingleObject(reconciled, 3000) == WAIT_OBJECT_0 && watch.Armed(),
+    const bool reconciled_in_time = WaitForSingleObject(reconciled, 3000) == WAIT_OBJECT_0;
+    // The watcher publishes readiness just after delivering the reconciliation.
+    for (int i = 0; i < 100 && reconciled_in_time && !watch.Armed(); ++i) Sleep(5);
+    Check(reconciled_in_time && watch.Armed(),
           "three failures recover to a real pending read and reconcile the missed interval");
     injected_error = ERROR_ACCESS_DENIED;
     HANDLE marker = CreateFileW((root / L"recovered.txt").c_str(), GENERIC_WRITE, 0, nullptr,

@@ -481,9 +481,12 @@ void DirWatch::State::WorkerThread() {
         for (;;) {
             // A held handle lease breaks as soon as the directory is renamed or
             // deleted, so the identity check is only a slow backstop then;
-            // without one (shares, some file systems) it stays at 500 ms.
+            // without one (shares, some file systems) it stays at 500 ms. A read
+            // recovering from a failure is checked at 500 ms either way: that
+            // first check reports the changes missed meanwhile.
+            const bool slow_backstop = lease_pending_ && !failure_notified;
             const DWORD wait = WaitForMultipleObjects(lease_pending_ ? 4 : 3, events, FALSE,
-                                                      lease_pending_ ? 5000 : 500);
+                                                      slow_backstop ? 5000 : 500);
             if (wait == WAIT_OBJECT_0 + 2) {
                 CancelIoEx(directory, &overlapped_);
                 WaitForSingleObject(overlapped_.hEvent, INFINITE);
