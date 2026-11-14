@@ -134,7 +134,7 @@ void ClearTextWidthCache() {
         return static_cast<int>(t * static_cast<float>(max_value) + 0.5f);
     }
     constexpr float kTabMinW = 96.0f;  // crowded tabs stop here and the strip scrolls
-    constexpr float kTabMaxW = 240.0f;
+    constexpr float kTabMaxW = 200.0f;  // the slot every tab starts from
     constexpr float kTabPinnedW = 36.0f; // Chrome pinned tab: icon-only square
     constexpr float kTabPinnedNamedW = 112.0f;
     constexpr float kTabCloseAlwaysW = 140.0f; // narrower inactive tabs show close on hover

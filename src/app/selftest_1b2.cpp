@@ -5643,6 +5643,8 @@ void TestSplitLayout() {
           L"chrome: tab height is title bar minus 8dip padding");
     Check(tab_rc.right - tab_rc.left > 170.0f,
           L"chrome: a single tab can grow past the old 176px cap");
+    Check(std::abs((tab_rc.right - tab_rc.left) - 200.0f) < 0.01f,
+          L"chrome: a lone single-row tab takes the 200 DIP slot");
     {
         ui::WindowViewModel titles_vm;
         for (const wchar_t* title : {L"\x6B64\x7535\x8111", L"guo-v1.2.21-windows-amd64", L"A"}) {
@@ -5748,7 +5750,7 @@ void TestSplitLayout() {
         int count = 4;
         for (D2D1_RECT_F probe{}; count < 30; ++count) {
             chrome.TabItemRect(crowded(count, count - 1), 1400.0f, 0, &probe);
-            if (probe.right - probe.left < 239.0f) break;
+            if (probe.right - probe.left < tab_rc.right - tab_rc.left - 1.0f) break;
         }
         auto vm = crowded(count, count - 1);
         D2D1_RECT_F before{}, frozen{}, released{};
