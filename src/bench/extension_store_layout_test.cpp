@@ -80,9 +80,13 @@ int main() {
             vm.settings_store_view.items[1].action_enabled=false;
             Check(!Has(l.store_items[2].button),"empty action label has no button");
             bool fits=true;
+            // Icon tile beside the name over the publisher; then summary and status; the
+            // footer row has the version on the left and the action on the right.
             for(const auto& c:l.store_items) fits &= c.bounds.left>=20*scale && c.bounds.right<=(width-20)*scale &&
-                c.name.bottom<=c.publisher.top && c.publisher.bottom<=c.summary.top && c.summary.bottom<=c.version.top &&
-                c.version.bottom<=c.status.top && (!Has(c.button) || (c.status.bottom<=c.button.top && c.button.bottom<c.bounds.bottom));
+                c.icon.right<=c.name.left && c.name.bottom<=c.publisher.top && c.publisher.bottom<=c.summary.top &&
+                c.summary.bottom<=c.status.top && c.status.bottom<=c.version.top && c.version.bottom<c.bounds.bottom &&
+                (!Has(c.button) || (c.button.top==c.version.top && c.version.right<=c.button.left &&
+                                    c.button.right<=c.bounds.right && c.button.bottom<c.bounds.bottom));
             Check(fits,"card fields stay contained and vertically separated");
             vm.settings_store_browse=false; vm.settings_store_installed=true;
             vm.settings_store_view={};
@@ -99,9 +103,9 @@ int main() {
             Check(Has(installed_error.store_state) && Has(installed_error.store_notice) && !Has(installed_error.store_empty) && Has(installed_error.store_restart),"installed failure retains diagnostic and pending restart without false empty");
             Check(installed_error.store_restart.top-installed_error.store_notice.bottom>=19.9f*scale,"installed diagnostic and restart surfaces remain separated");
             vm.settings_store_view.installed={
-                {L"Disabled real package",L"org.test.disabled",L"1.0",L"Actual publisher",L"Ready",L"Change is awaiting restart",false,true,true,false,true,true},
-                {L"Enabled real package",L"org.test.enabled",L"2.0",L"Actual publisher",L"Active",L"",true,true,false,true,true,false},
-                {L"Unavailable operations",L"org.test.locked",L"3.0",L"Publisher",L"Locked",L"Cannot change this package",false,false,false,false,false,false}};
+                {L"Disabled real package",L"org.test.disabled",L"1.0",L"Actual publisher",L"Ready",L"Change is awaiting restart","",false,true,true,false,true,true},
+                {L"Enabled real package",L"org.test.enabled",L"2.0",L"Actual publisher",L"Active",L"","",true,true,false,true,true,false},
+                {L"Unavailable operations",L"org.test.locked",L"3.0",L"Publisher",L"Locked",L"Cannot change this package","",false,false,false,false,false,false}};
             auto installed=layout();
             Check(installed.installed_items.size()==3 && installed.store_items.empty() && !Has(installed.store_empty),"installed renders supplied registry rows including disabled records, not runtime or catalog");
             const auto& a=installed.installed_items[0]; const auto& b=installed.installed_items[1]; const auto& c=installed.installed_items[2];

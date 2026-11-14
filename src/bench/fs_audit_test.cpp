@@ -52,9 +52,23 @@ static BOOL WINAPI TestChanges(HANDLE h, LPVOID b, DWORD n, BOOL tree, DWORD fil
 // Isolate enumeration/worker lifetime from unrelated cache, link, sort and
 // logging services. The production WorkerPool and enumeration run unchanged.
 namespace pulse::diagnostics::runtime {
+bool Enabled() noexcept { return false; }
 void Event(const char*, std::initializer_list<Field>, Level) noexcept {}
 }
 namespace pulse::app {
+namespace startup_trace { void Mark(const char*) noexcept {} }
+void RefreshDriveEjectable(const std::wstring&, uint8_t) {}
+std::vector<ThisPcLauncher> CurrentThisPcLaunchers() { return {}; }
+// No device paths reach the worker here (IsDevicePath is false).
+DeviceRegistry& DeviceRegistry::Instance() { std::abort(); }
+std::vector<fs::DeviceInfo> DeviceRegistry::Devices() const { return {}; }
+fs::DeviceError DeviceRegistry::ListFolder(const std::wstring&, std::vector<fs::DirEntry>&,
+    const std::function<bool()>&) { std::abort(); }
+FolderSortMode DefaultFolderSortMode() noexcept { return FolderSortMode::FoldersFirst; }
+ScopedFolderSortMode::ScopedFolderSortMode(FolderSortMode) noexcept {}
+ScopedFolderSortMode::~ScopedFolderSortMode() = default;
+ScopedMediaSortFolder::ScopedMediaSortFolder(const std::wstring&) noexcept {}
+ScopedMediaSortFolder::~ScopedMediaSortFolder() = default;
 std::wstring FindGitRoot(const std::wstring&) { return {}; }
 void ResolveLinksInPlace(const std::wstring&,std::vector<fs::DirEntry>&,const std::function<bool()>&) {}
 ScopedEntryGrouping::ScopedEntryGrouping(int,const std::wstring&) {}
@@ -66,6 +80,8 @@ void SortEntries(std::vector<fs::DirEntry>& entries, ui::SortColumn col, ui::Sor
 }
 }
 namespace pulse::fs {
+bool IsDevicePath(const std::wstring&) { return false; }
+std::wstring FormatDevicePath(const DevicePath&) { return {}; }
 NetSnapshotWriteTicket BeginNetSnapshotWrite(const std::wstring&) {return {};}
 bool SaveNetSnapshot(const NetSnapshotWrite&,const SnapshotPtr&) {return true;}
 bool QueryDirectoryIdentity(const std::wstring&,DirectoryIdentity&) {return false;}

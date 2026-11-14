@@ -106,6 +106,7 @@ int main() {
     pulse::l10n::Initialize(GetModuleHandleW(nullptr), L"en");
     using namespace pulse;
     extensions::UiTree tree;
+    tree.root.id = "root";  // every node has an ID, as the manifest parser requires
     tree.state.push_back({"name", "hello"});
     extensions::UiNode input;
     input.type = extensions::UiNodeType::TextInput;
@@ -885,9 +886,9 @@ int main() {
     frozen_view.Close();
 
     SendMessageW(view.NodeWindow("next"), BM_CLICK, 0, 0);
-    auto changed_revision = second;
-    changed_revision.revision = "snapshot2";
-    completions.back()(changed_revision);
+    auto changed_listing = second;
+    changed_listing.revision = "snapshot2";
+    completions.back()(changed_listing);
     drain();
     Check(view.StateValue("status") == "error" && view.StateValue("error") == "revision_changed",
           "append rejects a different listing revision with an explicit reason");

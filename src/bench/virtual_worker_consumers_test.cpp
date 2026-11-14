@@ -55,6 +55,7 @@ std::wstring FindGitRoot(const std::wstring&) { return {}; }
 void ResolveLinksInPlace(const std::wstring&, std::vector<fs::DirEntry>&, const std::function<bool()>&) {}
 }
 namespace pulse::diagnostics::runtime {
+bool Enabled() noexcept { return false; }
 void Event(const char*, std::initializer_list<Field>, Level) noexcept {}
 }
 namespace {

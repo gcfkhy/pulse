@@ -1104,6 +1104,8 @@ add_executable(pulse_pane_drop_test src/bench/pane_drop_test.cpp src/app/pane_dr
     src/app/tab_group_model.cpp src/app/pane_layout.cpp src/app/column_view_model.cpp src/app/search_query.cpp
     src/app/search_query_rewrite.cpp src/index/index_query.cpp src/index/search_kinds.cpp
     src/index/content_result_store.cpp src/fs/fs_enum.cpp src/ui/view_layout.cpp)
+target_sources(pulse_pane_drop_test PRIVATE
+    src/app/entry_sort.cpp src/app/git_status.cpp src/app/tag_query.cpp)
 target_link_libraries(pulse_pane_drop_test PRIVATE
     user32 shell32 ole32 uuid advapi32 shlwapi netapi32 secur32 pulse_localization pulse_runtime_log pulse_sqlite)
 # Toolbar / chip / item menu: what a drive, a share or a Recycle Bin item can do.
@@ -1112,6 +1114,8 @@ add_executable(pulse_selection_caps_test src/bench/selection_caps_test.cpp
     src/app/pane_layout.cpp src/app/column_view_model.cpp src/app/search_query.cpp
     src/app/search_query_rewrite.cpp src/index/index_query.cpp src/index/search_kinds.cpp
     src/index/content_result_store.cpp src/fs/fs_enum.cpp src/ui/view_layout.cpp)
+target_sources(pulse_selection_caps_test PRIVATE
+    src/app/entry_sort.cpp src/app/git_status.cpp src/app/tag_query.cpp)
 target_link_libraries(pulse_selection_caps_test PRIVATE
     user32 shell32 ole32 uuid advapi32 shlwapi netapi32 secur32 pulse_localization pulse_runtime_log pulse_sqlite)
 # Multi-window M1: AppState's process-wide members alias one AppCore (compile-time checks).
@@ -1852,7 +1856,8 @@ add_executable(pulse_folder_budget_audit_test src/bench/folder_budget_audit_test
 target_link_libraries(pulse_folder_budget_audit_test PRIVATE shlwapi)
 add_executable(pulse_shell_registry_retry_test src/bench/shell_registry_retry_test.cpp
     src/app/shell_window_registry.cpp src/app/shell_window_plan.cpp)
-target_link_libraries(pulse_shell_registry_retry_test PRIVATE ole32 oleaut32 shell32 shlwapi propsys uuid user32)
+target_link_libraries(pulse_shell_registry_retry_test PRIVATE ole32 oleaut32 shell32 shlwapi propsys uuid user32
+    pulse_runtime_log)
 add_executable(pulse_shell_tag_registry_test src/bench/shell_tag_registry_test.cpp src/app/shell_tag_registry.cpp src/app/shell_tag_protocol.cpp)
 target_link_libraries(pulse_shell_tag_registry_test PRIVATE advapi32 shell32 shlwapi ole32)
 add_executable(pulse_shell_tag_com_test
@@ -2276,6 +2281,7 @@ add_executable(pulse_advanced_search_query_test src/bench/advanced_search_query_
     src/ui/dialog_lifecycle.cpp
     src/ui/advanced_search_dialog.cpp src/ui/edit_host.cpp src/ui/fluent_components.cpp
     src/ui/tab_shape.cpp src/ui/typography.cpp src/ui/ui_compositor.cpp src/ui/window_helpers.cpp
+    src/ui/ai_panel_icons.cpp
     src/app/search_query.cpp src/app/search_query_rewrite.cpp
     src/index/index_query.cpp src/index/search_kinds.cpp src/index/filename_pinyin.cpp)
 target_compile_definitions(pulse_advanced_search_query_test PRIVATE PULSE_ADVANCED_QUERY_TEST)
