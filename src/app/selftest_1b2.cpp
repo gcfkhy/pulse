@@ -5643,6 +5643,22 @@ void TestSplitLayout() {
           L"chrome: tab height is title bar minus 8dip padding");
     Check(tab_rc.right - tab_rc.left > 170.0f,
           L"chrome: a single tab can grow past the old 176px cap");
+    {
+        ui::WindowViewModel titles_vm;
+        for (const wchar_t* title : {L"\x6B64\x7535\x8111", L"guo-v1.2.21-windows-amd64", L"A"}) {
+            ui::TabView t;
+            t.title = title;
+            titles_vm.tabs.push_back(t);
+        }
+        titles_vm.tabs.back().active = true;
+        D2D1_RECT_F short_rc{}, long_rc{}, active_rc{};
+        Check(chrome.TabItemRect(titles_vm, 1400.0f, 0, &short_rc) &&
+              chrome.TabItemRect(titles_vm, 1400.0f, 1, &long_rc) &&
+              chrome.TabItemRect(titles_vm, 1400.0f, 2, &active_rc) &&
+              std::abs((short_rc.right - short_rc.left) - (long_rc.right - long_rc.left)) < 0.01f &&
+              std::abs((active_rc.right - active_rc.left) - (long_rc.right - long_rc.left)) < 0.01f,
+              L"chrome: single-row tabs share one width whatever their titles");
+    }
 
     ui::WindowViewModel pinned_vm;
     ui::TabView pinned_tab;

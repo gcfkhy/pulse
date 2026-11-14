@@ -3358,18 +3358,35 @@ MainRenderer::TabStripMetrics MainRenderer::ComputeTabStrip(
         std::vector<float> widths(vm.tabs.size());
         std::vector<size_t> visible;
         float total = 0;
+        size_t unpinned = 0;
         for (size_t i = 0; i < vm.tabs.size(); ++i) {
             const auto& tab = vm.tabs[i];
             if (tab.hidden) continue;
             visible.push_back(i);
             if (tab.active) m.active = static_cast<int>(i);
+            // One slot for every tab whatever its title: a crowded strip
+            // shrinks them together, then scrolls. Pinned tabs keep theirs.
             widths[i] = tab.pinned ? (vm.show_pinned_tab_names ? kTabPinnedNamedW : 36.0f) * scale_ :
-                ((60.0f + (tab.marker_rgb ? 12.0f : 0.0f)) * scale_ +
-                    MeasureTextWidth(compositor_->DwriteFactory(), compositor_->TabFormat(), tab.title));
+                kTabMaxW * scale_;
+            if (!tab.pinned) ++unpinned;
             total += widths[i];
         }
         const float gaps = visible.empty() ? 0 : static_cast<float>(visible.size()-1)*gap;
-        if (total + gaps > available && !visible.empty()) {
+        bool frozen = false;
+        if (tab_freeze_w_ > 0.0f && unpinned > 0 && unpinned <= tab_freeze_count_) {
+            // Recently closed: keep the widths the pointer was aiming at.
+            auto frozen_width = [&](size_t i) {
+                return vm.tabs[i].pinned ? widths[i] :
+                    static_cast<int>(i) == m.active ? tab_freeze_active_w_ : tab_freeze_w_;
+            };
+            float frozen_total = gaps;
+            for (const auto i : visible) frozen_total += frozen_width(i);
+            if (frozen_total <= available + 0.5f) {
+                for (const auto i : visible) widths[i] = frozen_width(i);
+                frozen = true;
+            }
+        }
+        if (!frozen && total + gaps > available && !visible.empty()) {
             // Preserve readable labels; scroll instead of collapsing into icons.
             if (!FitTabWidths(widths, visible, available - gaps, kTabMinW * scale_)) {
                 for (const auto i : visible) {
@@ -3398,8 +3415,17 @@ MainRenderer::TabStripMetrics MainRenderer::ComputeTabStrip(
             x += widths[i]+gap;
         }
         m.new_x = m.end_x = x;
-        m.w = 104.0f*scale_; m.pitch = m.w+gap;
-        m.active_w = m.active >= 0 ? widths[static_cast<size_t>(m.active)] : m.w;
+        // The unpinned tabs' shared width (what FreezeTabWidths keeps); no
+        // unpinned tab leaves nothing to freeze.
+        m.w = kTabMaxW * scale_;
+        for (const auto i : visible) {
+            if (vm.tabs[i].pinned) continue;
+            m.w = widths[i];
+            if (static_cast<int>(i) != m.active) break;
+        }
+        m.pitch = m.w+gap;
+        const bool active_unpinned = m.active >= 0 && !vm.tabs[static_cast<size_t>(m.active)].pinned;
+        m.active_w = active_unpinned ? widths[static_cast<size_t>(m.active)] : m.w;
         if (m.overflow) {
             m.max_scroll = std::max(0.0f, x - gap - m.view_right);
             if (m.active >= 0 && m.active != tab_scroll_active_) {
