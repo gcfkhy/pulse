@@ -2315,11 +2315,6 @@ ui::WindowViewModel BuildVm(AppState& s, bool probe_details) {
     // Vertical tabs join the sidebar before its scroll range is measured.
     ApplyVerticalTabs(s, vm);
     FillFavoritesBar(s, vm);
-    // Clamp only after the sidebar is populated, using the same model as draw/hit-test.
-    s.sidebarScroll = std::clamp(s.sidebarScroll, 0.0f, s.renderer.SidebarMaxScroll(
-        vm, static_cast<float>(s.compositor.Width()),
-        static_cast<float>(s.compositor.Height())));
-    vm.sidebar_scroll = s.sidebarScroll;
     // Right details panel: selection info + size walk + tag chips.
     vm.details_visible = s.showDetailsPanel;
     vm.layout_preset = static_cast<int>(LayoutOf(s));
@@ -2553,6 +2548,12 @@ ui::WindowViewModel BuildVm(AppState& s, bool probe_details) {
     // Tab wrapping changes the toolbar origin; settle it before pane hit geometry.
     RECT tab_client{};
     if (GetClientRect(s.hwnd, &tab_client)) s.renderer.UpdateTabLayout(vm, static_cast<float>(tab_client.right));
+    // Clamp once the sidebar is populated and the tab rows have set the title
+    // bar (and so the sidebar) height, using the same model as draw/hit-test.
+    s.sidebarScroll = std::clamp(s.sidebarScroll, 0.0f, s.renderer.SidebarMaxScroll(
+        vm, static_cast<float>(s.compositor.Width()),
+        static_cast<float>(s.compositor.Height())));
+    vm.sidebar_scroll = s.sidebarScroll;
     FillPaneSlots(s, vm);
     {
         // File-list scrollbars: the hovered pane's (or the dragged, focused one's) expands.
