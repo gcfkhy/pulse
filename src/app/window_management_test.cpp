@@ -546,7 +546,12 @@ void CheckItemGrip(AppState& s, Report& log) {
     const auto live = BuildVm(s);
     for (const auto& slot : live.pane_slots) if (slot.focused) {
         const auto cell=s.renderer.ItemRectInPane(slot.pane,slot.rect,slot.pane.ViewIndex(0));
-        const int x=static_cast<int>(cell.left+(cell.right-cell.left)*0.65f);
+        // Blank row space by construction: the Name column's right end, far past
+        // the short file name. A fraction of the row width is not blank: the
+        // fixture's a.png makes this a media folder, whose empty cells draw a
+        // dash, and 65% of the row landed on one.
+        const auto columns=s.renderer.DetailsColumns(s.renderer.PaneBodyBounds(slot.pane,slot.rect),slot.pane);
+        const int x=static_cast<int>(columns.left+columns.widths[0]-12*s.scale);
         const int y=static_cast<int>((cell.top+cell.bottom)*0.5f);
         HandleLButtonDown(&s,s.hwnd,WM_LBUTTONDOWN,MK_LBUTTON,MAKELPARAM(x,y));
         log.Check(s.listSelection.PendingBand() && !s.listSelection.PendingFile(),
