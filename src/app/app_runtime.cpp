@@ -1997,6 +1997,8 @@ ui::WindowViewModel BuildVm(AppState& s, bool probe_details) {
     vm.settings_text_render = s.appPrefs.text_render;
     vm.settings_ui_font_scale = s.appPrefs.ui_font_scale;
     std::copy_n(s.settings.custom_accent(), 3, vm.settings_accent_hsl);
+    vm.settings_surface_tone = s.appPrefs.surface_tone;
+    vm.settings_surface_color = ui::SurfaceToneBase(s.appPrefs.surface_tone, s.appPrefs.surface_rgb);
     vm.sidebar_scroll = s.sidebarScroll;
     vm.sidebar_scrollbar_opacity = s.sidebarScrollbarFade.Opacity();
     vm.sidebar_scrollbar_expand = s.sidebarScrollbarFade.Expand();

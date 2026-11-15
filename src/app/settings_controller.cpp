@@ -1,4 +1,5 @@
 #include "../ui/window_material.h"
+#include "../ui/FluentTokens.h"
 #include "../common/windows_compat.h"
 #include "../common/localization.h"
 #include "settings_controller.h"
@@ -805,6 +806,24 @@ void SettingsController::AccentChoice(bool system_choice, uint32_t rgb) {
     prefs_->accent_rgb = std::move(next);
     prefs_->accent_follow_system = system_choice;
     if (!system_choice) SyncCustomAccent(rgb);
+    SaveAndApply(SettingsEffect::Accent);
+}
+
+// Colour changes repaint every window through the accent effect; the theme
+// reads the tone each paint.
+void SettingsController::SurfaceTone(int tone) {
+    if (!prefs_ || tone < ui::kSurfaceToneDefault || tone >= ui::kSurfaceToneCount ||
+        prefs_->surface_tone == tone) return;
+    prefs_->surface_tone = tone;
+    SaveAndApply(SettingsEffect::Accent);
+}
+
+void SettingsController::SurfaceCustom(uint32_t rgb) {
+    if (!prefs_) return;
+    rgb &= 0xFFFFFFu;
+    if (prefs_->surface_tone == ui::kSurfaceToneCustom && prefs_->surface_rgb == rgb) return;
+    prefs_->surface_tone = ui::kSurfaceToneCustom;
+    prefs_->surface_rgb = rgb;
     SaveAndApply(SettingsEffect::Accent);
 }
 

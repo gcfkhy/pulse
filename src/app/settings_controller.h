@@ -251,6 +251,9 @@ public:
     bool ui_bound() const noexcept { return prefs_ != nullptr; }
     void WindowEffect(std::wstring_view effect_id);
     void AccentChoice(bool system_choice, uint32_t rgb);
+    // 界面底色: a preset (ui::kSurfaceTone*), or a picked colour (0xRRGGBB).
+    void SurfaceTone(int tone);
+    void SurfaceCustom(uint32_t rgb);
     void RowHeight(int index);
     void FolderSort(int index);
     void MtimeStyle(int index);     // 修改时间提示: off, dot, bar, text

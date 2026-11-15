@@ -5004,4 +5004,9 @@ BEGIN
     IDS_UPDATE_VIEW_RELEASE "檢視發布頁"
     IDS_UPDATE_CLICK_TO_VIEW "點選開啟發布頁檢視新版本，Pulse 不會自動下載或安裝。"
     IDS_UPDATE_DESC_NOTIFY "自動檢查新版本，有更新時提示你，不會自動安裝"
+    IDS_SETTINGS_SURFACE_TONE "介面底色"
+    IDS_SETTINGS_SURFACE_TONE_DESC "標題列、側欄、工具列和狀態列的底色，僅淺色主題生效"
+    IDS_SURFACE_TONE_DEFAULT "預設"
+    IDS_SURFACE_TONE_NEUTRAL "中性灰"
+    IDS_SURFACE_TONE_CUSTOM "自訂…"
 END

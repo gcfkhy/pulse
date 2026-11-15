@@ -5016,6 +5016,11 @@ enum class StringId : UINT {
     UpdateViewRelease = IDS_UPDATE_VIEW_RELEASE,
     UpdateClickToView = IDS_UPDATE_CLICK_TO_VIEW,
     UpdateDescNotify = IDS_UPDATE_DESC_NOTIFY,
+    SettingsSurfaceTone = IDS_SETTINGS_SURFACE_TONE,
+    SettingsSurfaceToneDesc = IDS_SETTINGS_SURFACE_TONE_DESC,
+    SurfaceToneDefault = IDS_SURFACE_TONE_DEFAULT,
+    SurfaceToneNeutral = IDS_SURFACE_TONE_NEUTRAL,
+    SurfaceToneCustom = IDS_SURFACE_TONE_CUSTOM,
 };
 
 bool IsLanguageId(std::wstring_view id) noexcept;

@@ -318,7 +318,28 @@ void MainRenderer::DrawSettingsCore(const WindowViewModel& vm, const D2D1_RECT_F
                     compositor_->TextFormat(),theme.text,fluent::HorizontalAlignment::Right);
             }
         }
-        
+        {
+            // 界面底色: presets and a picked colour for the light chrome; a chip after
+            // the title shows the colour the title bar takes.
+            const I surface_labels[]={I::SurfaceToneDefault,I::SurfaceToneNeutral,I::SurfaceToneCustom};
+            const int surface_values[]={kSurfaceToneDefault,kSurfaceToneNeutral,kSurfaceToneCustom};
+            segmented(lay.surface_card,lay.surface_row,surface_labels,surface_values,vm.settings_surface_tone,
+                H::SettingsSurfaceTone,I::SettingsSurfaceTone,I::SettingsSurfaceToneDesc,3,L"\xE771");
+            const auto& card=lay.surface_card;
+            if(card.bottom>card.top) {
+                const float title_w=typography::MeasureLine(compositor_,compositor_->TextFormat(),l10n::Get(I::SettingsSurfaceTone));
+                const float chip_x=card.left+54*scale_+title_w+12*scale_;
+                const float limit=lay.surface_row[0].left<card.left+100*scale_ ? card.right-16*scale_ : lay.surface_row[0].left-12*scale_;
+                if(chip_x+28*scale_<limit) {
+                    const auto chip=D2D1::RectF(chip_x,card.top+13*scale_,chip_x+28*scale_,card.top+31*scale_);
+                    MakeBrush(dc,vm.settings_surface_color,brAccent_);
+                    dc->FillRoundedRectangle(D2D1::RoundedRect(chip,5*scale_,5*scale_),brAccent_.get());
+                    MakeBrush(dc,WithAlpha(theme.text,0.18f),brStrokeCard_);
+                    dc->DrawRoundedRectangle(D2D1::RoundedRect(chip,5*scale_,5*scale_),brStrokeCard_.get(),1);
+                }
+            }
+        }
+
         const I effects[]={I::EffectNone,I::EffectAcrylic,I::EffectMica,I::EffectMicaAlt};
         const I languages[]={I::LanguageSystem,I::LanguageZhCN,I::LanguageZhTW,I::LanguageEnUS};
         const auto dropdown=[&](D2D1_RECT_F r,D2D1_RECT_F c,I title,I desc,const std::wstring& value,int id) {

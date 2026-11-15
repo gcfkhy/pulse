@@ -5024,5 +5024,10 @@
 #define IDS_UPDATE_VIEW_RELEASE                                                          6451
 #define IDS_UPDATE_CLICK_TO_VIEW                                                         6452
 #define IDS_UPDATE_DESC_NOTIFY                                                           6453
+#define IDS_SETTINGS_SURFACE_TONE                                                        6454
+#define IDS_SETTINGS_SURFACE_TONE_DESC                                                   6455
+#define IDS_SURFACE_TONE_DEFAULT                                                         6456
+#define IDS_SURFACE_TONE_NEUTRAL                                                         6457
+#define IDS_SURFACE_TONE_CUSTOM                                                          6458
 
 #endif  // PULSE_STRING_IDS_H

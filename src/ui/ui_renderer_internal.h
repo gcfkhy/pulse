@@ -2201,6 +2201,7 @@ struct SettingsLayout {
     AssistantPageLayout assistant;   // kSettingsPageAssistant, see LayoutSettingsAssistant
     D2D1_RECT_F accent_card{};
     D2D1_RECT_F accent_picker{};
+    D2D1_RECT_F surface_card{}, surface_row[3]{};  // 界面底色: 默认 / 中性灰 / 自定义…
     D2D1_RECT_F effect_card{};
     D2D1_RECT_F effect_row[kWindowEffectCount]{};
     D2D1_RECT_F menu_acrylic_row{};

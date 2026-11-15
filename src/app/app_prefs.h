@@ -240,6 +240,10 @@ struct AppPrefs {
     // Empty = theme default, or Windows when explicitly selected.
     std::wstring accent_rgb;
     bool accent_follow_system = false;
+    // 界面底色 of the light theme's chrome (ui::ApplySurfaceTone): 0 the default
+    // sage grey, 1 neutral grey, 2 surface_rgb (0xRRGGBB, picked by the user).
+    int surface_tone = 0;
+    uint32_t surface_rgb = 0xF1F3EE;
     // Tag colors the user added via the custom color dialog (0xRRGGBB),
     // appended after the seven Finder defaults in the swatch strip.
     std::vector<uint32_t> custom_tag_colors;

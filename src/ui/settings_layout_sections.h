@@ -156,6 +156,8 @@ float LayoutSettingsGeneral(SettingsLayout& l, const WindowViewModel& vm, float 
                 }
             }
         }
+        l.surface_card=row(seg_h);
+        fitted_segments(l.surface_card,l.surface_row,{I::SurfaceToneDefault,I::SurfaceToneNeutral,I::SurfaceToneCustom});
         // The tiles reuse SettingsEffect's existing hit regions and controller.
         const int effect_columns = right-left < 440*scale ? 2 : 4;
         const int effect_rows = kWindowEffectCount/effect_columns;

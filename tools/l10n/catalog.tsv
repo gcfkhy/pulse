@@ -5032,3 +5032,8 @@ SortHintDuration	IDS_SORT_HINT_DURATION	6450	按播放时长	By playing time
 UpdateViewRelease	IDS_UPDATE_VIEW_RELEASE	6451	查看发布页	View release	檢視發布頁
 UpdateClickToView	IDS_UPDATE_CLICK_TO_VIEW	6452	点击打开发布页查看新版本，Pulse 不会自动下载或安装。	Click to open the release page. Pulse won't download or install it.	點選開啟發布頁檢視新版本，Pulse 不會自動下載或安裝。
 UpdateDescNotify	IDS_UPDATE_DESC_NOTIFY	6453	自动检查新版本，有更新时提示你，不会自动安装	Checks for new versions and tells you; never installs them	自動檢查新版本，有更新時提示你，不會自動安裝
+SettingsSurfaceTone	IDS_SETTINGS_SURFACE_TONE	6454	界面底色	Interface base color	介面底色
+SettingsSurfaceToneDesc	IDS_SETTINGS_SURFACE_TONE_DESC	6455	标题栏、侧栏、工具栏和状态栏的底色，仅浅色主题生效	Title bar, sidebar, toolbar and status bar background; light theme only	標題列、側欄、工具列和狀態列的底色，僅淺色主題生效
+SurfaceToneDefault	IDS_SURFACE_TONE_DEFAULT	6456	默认	Default	預設
+SurfaceToneNeutral	IDS_SURFACE_TONE_NEUTRAL	6457	中性灰	Neutral gray	中性灰
+SurfaceToneCustom	IDS_SURFACE_TONE_CUSTOM	6458	自定义…	Custom…	自訂…

@@ -847,6 +847,65 @@ bool TestSelectionTokens() {
     return passed;
 }
 
+// 界面底色 (Settings > 外观): the light theme's chrome from one base colour.
+bool TestSurfaceTone() {
+    using namespace pulse::ui;
+    auto luma = [](D2D1_COLOR_F c) { return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b; };
+    auto same = [](D2D1_COLOR_F a, D2D1_COLOR_F b) {
+        return std::fabs(a.r - b.r) < 1e-4f && std::fabs(a.g - b.g) < 1e-4f &&
+               std::fabs(a.b - b.b) < 1e-4f && std::fabs(a.a - b.a) < 1e-4f;
+    };
+    auto grey = [](D2D1_COLOR_F c) { return std::fabs(c.r - c.g) < 1e-4f && std::fabs(c.g - c.b) < 1e-4f; };
+    const auto accent = HexColor(0x0078D4);
+    const Theme light = MakeTheme(false, accent), dark = MakeTheme(true, accent);
+    Theme kept = light;
+    ApplySurfaceTone(kept, false, kSurfaceToneDefault, 0x335577);
+    Theme dark_kept = dark;
+    ApplySurfaceTone(dark_kept, true, kSurfaceToneCustom, 0x335577);
+    bool passed = Report("surface tone: the default keeps the light theme as it is",
+        same(kept.surface_title, light.surface_title) && same(kept.surface_sheet, light.surface_sheet) &&
+        same(kept.bg, light.bg) && same(kept.stroke_card, light.stroke_card) && same(kept.fill_hover, light.fill_hover));
+    passed &= Report("surface tone: the dark theme keeps its own surfaces",
+        same(dark_kept.surface_title, dark.surface_title) && same(dark_kept.surface_sheet, dark.surface_sheet) &&
+        same(dark_kept.bg, dark.bg) && same(dark_kept.stroke_card, dark.stroke_card));
+    Theme neutral = light;
+    ApplySurfaceTone(neutral, false, kSurfaceToneNeutral, 0);
+    passed &= Report("surface tone: neutral grey drops the green cast from every chrome surface",
+        grey(neutral.surface_title) && grey(neutral.surface_sheet) && grey(neutral.bg) &&
+        grey(neutral.header_bg) && grey(neutral.stroke_card) && grey(neutral.stroke_divider) &&
+        grey(neutral.fill_hover) && grey(neutral.scrollbar_thumb));
+    passed &= Report("surface tone: the sheet is lighter and dividers darker than the title strip",
+        luma(neutral.surface_sheet) > luma(neutral.surface_title) &&
+        luma(neutral.stroke_card) < luma(neutral.surface_title) &&
+        same(neutral.tab_bg, neutral.surface_title) && same(neutral.tab_active_bg, neutral.surface_sheet) &&
+        same(neutral.status_bg, neutral.surface_sheet));
+    Theme warm = light;
+    ApplySurfaceTone(warm, false, kSurfaceToneCustom, 0xF4ECE0);
+    passed &= Report("surface tone: a light custom colour is the title strip as picked",
+        same(warm.surface_title, HexColor(0xF4ECE0)));
+    Theme deep = light;
+    ApplySurfaceTone(deep, false, kSurfaceToneCustom, 0x335577);
+    passed &= Report("surface tone: a dark custom colour is lifted so dark text stays readable",
+        luma(deep.surface_title) >= 0.80f && deep.surface_title.b > deep.surface_title.g &&
+        deep.surface_title.g > deep.surface_title.r);
+    passed &= Report("surface tone: cards, inputs, text and the accent stay as they were",
+        same(deep.surface_card, light.surface_card) && same(deep.address_bg, light.address_bg) &&
+        same(deep.text, light.text) && same(deep.accent, light.accent));
+
+    pulse::app::AppPrefs prefs;
+    prefs.persist = false;
+    prefs.surface_tone = kSurfaceToneCustom;
+    prefs.surface_rgb = 0x335577;
+    pulse::app::AppPrefs back, older, bad;
+    back.persist = older.persist = bad.persist = false;
+    passed &= Report("surface tone: saved in app.json, older files get the default, bad values are dropped",
+        back.FromJson(prefs.ToJson()) && back.surface_tone == kSurfaceToneCustom && back.surface_rgb == 0x335577 &&
+        older.FromJson(L"{}") && older.surface_tone == kSurfaceToneDefault &&
+        bad.FromJson(L"{\"surface_tone\":7,\"surface_rgb\":-5}") && bad.surface_tone == kSurfaceToneDefault &&
+        bad.surface_rgb == kSurfaceDefaultRgb);
+    return passed;
+}
+
 } // namespace
 
 // This PC: the view mode is remembered on its own and drives keep letter order.
@@ -2411,6 +2470,18 @@ int wmain(int argc, wchar_t** argv) {
     passed &= Report("settings no-material choice remains available on unsupported systems",
         prefs.window_effect == L"none" && applied_effects == effects_before_none + 1 &&
         HasEffect(last_effect, SettingsEffect::WindowMaterial));
+    last_effect = SettingsEffect::None;
+    settings_ui.SurfaceTone(pulse::ui::kSurfaceToneNeutral);
+    passed &= Report("settings surface tone selects a preset and repaints",
+        prefs.surface_tone == pulse::ui::kSurfaceToneNeutral && HasEffect(last_effect, SettingsEffect::Accent));
+    settings_ui.SurfaceCustom(0x335577);
+    passed &= Report("settings surface tone keeps a picked custom colour",
+        prefs.surface_tone == pulse::ui::kSurfaceToneCustom && prefs.surface_rgb == 0x335577 &&
+        HasEffect(last_effect, SettingsEffect::Accent));
+    settings_ui.SurfaceTone(9);
+    passed &= Report("settings surface tone ignores unknown choices",
+        prefs.surface_tone == pulse::ui::kSurfaceToneCustom);
+    settings_ui.SurfaceTone(pulse::ui::kSurfaceToneDefault);
     settings_ui.NotifyIcon(2);
     passed &= Report("settings tray icon choice requests tray synchronization",
         prefs.notify_icon_mode == 2 && HasEffect(last_effect, SettingsEffect::TrayVisibility));
@@ -3074,6 +3145,7 @@ int wmain(int argc, wchar_t** argv) {
     passed &= TestAddressBarCommands();
     passed &= TestAddressShortcuts();
     passed &= TestSelectionTokens();
+    passed &= TestSurfaceTone();
     passed &= TestShellRegistryDebounce();
     passed &= TestDefaultFileManager();
     passed &= TestShellWindowPlan();

@@ -1436,6 +1436,7 @@ float MainRenderer::SettingsDestinationOffset(const WindowViewModel& vm, int set
     switch(static_cast<I>(setting_id)) {
     case I::SettingsTheme: target=l.theme_row;break;
     case I::SettingsThemeColor: target=l.accent_card;break;
+    case I::SettingsSurfaceTone: target=l.surface_card;break;
     case I::SettingsWindowEffect: target=l.effect_card;break;
     case I::MenuAcrylic: target=l.menu_acrylic_row;break;
     case I::SettingsLanguage: target=l.language_card;break;

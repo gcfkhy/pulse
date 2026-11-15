@@ -1227,6 +1227,9 @@ struct WindowViewModel {
     int settings_ui_font_scale = 100; // interface font size: 90 / 100 / 112 / 125
     // 主题色 › 自定义: hue 0..360, saturation 0..100, lightness 0..100 (settings_expanded bit 5 opens it).
     int settings_accent_hsl[3] = {220, 60, 50};
+    // 界面底色: the chosen tone and the light chrome colour it gives (a custom pick lifted).
+    int settings_surface_tone = 0;
+    D2D1_COLOR_F settings_surface_color{0.945f, 0.953f, 0.933f, 1.0f};
     bool settings_open_folders = false;
     bool settings_win_e = false;
     bool settings_this_pc = false;
@@ -1554,6 +1557,7 @@ struct HitTestResult {
         FavoritesBarDock,      // 收藏栏's right end: put the list back in the sidebar
         SettingsAssistant,     // Settings > AI 助手: index = AssistantHit
         ColumnStripNav,        // column view arrow button: index = kColumnStripNavLeft / Right
+        SettingsSurfaceTone,   // Settings > 外观 › 界面底色: index = ui::kSurfaceTone*
     } region = None;
     SidebarAddAction sidebar_action = SidebarAddAction::None;
     int index = -1;          // tab/row/sidebar item.

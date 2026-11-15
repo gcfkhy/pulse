@@ -165,6 +165,8 @@ void AppPrefs::ResetToDefaults() {
     toolbar_app_breaks.clear();
     accent_rgb.clear();
     accent_follow_system = false;
+    surface_tone = 0;
+    surface_rgb = 0xF1F3EE;
     custom_tag_colors.clear();
     recent_tags.clear();
     extension_publish_trusted.clear();
@@ -455,6 +457,14 @@ std::wstring AppPrefs::ToJson() const {
         out += escaped_accent;
     }
     out += L"\",\n  \"accent_follow_system\":" + std::to_wstring(accent_follow_system);
+    out += L",\n  \"surface_tone\":" + std::to_wstring(surface_tone);
+    {
+        wchar_t surface_hex[8]{};
+        swprintf_s(surface_hex, L"%06X", surface_rgb & 0xFFFFFFu);
+        out += L",\n  \"surface_rgb\":\"";
+        out += surface_hex;
+        out += L"\"";
+    }
     out += L",\n  \"custom_tag_colors\":[";
     for (size_t i = 0; i < custom_tag_colors.size(); ++i) {
         wchar_t hex[8]{};
@@ -745,6 +755,11 @@ bool AppPrefs::FromJson(const std::wstring& json) {
     } else {
         accent_rgb.clear();
     }
+    surface_tone = pulse::json::ExtractInt(json, L"surface_tone", 0);
+    if (surface_tone < 0 || surface_tone > 2) surface_tone = 0;
+    uint32_t surface_parsed = 0;
+    const std::wstring surface_text = pulse::json::ExtractString(json, L"surface_rgb");
+    surface_rgb = ParseAccentRgb(surface_text, surface_parsed) ? surface_parsed : 0xF1F3EEu;
     custom_tag_colors.clear();
     for (const std::wstring& entry :
          pulse::json::ExtractStringArray(json, L"custom_tag_colors")) {

@@ -22,6 +22,7 @@
 #include "ai_assistant_settings.h"
 #include "update_transport.h"
 #include "../ui/ui_renderer.h"
+#include "../ui/color_picker.h"
 #include <shellapi.h>
 #include <shlobj.h>
 #include <algorithm>
@@ -64,7 +65,7 @@ int Dropdown(AppState& s, int index, std::vector<ui::FluentMenuItem> items) {
 struct SettingDestination { I title;int page;unsigned expanded; };
 constexpr SettingDestination destinations[]={
     // 0 外观
-    {I::SettingsTheme,0,0},{I::SettingsThemeColor,0,0},{I::AccentCustomTitle,0,32},{I::SettingsWindowEffect,0,0},{I::SettingsFrameLook,0,0},{I::MenuAcrylic,0,0},
+    {I::SettingsTheme,0,0},{I::SettingsThemeColor,0,0},{I::AccentCustomTitle,0,32},{I::SettingsSurfaceTone,0,0},{I::SettingsWindowEffect,0,0},{I::SettingsFrameLook,0,0},{I::MenuAcrylic,0,0},
     {I::SettingsWallpaper,0,0},{I::SettingsWallpaperLook,0,0},{I::SettingsWallpaperBlur,0,0},
     {I::SettingsLanguage,0,0},{I::SettingsTextRender,0,0},{I::SettingsUiFontSize,0,0},
     {I::NativeExtensionSettingsTitle,ui::kSettingsPageNativeExtensions,0},
@@ -115,6 +116,7 @@ std::vector<ui::FluentMenuItem> FilterSettings(const std::wstring& query) {
         switch (destinations[i].title) {
         case I::SettingsTheme: haystack += L" " + l10n::Get(I::SettingsThemeDesc); break;
         case I::SettingsThemeColor: haystack += L" " + l10n::Get(I::SettingsThemeColorDesc); break;
+        case I::SettingsSurfaceTone: haystack += L" " + l10n::Get(I::SettingsSurfaceToneDesc); break;
         case I::SettingsWindowEffect: haystack += L" " + l10n::Get(I::SettingsWindowEffectDesc); break;
         case I::SettingsFrameLook: haystack += L" " + l10n::Get(I::SettingsFrameLookDesc); break;
         case I::MenuAcrylic: haystack += L" " + l10n::Get(I::MenuAcrylicDesc); break;
@@ -498,6 +500,20 @@ bool HandleSettingsControl(AppState& s,const H& hit) {
     }
     case H::SettingsDialogManagement: DialogManagementAction(s,hit.index);break;
     case H::SettingsIntegration: s.settings.IntegrationAction(hit.index);break;
+    case H::SettingsSurfaceTone:
+        if (hit.index == ui::kSurfaceToneCustom) {
+            // 自定义…: the picker starts from the colour in use; cancelling keeps the tone.
+            POINT at{};
+            GetCursorPos(&at);
+            uint32_t picked = s.appPrefs.surface_tone == ui::kSurfaceToneCustom ? s.appPrefs.surface_rgb :
+                s.appPrefs.surface_tone == ui::kSurfaceToneNeutral ? ui::kSurfaceNeutralRgb : ui::kSurfaceDefaultRgb;
+            if (ui::ColorPickerPopup::Pick(s.hwnd, &s.compositor, s.menu.get(), s.scale, at, picked,
+                                           s.darkMode, picked))
+                s.settings.SurfaceCustom(picked);
+        } else {
+            s.settings.SurfaceTone(hit.index);
+        }
+        break;
     case H::SettingsAccentCustom: {
         // 主题色 › 自定义: start the sliders from the colour in use.
         s.settingsExpanded^=32u;

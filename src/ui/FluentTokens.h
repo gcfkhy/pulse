@@ -392,6 +392,57 @@ inline Theme MakeTheme(bool dark, D2D1_COLOR_F accent) noexcept {
     return t;
 }
 
+// 界面底色 (Settings > 外观): the base of the light theme's chrome. The dark
+// theme keeps its own surfaces.
+inline constexpr int kSurfaceToneDefault = 0;  // the sage grey MakeTheme draws
+inline constexpr int kSurfaceToneNeutral = 1;
+inline constexpr int kSurfaceToneCustom = 2;
+inline constexpr int kSurfaceToneCount = 3;
+inline constexpr uint32_t kSurfaceDefaultRgb = 0xF1F3EE;  // MakeTheme's light surface_title
+inline constexpr uint32_t kSurfaceNeutralRgb = 0xF0F0F0;
+// The chrome carries dark text: a darker pick is lifted toward white to this
+// luma (Rec. 709 weights on the sRGB values), keeping its hue.
+inline constexpr float kSurfaceMinLuma = 0.82f;
+
+// The title strip's colour for a tone (a custom pick already lifted).
+inline D2D1_COLOR_F SurfaceToneBase(int tone, uint32_t custom_rgb) noexcept {
+    if (tone == kSurfaceToneNeutral) return HexColor(kSurfaceNeutralRgb);
+    if (tone != kSurfaceToneCustom) return HexColor(kSurfaceDefaultRgb);
+    D2D1_COLOR_F base = HexColor(custom_rgb & 0xFFFFFFu);
+    const float luma = 0.2126f * base.r + 0.7152f * base.g + 0.0722f * base.b;
+    if (luma < kSurfaceMinLuma)
+        base = MixColor(base, HexColor(0xFFFFFF), (kSurfaceMinLuma - luma) / (1.0f - luma));
+    return base;
+}
+
+// Rebuilds the light chrome from the tone's base: the title strip takes it as
+// is; the sheet under it (toolbar, sidebar, status bar, details) and the
+// window canvas are lighter mixes; dividers, hovers and scrollbars darker
+// ones of the same hue. Cards, inputs, text and the accent are untouched.
+inline void ApplySurfaceTone(Theme& t, bool dark, int tone, uint32_t custom_rgb) noexcept {
+    if (dark || tone == kSurfaceToneDefault || tone < 0 || tone >= kSurfaceToneCount) return;
+    const D2D1_COLOR_F base = SurfaceToneBase(tone, custom_rgb);
+    const D2D1_COLOR_F white = HexColor(0xFFFFFF), black = HexColor(0x000000);
+    t.surface_title = base;
+    t.surface_sheet = MixColor(base, white, 0.40f);
+    t.bg = MixColor(base, white, 0.14f);
+    t.header_bg = t.surface_sheet;
+    t.stroke_card = MixColor(base, black, 0.09f);
+    t.stroke_divider = MixColor(base, black, 0.055f);
+    t.header_sep = t.stroke_divider;
+    t.stroke_input_bottom = WithAlpha(MixColor(base, black, 0.30f), 0.65f);
+    const D2D1_COLOR_F shade = MixColor(base, black, 0.55f);
+    t.fill_hover = WithAlpha(shade, 0.055f);
+    t.fill_pressed = WithAlpha(shade, 0.09f);
+    t.hover_bg = t.fill_hover;
+    t.fill_selected_inactive = WithAlpha(MixColor(base, black, 0.45f), 0.075f);
+    t.fill_input_disabled = WithAlpha(MixColor(base, white, 0.20f), 0.65f);
+    t.scrollbar_thumb = WithAlpha(MixColor(base, black, 0.35f), 0.48f);
+    t.tab_bg = t.surface_title;
+    t.tab_active_bg = t.surface_sheet;
+    t.status_bg = t.surface_sheet;
+}
+
 inline Theme MakeHighContrastTheme() noexcept {
     Theme t{};
     t.accent = HexColor(0x0078D4);

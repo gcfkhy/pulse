@@ -406,6 +406,11 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
                     r.region = HitTestResult::SettingsAccentCustom; r.index = 0; return r;
                 }
                 for (int i = 0; i < 3; ++i) {
+                    if (ContainsPt(lay.surface_row[i], x, y)) {
+                        r.region = HitTestResult::SettingsSurfaceTone; r.index = i; return r;
+                    }
+                }
+                for (int i = 0; i < 3; ++i) {
                     const auto* cells = lay.accent_slider_cells[i];
                     if (lay.accent_slider_row[i].bottom <= lay.accent_slider_row[i].top) continue;
                     const auto zone = D2D1::RectF(cells[0].left - 12.0f * scale_, cells[0].top - 8.0f * scale_,

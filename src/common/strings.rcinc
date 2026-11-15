@@ -5006,6 +5006,11 @@ BEGIN
     IDS_UPDATE_VIEW_RELEASE "查看发布页"
     IDS_UPDATE_CLICK_TO_VIEW "点击打开发布页查看新版本，Pulse 不会自动下载或安装。"
     IDS_UPDATE_DESC_NOTIFY "自动检查新版本，有更新时提示你，不会自动安装"
+    IDS_SETTINGS_SURFACE_TONE "界面底色"
+    IDS_SETTINGS_SURFACE_TONE_DESC "标题栏、侧栏、工具栏和状态栏的底色，仅浅色主题生效"
+    IDS_SURFACE_TONE_DEFAULT "默认"
+    IDS_SURFACE_TONE_NEUTRAL "中性灰"
+    IDS_SURFACE_TONE_CUSTOM "自定义…"
 END
 
 LANGUAGE 0x09, 0x01
@@ -10011,6 +10016,11 @@ BEGIN
     IDS_UPDATE_VIEW_RELEASE "View release"
     IDS_UPDATE_CLICK_TO_VIEW "Click to open the release page. Pulse won't download or install it."
     IDS_UPDATE_DESC_NOTIFY "Checks for new versions and tells you; never installs them"
+    IDS_SETTINGS_SURFACE_TONE "Interface base color"
+    IDS_SETTINGS_SURFACE_TONE_DESC "Title bar, sidebar, toolbar and status bar background; light theme only"
+    IDS_SURFACE_TONE_DEFAULT "Default"
+    IDS_SURFACE_TONE_NEUTRAL "Neutral gray"
+    IDS_SURFACE_TONE_CUSTOM "Custom…"
 END
 
 // Traditional Chinese (Taiwan), generated from the Simplified entries above.

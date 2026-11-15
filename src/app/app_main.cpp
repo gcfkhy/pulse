@@ -638,6 +638,8 @@ void Render(AppState& s) {
     ui::TextContrastScope text_contrast_scope(system_high_contrast, !ui::TextOptimizationBaselineForTest());
     bool hc = s.shot_high_contrast || system_high_contrast;
     ui::Theme theme = hc ? ui::MakeHighContrastTheme() : ui::MakeTheme(s.darkMode, s.accentColor);
+    // 界面底色 (Settings > 外观) recolours the light chrome; dialogs keep theirs.
+    if (!hc) ui::ApplySurfaceTone(theme, s.darkMode, s.appPrefs.surface_tone, s.appPrefs.surface_rgb);
 
     const bool app_motion = AppMotion(s);  // before this frame's scroll step
     if (s.scrollAnimating) UpdateSmoothScroll(s);
