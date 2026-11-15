@@ -581,11 +581,11 @@ MainRenderer::DetailsColumnLayout MainRenderer::ThisPcColumns(
     };
     // Header text, both cell insets and room for a sort mark.
     auto header = [&](pulse::l10n::StringId id) {
-        return measure(pulse::l10n::Get(id), compositor_->HeaderFormat()) + 35.0f * scale_;
+        return measure(pulse::l10n::Get(id), compositor_->ColumnHeaderFormat()) + 35.0f * scale_;
     };
     std::wstring natural_key = std::to_wstring(typography::Generation()) + L":" + std::to_wstring(scale_);
     natural_key += L":" + std::to_wstring(reinterpret_cast<uintptr_t>(compositor_->FileNameFormat())) +
-        L":" + std::to_wstring(reinterpret_cast<uintptr_t>(compositor_->HeaderFormat()));
+        L":" + std::to_wstring(reinterpret_cast<uintptr_t>(compositor_->ColumnHeaderFormat()));
     for (auto id : {pulse::l10n::StringId::ColumnFree, pulse::l10n::StringId::ColumnTotalSize,
                     pulse::l10n::StringId::ColumnType, pulse::l10n::StringId::ColumnUsage}) {
         natural_key += L'\x1f'; natural_key += pulse::l10n::Get(id);
@@ -695,7 +695,7 @@ std::wstring MainRenderer::MediaColumnLabel(ColumnKind kind, uint8_t media_colum
 MainRenderer::DetailsColumnLayout MainRenderer::MediaColumns(
     const D2D1_RECT_F& pane_bounds, const PaneViewModel& vm) const {
     auto out = DetailsColumns(pane_bounds, vm.details_column_dividers, false, {}, vm.cloud_status_column);
-    if (!compositor_ || !compositor_->HeaderFormat()) return out;
+    if (!compositor_ || !compositor_->ColumnHeaderFormat()) return out;
     struct Col { ColumnKind kind; float dip; int drop; };
     using K = ColumnKind;
     std::vector<Col> cols;
@@ -717,7 +717,7 @@ MainRenderer::DetailsColumnLayout MainRenderer::MediaColumns(
         // Header text, both cell insets and room for a sort mark.
         const std::wstring label = c.kind == K::Size ? pulse::l10n::Get(pulse::l10n::StringId::ColumnSize)
                                                      : MediaColumnLabel(c.kind, vm.media_columns);
-        const float header = MeasureTextWidth(compositor_->DwriteFactory(), compositor_->HeaderFormat(), label) +
+        const float header = MeasureTextWidth(compositor_->DwriteFactory(), compositor_->ColumnHeaderFormat(), label) +
                              35.0f * scale_;
         default_widths.push_back(std::max(c.dip * scale_, header));
         const int slot = MediaColumnSlot(c.kind, vm.media_columns);
@@ -810,7 +810,7 @@ MainRenderer::DetailsColumnLayout MainRenderer::DetailsColumns(
     for (size_t i = 0; i < measured.size(); ++i) {
         // Include both cell insets, ink overhang and a sort indicator. Reserving
         // the indicator for every header avoids widths jumping when sorting.
-        measured[i] = std::max(measured[i], measure(labels[i], compositor_->HeaderFormat()) + 35.0f * scale_);
+        measured[i] = std::max(measured[i], measure(labels[i], compositor_->ColumnHeaderFormat()) + 35.0f * scale_);
     }
     // Bound work for very large directories and paged searches. Only resident
     // rows near the viewport are inspected; sizing must never fetch disk data.
@@ -852,7 +852,7 @@ MainRenderer::ColumnAutoWidths MainRenderer::AutoColumnWidths() const {
     ColumnAutoWidths out;
     IDWriteFactory2* factory = compositor_ ? compositor_->DwriteFactory() : nullptr;
     IDWriteTextFormat* fmt = compositor_ ? compositor_->FileNameFormat() : nullptr;
-    IDWriteTextFormat* header = compositor_ ? compositor_->HeaderFormat() : nullptr;
+    IDWriteTextFormat* header = compositor_ ? compositor_->ColumnHeaderFormat() : nullptr;
     if (factory && fmt && header && scale_ > 0.0f) {
         // LumaText and DWrite advances differ slightly; fit the wider one.
         auto measure = [&](IDWriteTextFormat* format, const std::wstring& text) {
@@ -3784,7 +3784,7 @@ void MainRenderer::DrawSinglePane(const WindowViewModel& vm, const PaneViewModel
                            bool sortable = true) {
             const bool active = sortable && !pane.curated_order && pane.sort_column == col;
             MakeBrush(dc, active ? theme.accent : theme.text, brText_);
-            IDWriteTextFormat* fmt = compositor_->HeaderFormat();
+            IDWriteTextFormat* fmt = compositor_->ColumnHeaderFormat();
             const float textInset = 8.0f * scale_;
             const float lead = col == SortColumn::Name ? nameLead : 0.0f;
             const float contentLeft = cx + textInset + lead;

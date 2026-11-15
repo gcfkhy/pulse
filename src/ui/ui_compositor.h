@@ -93,6 +93,8 @@ public:
     IDWriteTextFormat* FileNameFormat() const { return fileNameFormat_.get(); }
     IDWriteTextFormat* SmallFormat() const { return smallFormat_.get(); }
     IDWriteTextFormat* HeaderFormat() const { return headerFormat_.get(); }
+    // Details column header labels: the text size at regular weight (HeaderFormat is semi-bold, for titles).
+    IDWriteTextFormat* ColumnHeaderFormat() const { return textFormat_.get(); }
     IDWriteTextFormat* TabFormat() const { return tabFormat_.get(); }
     IDWriteTextFormat* AddressFormat() const { return addressFormat_.get(); }
     IDWriteTextFormat* IconFormat() const { return iconFormat_.get(); }
