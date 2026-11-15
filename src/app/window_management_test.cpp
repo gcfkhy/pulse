@@ -425,6 +425,32 @@ void CheckItemGrip(AppState& s, Report& log) {
     (*rows)[0].name=L"a.png"; (*rows)[1].name=L"b.txt";
     fixture.view.SetSnapshot(rows);
     const auto bounds = D2D1::RectF(0,0,800*s.scale,600*s.scale);
+    {
+        // Details tree: the chevron slot and depth push each row's icon right;
+        // the icon where it is drawn starts a drag (a folder row included).
+        fixture.view.view_mode=ui::ViewMode::Details;
+        ui::PaneViewModel view;
+        app::FillPaneViewModel(view,fixture,nullptr);
+        view.snapshot.reset();
+        view.entries.resize(2);
+        view.entries[0].name=L"folder"; view.entries[0].is_dir=true;
+        view.entries[1].name=L"b.txt";
+        auto tree=std::make_shared<ui::DetailsTreeRows>();
+        tree->rows.resize(2);
+        tree->rows[0].expandable=true;
+        tree->rows[1].depth=1;
+        tree->view_of_source={0,1};
+        view.tree=tree;
+        const auto list=s.renderer.PaneListRect(view,bounds);
+        const ui::ViewLayout layout(ui::ViewMode::Details,list,view.EntryCount(),0,0,s.scale,s.renderer.ListRowHeightDip(view,list),view.Groups());
+        bool drags=true;
+        for (int row=0;row<2;++row) {
+            const auto icon=layout.IconRect(row);
+            const float dx=std::round(s.renderer.DetailsLeadDip(view,row)*s.scale);
+            drags&=dx>0.0f && s.renderer.PointInItemGrip(view,bounds,row,(icon.left+icon.right)*0.5f+dx,(icon.top+icon.bottom)*0.5f,false);
+        }
+        log.Check(drags,"details tree: the indented icon of a folder or file row drags");
+    }
     for (const auto mode : {ui::ViewMode::Details,ui::ViewMode::List,ui::ViewMode::SmallIcons,
                             ui::ViewMode::MediumIcons,ui::ViewMode::LargeIcons,ui::ViewMode::ExtraLargeIcons}) {
         fixture.view.view_mode=mode;

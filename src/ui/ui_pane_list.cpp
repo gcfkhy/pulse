@@ -1909,7 +1909,16 @@ bool MainRenderer::PointInItemGrip(const PaneViewModel& vm, const D2D1_RECT_F& f
         const ItemArtworkKey key{vm.view_generation,source_index,static_cast<int>(vm.view_mode),
             entry.path,entry.name,entry.modified_value,entry.size_value,geometry.ItemRect(index)};
         if (item_artwork_hits_.Contains(key,x,y)) return true;
-    } else if (inside(geometry.IconRect(index))) return true;
+    } else {
+        // A Details row's icon is drawn after its lead (check gutter, tree chevron and depth).
+        D2D1_RECT_F icon = geometry.IconRect(index);
+        if (const float lead = DetailsLeadDip(vm, index); lead > 0.0f) {
+            const float dx = std::round(lead * scale_);
+            icon.left += dx;
+            icon.right += dx;
+        }
+        if (inside(icon)) return true;
+    }
     if (vm.view_mode == ViewMode::Details) {
         const auto columns = DetailsColumns(pane, vm);
         const auto& e = MakeVisibleEntry(vm, static_cast<size_t>(source_index));
