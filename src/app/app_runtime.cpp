@@ -514,13 +514,14 @@ D2D1_RECT_F ListRect(const AppState& s) {
     }
     if (virtual_kind == L"changes") extra += 36.0f * s.scale;
     const ui::ViewMode mode = tab ? tab->view_mode : ui::ViewMode::Details;
+    float header = ui::ShowsColumnHeader(mode) ? s.renderer.ColumnHeaderHeight() : 0.0f;
     if (tab && tab->column_layout) {
         ui::PaneViewModel strip;
         app::FillColumnStripView(strip.column_strip, *tab);
         pane = s.renderer.PaneBodyBounds(strip, pane);
+        if (strip.column_strip.Active()) header = 0.0f;  // column view has no header
     }
-    pane.top += s.renderer.PaneHeaderHeight() + extra +
-                (ui::ShowsColumnHeader(mode) ? s.renderer.ColumnHeaderHeight() : 0.0f);
+    pane.top += s.renderer.PaneHeaderHeight() + extra + header;
     return pane;
 }
 bool ScrollbarGeometry(const AppState& s, const ui::PaneViewModel& pane,

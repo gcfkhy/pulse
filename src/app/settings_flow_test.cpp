@@ -674,13 +674,11 @@ int RunAdaptiveColumnsTest(AppState& s, const wchar_t* output) {
                     (*entries)[i].is_dir = true;
                 }
                 ui::ColumnStripColumnView column;
-                column.title = L"父目录 / Parent";
                 column.snapshot = entries;
                 column.rows = rows;
                 column.highlight_row = 1;
                 strip.ancestors = {column, column, column};
                 strip.child = column;
-                strip.child.title = L"子目录 / Child";
                 dc->BeginDraw();
                 s.renderer.Render(vm, D2D1::RectF(0, 0, width, height), ui::MakeTheme(dark, s.accentColor));
                 check(SUCCEEDED(dc->EndDraw()), "ancestor/current/child columns render across themes and DPI");

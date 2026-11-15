@@ -8,7 +8,6 @@ namespace {
 ui::ColumnStripColumnView ToView(const ColumnStripColumn& column) {
     ui::ColumnStripColumnView view;
     view.path = column.path;
-    view.title = column.title;
     view.snapshot = column.rows ? column.rows_snapshot : nullptr;
     view.rows = view.snapshot ? column.rows : nullptr;
     view.highlight_row = column.highlight_row;

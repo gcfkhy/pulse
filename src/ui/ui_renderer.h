@@ -299,9 +299,12 @@ public:
     D2D1_RECT_F ContentRect(float w, float h) const;
     void SetExtensionDockVisible(bool visible) { extension_dock_visible_ = visible; }
     D2D1_RECT_F ExtensionDockRect(float w, float h) const;
-    D2D1_RECT_F PaneListRect(const D2D1_RECT_F& pane_bounds, float extra_top = 0.0f,
-                             ViewMode mode = ViewMode::Details) const;
+    // header_height: the Details column header above the list (ListHeaderHeight).
+    D2D1_RECT_F PaneListRect(const D2D1_RECT_F& pane_bounds, float extra_top, float header_height) const;
     D2D1_RECT_F PaneListRect(const PaneViewModel& vm, const D2D1_RECT_F& pane_bounds) const;
+    // Height of the Details column header above a pane's list. None in column
+    // view: its columns carry no caption, so rows start right under the pane header.
+    float ListHeaderHeight(const PaneViewModel& vm) const;
     D2D1_RECT_F FilterBoxRect(const D2D1_RECT_F& pane_bounds,
                               float expand = 1.0f) const;
     // wall: the segment also holds the photo wall button (PaneWallRect), so
@@ -652,6 +655,7 @@ public:
 
     D2D1_RECT_F NameCellRect(const D2D1_RECT_F& pane_bounds, int view_row, float scroll_y,
                              float extra_top = 0.0f, ViewMode mode = ViewMode::Details,
+                             float header_height = 0.0f,
                              float scroll_x = 0.0f, size_t item_count = 0,
                              const DetailsColumnWidths& column_dividers = {},
                              bool search_view = false,

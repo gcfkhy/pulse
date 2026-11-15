@@ -14,7 +14,6 @@ struct Tab;
 
 struct ColumnStripColumn {
     std::wstring path;                 // normalized folder path
-    std::wstring title;                // caption override (drive label), may be empty
     fs::SnapshotPtr snapshot;          // last listing (may be stale while refreshing)
     std::shared_ptr<const std::vector<int>> rows; // visible source indices
     fs::SnapshotPtr rows_snapshot;     // snapshot `rows` was built from

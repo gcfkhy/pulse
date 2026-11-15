@@ -1469,9 +1469,9 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
         const float columnTop = changesTop + (paneVm.is_changes ? 36 * scale_ : 0) +
                                 TagQueryBarHeight(paneVm, scale_) + DupFunnelHeight(paneVm, scale_) +
                                 DriveOverviewHeight(paneVm, scale_);
-        float listTop = paneRc.top + pane_header_height_ + extra +
-                        (ShowsColumnHeader(paneVm.view_mode) ? column_header_height_ : 0.0f);
-        const float parentTop = ShowsColumnHeader(paneVm.view_mode) ? columnTop : paneRc.top + 5.0f * scale_;
+        const float listHeader = ListHeaderHeight(paneVm);
+        float listTop = paneRc.top + pane_header_height_ + extra + listHeader;
+        const float parentTop = listHeader > 0.0f ? columnTop : paneRc.top + 5.0f * scale_;
         if (!paneVm.drag_parent_path.empty() && y >= parentTop && y < parentTop + 30.0f * scale_) {
             out.region = HitTestResult::DropParent;
             out.path = paneVm.drag_parent_path;
@@ -1531,9 +1531,9 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
             out.region = HitTestResult::Pane;
             return out;
         }
-        if (ShowsColumnHeader(paneVm.view_mode) && y >= columnTop && y < listTop) {
-            // Column view: a caption, no sorting or column dividers.
-            if (paneVm.curated_order || paneVm.column_strip.Active()) {
+        if (listHeader > 0.0f && y >= columnTop && y < listTop) {
+            // A curated order has a caption, no sorting or column dividers.
+            if (paneVm.curated_order) {
                 out.region = HitTestResult::Pane;
                 return out;
             }
@@ -1642,7 +1642,7 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
                 return out;
             }
             if (const ListGroups* groups = paneVm.Groups()) {
-                const D2D1_RECT_F list = PaneListRect(paneRc, extra, paneVm.view_mode);
+                const D2D1_RECT_F list = PaneListRect(paneRc, extra, ListHeaderHeight(paneVm));
                 const ViewLayout grouped(paneVm.view_mode, list, paneVm.EntryCount(),
                                          paneVm.scroll_x, paneVm.scroll_y, scale_,
                                          ListRowHeightDip(paneVm, list), groups);
@@ -1664,7 +1664,7 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
             }
             // 滚动时固定上级: the pinned folders cover the rows under them.
             if (paneVm.tree && paneVm.view_mode == ViewMode::Details) {
-                const StickyTree sticky = StickyTreeRows(paneVm, PaneListRect(paneRc, extra, paneVm.view_mode));
+                const StickyTree sticky = StickyTreeRows(paneVm, PaneListRect(paneRc, extra, ListHeaderHeight(paneVm)));
                 for (const TreePin& pin : sticky.pins) {
                     const float top = sticky.top + pin.y;
                     if (y >= top && y < top + sticky.row_h) {
@@ -1688,7 +1688,7 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
                     const DetailsTreeRow* treeRow = paneVm.tree ? paneVm.tree->At(viewRow) : nullptr;
                     if (treeRow && treeRow->kind != TreeRowKind::Entry) viewRow = -1;
                     if (viewRow >= 0 && compositor_ && compositor_->DwriteFactory()) {
-                        const D2D1_RECT_F list = PaneListRect(paneRc, extra, paneVm.view_mode);
+                        const D2D1_RECT_F list = PaneListRect(paneRc, extra, ListHeaderHeight(paneVm));
                         const DetailsColumnLayout columns = DetailsColumns(list, paneVm);
                         ViewLayout layout(paneVm.view_mode, list, paneVm.EntryCount(),
                                           paneVm.scroll_x, paneVm.scroll_y, scale_,

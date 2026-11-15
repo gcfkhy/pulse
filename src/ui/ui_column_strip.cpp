@@ -91,10 +91,9 @@ StripPaneMotion& StripMotionFor(const void* renderer, int pane_index) {
     return motions[{renderer, pane_index}];
 }
 
-// caption: the column's title row, as tall as the list's column header so
-// rows line up across every column.
-D2D1_RECT_F StripCell(const D2D1_RECT_F& rc, int row, float scroll, float row_h, float scale, float caption) {
-    const float top = rc.top + caption + static_cast<float>(row) * row_h - scroll;
+// A column has no caption: its rows start at its top, like the list's.
+D2D1_RECT_F StripCell(const D2D1_RECT_F& rc, int row, float scroll, float row_h, float scale) {
+    const float top = rc.top + static_cast<float>(row) * row_h - scroll;
     return D2D1::RectF(rc.left + 6.0f * scale, top + 1.0f * scale, rc.right - 6.0f * scale, top + row_h - 1.0f * scale);
 }
 
@@ -164,14 +163,6 @@ float StepStripHScroll(StripPaneMotion& pm, const std::wstring& key, float targe
     return pm.hscroll_shown;
 }
 
-std::wstring LeafName(const std::wstring& path) {
-    std::wstring p = path;
-    while (p.size() > 3 && (p.back() == L'\\' || p.back() == L'/')) p.pop_back();
-    const size_t slash = p.find_last_of(L"\\/");
-    if (slash == std::wstring::npos || slash + 1 >= p.size()) return p;
-    return p.substr(slash + 1);
-}
-
 } // namespace
 
 ColumnStripLayout MainRenderer::ColumnStripGeometry(const PaneViewModel& vm,
@@ -194,7 +185,7 @@ D2D1_RECT_F MainRenderer::PaneBodyBounds(const PaneViewModel& vm,
 }
 
 float MainRenderer::ColumnStripViewHeight(const D2D1_RECT_F& column_rect) const {
-    return std::max(0.0f, column_rect.bottom - column_rect.top - column_header_height_ - 6.0f * scale_);
+    return std::max(0.0f, column_rect.bottom - column_rect.top - 6.0f * scale_);
 }
 
 bool MainRenderer::ColumnStripHScrollRects(const ColumnStripLayout& layout, D2D1_RECT_F& track,
@@ -298,11 +289,10 @@ ColumnStripLayout MainRenderer::DrawColumnStrip(const WindowViewModel& vm, const
             const StripColumnMotion& cm = pm.columns[hover_slot->id];
             if (pm.hover_alpha <= 0.0f) ++pm.hover_context;  // from nothing: appear in place
             pm.hover_key = static_cast<int64_t>(hover_slot->id) * 1000003 + hover_row;
-            pm.hover_target = StripCell(hover_slot->rect, hover_row, cm.scroll_shown, row_height_, scale_, column_header_height_);
+            pm.hover_target = StripCell(hover_slot->rect, hover_row, cm.scroll_shown, row_height_, scale_);
             pm.hover_rect = pm.hover.Update(pm.hover_context, pm.hover_key, pm.hover_target, motion_frame_,
                                             motion_now_, motion::spring::Plate);
             D2D1_RECT_F clip = hover_slot->rect;
-            clip.top += column_header_height_;
             clip.bottom = clip.top + ColumnStripViewHeight(hover_slot->rect);
             if (IsAncestorId(hover_slot->id) && has_viewport) {
                 clip.left = (std::max)(clip.left, strip.viewport.left);
@@ -429,17 +419,11 @@ void MainRenderer::DrawColumnStripColumn(const WindowViewModel& vm, const PaneVi
                                          const Theme& theme) {
     ID2D1DeviceContext* dc = compositor_->Dc();
     const float pad = 6.0f * scale_;
-    const float caption = column_header_height_;
-    const float list_top = rc.top + caption;
+    const float list_top = rc.top;
     const float view_h = ColumnStripViewHeight(rc);
     dc->PushAxisAlignedClip(rc, D2D1_ANTIALIAS_MODE_ALIASED);
 
     MakeBrush(dc, theme.text_secondary, brTextSecondary_);
-    const std::wstring title = column.title.empty() ? LeafName(column.path) : column.title;
-    DrawTextEndEllipsis(compositor_, compositor_->SmallFormat(), brTextSecondary_.get(), title,
-                        rc.left + pad + 6.0f * scale_, rc.top, rc.right - rc.left - 2.0f * pad - 12.0f * scale_,
-                        caption);
-
     const size_t count = StripRowCount(column);
     if (count == 0) {
         std::wstring note;
@@ -472,7 +456,7 @@ void MainRenderer::DrawColumnStripColumn(const WindowViewModel& vm, const PaneVi
     // The highlight glides between rows of the same folder.
     const bool glide_highlight = !hc && column.highlight_row >= 0;
     if (glide_highlight) {
-        const D2D1_RECT_F target = StripCell(rc, column.highlight_row, scroll, row_height_, scale_, column_header_height_);
+        const D2D1_RECT_F target = StripCell(rc, column.highlight_row, scroll, row_height_, scale_);
         const D2D1_RECT_F plate = cm.highlight.Update(std::hash<std::wstring>{}(column.path), column.highlight_row,
                                                       target, motion_frame_, motion_now_, motion::spring::Snappy);
         if (cm.highlight.Active(motion_now_)) pm.moving = true;
@@ -629,7 +613,7 @@ bool MainRenderer::HitTestColumnStrip(const PaneViewModel& vm, const D2D1_RECT_F
         out.index = -1;
         const ColumnStripColumnView* column = StripColumn(cs, slot.id);
         if (!column) return true;
-        const float list_top = slot.rect.top + column_header_height_;
+        const float list_top = slot.rect.top;
         const float view_h = ColumnStripViewHeight(slot.rect);
         if (y < list_top || y >= list_top + view_h) return true;
         const float scroll = ColumnStripScrollPx(*column, view_h);

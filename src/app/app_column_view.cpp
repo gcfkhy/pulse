@@ -113,15 +113,7 @@ void SyncColumn(AppState& s, const app::Tab& tab, app::ColumnStripColumn& col) {
     RebuildRows(col, tab);
 }
 
-// Drive roots show their sidebar label ("Data (D:)") instead of "D:".
-std::wstring RootTitle(const AppState& s, const std::wstring& path) {
-    for (const auto& drive : s.sidebar.drives) {
-        if (SamePath(fs::NormalizePath(drive.path), path)) return drive.label;
-    }
-    return {};
-}
-
-void RebuildAncestors(AppState& s, app::Tab& tab) {
+void RebuildAncestors(app::Tab& tab) {
     std::vector<std::wstring> chain; // parent first
     std::wstring child = tab.current_path;
     while (chain.size() < kMaxAncestors) {
@@ -143,10 +135,6 @@ void RebuildAncestors(AppState& s, app::Tab& tab) {
             }
         }
         if (col.path.empty()) col.path = path;
-        if (i + 1 == chain.size()) {
-            const std::wstring up = fs::ParentPath(path);
-            if (up.empty() || SamePath(up, path)) col.title = RootTitle(s, path);
-        }
         if (!SamePath(col.highlight_name, highlight)) {
             col.highlight_name = highlight;
             col.rows.reset(); // re-resolve the highlight row
@@ -167,7 +155,7 @@ void SyncTab(AppState& s, app::Tab& tab) {
         if (!state.Empty()) state = {};
         return;
     }
-    if (state.for_path != tab.current_path) RebuildAncestors(s, tab);
+    if (state.for_path != tab.current_path) RebuildAncestors(tab);
     // The strip can be scrolled with the list out of sight; a selection that moves (keys,
     // a click) belongs on screen.
     if (state.seen_selection_revision != tab.selection_revision) {
@@ -672,8 +660,7 @@ bool LocateDropScrollBand(AppState& s, const ui::WindowViewModel& vm,
             const ui::ColumnStripColumnView* view = DropStripView(pane->column_strip, slot.id);
             if (!view) continue;
             const float view_h = s.renderer.ColumnStripViewHeight(slot.rect);
-            list = D2D1::RectF(slot.rect.left, slot.rect.top + s.renderer.ColumnHeaderHeight(),
-                               slot.rect.right, slot.rect.top + s.renderer.ColumnHeaderHeight() + view_h);
+            list = D2D1::RectF(slot.rect.left, slot.rect.top, slot.rect.right, slot.rect.top + view_h);
             if (y < bounds.top || y > list.bottom + 8.0f * s.scale) return false;
             column_id = slot.id;
             max_px = s.renderer.ColumnStripMaxScrollPx(*view, view_h);

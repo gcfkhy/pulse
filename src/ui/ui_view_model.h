@@ -175,7 +175,6 @@ struct ChangePopover {
 // One folder listing in the column view (an ancestor or the child column).
 struct ColumnStripColumnView {
     std::wstring path;
-    std::wstring title;           // caption; empty = last path segment
     fs::SnapshotPtr snapshot;
     // Visible source indices into snapshot (hidden files already filtered).
     std::shared_ptr<const std::vector<int>> rows;
