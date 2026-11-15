@@ -3625,6 +3625,9 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
     case WM_UPDATE_INSTALL:
         if (s) InstallUpdate(*s);
         return 0;
+    case WM_UPDATE_RELEASE_PAGE:
+        if (s) OpenUpdateRelease(*s);
+        return 0;
     case WM_HISTORY_REDO:
         if (s) s->ops.Redo();
         return 0;

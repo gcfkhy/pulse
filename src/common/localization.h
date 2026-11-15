@@ -5013,6 +5013,9 @@ enum class StringId : UINT {
     ColumnStripWheelHint = IDS_COLUMN_STRIP_WHEEL_HINT,
     SortHintRating = IDS_SORT_HINT_RATING,
     SortHintDuration = IDS_SORT_HINT_DURATION,
+    UpdateViewRelease = IDS_UPDATE_VIEW_RELEASE,
+    UpdateClickToView = IDS_UPDATE_CLICK_TO_VIEW,
+    UpdateDescNotify = IDS_UPDATE_DESC_NOTIFY,
 };
 
 bool IsLanguageId(std::wstring_view id) noexcept;

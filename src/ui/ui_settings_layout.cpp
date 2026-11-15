@@ -481,7 +481,7 @@ SettingsLayout MakeSettingsLayout(const WindowViewModel& vm, const D2D1_RECT_F& 
         const float check_w = std::min(available_width, label_btn_w(
             pulse::l10n::Get(pulse::l10n::StringId::CheckForUpdates)));
         const float download_w = std::min(available_width, label_btn_w(
-            pulse::l10n::Get(pulse::l10n::StringId::DownloadUpdate)));
+            pulse::l10n::Get(pulse::l10n::StringId::UpdateViewRelease)));
         const bool stack_updates = vm.settings_update_available && check_w + gap + download_w > available_width;
         // The automatic-check switch sits between the status text and the buttons,
         // like the performance switch in the diagnostics card.

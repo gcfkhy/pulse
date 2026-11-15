@@ -1014,7 +1014,7 @@ void MainRenderer::DrawSettings(const WindowViewModel& vm, const D2D1_RECT_F& re
             download.hovered = IsHovered(vm, HitTestResult::SettingsUpdateAction, 1);
             painter_.DrawButton({lay.update_action[1],
                 pulse::l10n::Get(vm.settings_update_downloading ? pulse::l10n::StringId::Cancel :
-                    pulse::l10n::StringId::DownloadUpdate), {},
+                    pulse::l10n::StringId::UpdateViewRelease), {},
                 fluent::ButtonKind::Primary, download});
         }
         if (lay.update_auto_row.bottom > lay.update_auto_row.top) {

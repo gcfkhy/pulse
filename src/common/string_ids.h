@@ -5021,5 +5021,8 @@
 #define IDS_COLUMN_STRIP_WHEEL_HINT                                                      6448
 #define IDS_SORT_HINT_RATING                                                             6449
 #define IDS_SORT_HINT_DURATION                                                           6450
+#define IDS_UPDATE_VIEW_RELEASE                                                          6451
+#define IDS_UPDATE_CLICK_TO_VIEW                                                         6452
+#define IDS_UPDATE_DESC_NOTIFY                                                           6453
 
 #endif  // PULSE_STRING_IDS_H

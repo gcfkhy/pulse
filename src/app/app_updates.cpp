@@ -1,4 +1,5 @@
 #include "app_updates.h"
+#include "about_info.h"
 #include "update_shutdown.h"
 #include "app_state.h"
 #include "app_internal.h"
@@ -158,6 +159,17 @@ void InstallUpdate(AppState& state) {
     InvalidateRect(state.hwnd, nullptr, FALSE);
 }
 
+void OpenUpdateRelease(AppState& state) {
+    if (!state.update_result_ready || !state.update_result.update_available) return;
+    // The manifest's download_page is the installer itself; open the release
+    // (notes and assets) for that version instead. Versions are digits and dots.
+    const auto& version = state.update_result.version;
+    std::wstring url = app::kPulseReleasesPage;
+    if (!version.empty() && version.find_first_not_of(L"0123456789.") == std::wstring::npos)
+        url += L"/tag/v" + version;
+    ShellExecuteW(state.hwnd, L"open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+}
+
 void CompleteUpdateCheck(AppState& state) {
     app::UpdateResult result;
     if (!state.update_checker.TakeResult(result)) return;
@@ -168,8 +180,9 @@ void CompleteUpdateCheck(AppState& state) {
         wchar_t title[160]{};
         swprintf_s(title, l10n::Get(l10n::StringId::UpdateAvailableFormat).c_str(),
             state.update_result.version.c_str());
+        // Notify only: a release of this fork's upstream lacks the local changes.
         state.notification_toast.Show(state.hwnd, title,
-            l10n::Get(l10n::StringId::UpdateClickToInstall), true, WM_UPDATE_INSTALL);
+            l10n::Get(l10n::StringId::UpdateClickToView), true, WM_UPDATE_RELEASE_PAGE);
     }
     InvalidateRect(state.hwnd, nullptr, FALSE);
 }

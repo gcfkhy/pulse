@@ -5029,3 +5029,6 @@ ColumnStripWheelHint	IDS_COLUMN_STRIP_WHEEL_HINT	6448	鼠标滚轮也可横向�
 
 SortHintRating	IDS_SORT_HINT_RATING	6449	按星级评分	By star rating
 SortHintDuration	IDS_SORT_HINT_DURATION	6450	按播放时长	By playing time
+UpdateViewRelease	IDS_UPDATE_VIEW_RELEASE	6451	查看发布页	View release	檢視發布頁
+UpdateClickToView	IDS_UPDATE_CLICK_TO_VIEW	6452	点击打开发布页查看新版本，Pulse 不会自动下载或安装。	Click to open the release page. Pulse won't download or install it.	點選開啟發布頁檢視新版本，Pulse 不會自動下載或安裝。
+UpdateDescNotify	IDS_UPDATE_DESC_NOTIFY	6453	自动检查新版本，有更新时提示你，不会自动安装	Checks for new versions and tells you; never installs them	自動檢查新版本，有更新時提示你，不會自動安裝

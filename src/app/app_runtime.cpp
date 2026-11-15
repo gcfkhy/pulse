@@ -943,7 +943,7 @@ void FillPaneSlots(AppState& s, ui::WindowViewModel& vm) {
                 vm.settings_update_status = l10n::Get(l10n::StringId::UpdateDisabled);
             } else if (!s.update_result_ready) {
                 vm.settings_update_status = l10n::Get(s.appPrefs.auto_check_updates ?
-                    l10n::StringId::UpdateDesc : l10n::StringId::UpdateDescManual);
+                    l10n::StringId::UpdateDescNotify : l10n::StringId::UpdateDescManual);
             } else if (s.update_result.error == app::UpdateError::UnsupportedWindows) {
                 vm.settings_update_status =
                     l10n::Get(l10n::StringId::UpdateUnsupportedWindows);
