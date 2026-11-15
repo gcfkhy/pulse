@@ -895,11 +895,23 @@ void MainRenderer::DrawSidebar(const WindowViewModel& vm, const D2D1_RECT_F& rec
             drive.drop_target = slot.run == vm.sidebar_drop_index;
             drive.icon_color = item.icon_color;
             const int drive_svg = FluentSvgIdForGlyph(item.icon_glyph);
-            drive.skip_glyph = !IsHighContrast() && drive_svg != 0 && EnsureFluentSvg(drive_svg, true);
+            // The drive's own shell icon, the one This PC shows for it. The glyph
+            // stands in until it resolves (and in high contrast).
+            const D2D1_RECT_F drive_slot = painter_.DriveSidebarItemIconRect(slot.rc);
+            const float drive_side = drive_slot.right - drive_slot.left;
+            const float drive_icon_top = drive_slot.top + (drive_slot.bottom - drive_slot.top - drive_side) * 0.5f;
+            const D2D1_RECT_F drive_icon_rc = D2D1::RectF(drive_slot.left, drive_icon_top,
+                drive_slot.right, drive_icon_top + drive_side);
+            ID2D1Bitmap* drive_shell_icon = item.path.empty() || IsHighContrast() ? nullptr
+                : icon_cache_.ExactBitmapFor(item.path, drive_side);
+            drive.skip_glyph = drive_shell_icon ||
+                (!IsHighContrast() && drive_svg != 0 && EnsureFluentSvg(drive_svg, true));
             painter_.DrawDriveSidebarItem(drive);
-            if (drive.skip_glyph) {
-                DrawFluentSvg(drive_svg, painter_.DriveSidebarItemIconRect(slot.rc),
-                              1.0f, nullptr, true);
+            if (drive_shell_icon) {
+                dc->DrawBitmap(drive_shell_icon, &drive_icon_rc, 1.0f,
+                               D2D1_INTERPOLATION_MODE_HIGH_QUALITY_CUBIC, nullptr, nullptr);
+            } else if (drive.skip_glyph) {
+                DrawFluentSvg(drive_svg, drive_slot, 1.0f, nullptr, true);
             }
         } else {
             const bool heldPin = static_cast<int>(paint_k) == pin_slot;
