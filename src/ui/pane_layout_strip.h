@@ -51,11 +51,10 @@ inline float PaneLayoutStripWidth(const WindowViewModel& vm, float width, float 
     const auto measure=[&](const std::wstring& value) { return PaneLayoutMeasure(value,scale,factory,format); };
     const float text_budget=measure(status.status_text)+measure(status.selection_text);
     const float ai_budget=status.ai_state==StatusAiState::Hidden?0:68*scale;
-    const float history_budget=std::min(240.0f*scale,measure(status.undo_label)+(status.can_redo?98:70)*scale);
     const float task_budget=status.task_active||!status.task_text.empty()?190*scale:0;
     // Collapsed (HTML .strip-collapsed): the caret and the current layout,
     // 1 + 12 + 1 + 26 + 1 DIP; the leading divider sits outside the strip.
-    return (width >= text_budget+ai_budget+history_budget+task_budget+260*scale?200.0f:42.0f)*scale;
+    return (width >= text_budget+ai_budget+task_budget+260*scale?200.0f:42.0f)*scale;
 }
 inline D2D1_RECT_F PaneLayoutStripBounds(const WindowViewModel& vm, D2D1_RECT_F full, float scale, IDWriteFactory* factory=nullptr, IDWriteTextFormat* format=nullptr) {
     return D2D1::RectF(full.right-8*scale-PaneLayoutStripWidth(vm,full.right-full.left,scale,factory,format), full.bottom-25*scale,

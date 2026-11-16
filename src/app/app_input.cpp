@@ -2926,25 +2926,6 @@ LRESULT HandleLButtonDown(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARA
         D2D1_RECT_F rect = D2D1::RectF(0, 0, (float)s->compositor.Width(), (float)s->compositor.Height());
         ui::HitTestResult hit = s->renderer.HitTest(vm, rect, (float)mx, (float)my);
         if (HandlePaneLayoutClick(*s, hit)) return 0;
-        if (s->undoHistoryOpen && hit.region != ui::HitTestResult::UndoHistoryRow &&
-            hit.region != ui::HitTestResult::UndoHistorySurface && hit.region != ui::HitTestResult::StatusUndoHistory &&
-            hit.region != ui::HitTestResult::StatusUndo && hit.region != ui::HitTestResult::StatusRedo) {
-            s->undoHistoryOpen = false; InvalidateRect(hwnd, nullptr, FALSE);
-        }
-        switch (hit.region) {
-        case ui::HitTestResult::StatusUndo: s->ops.Undo(); InvalidateRect(hwnd, nullptr, FALSE); return 0;
-        case ui::HitTestResult::StatusRedo: s->ops.Redo(); InvalidateRect(hwnd, nullptr, FALSE); return 0;
-        case ui::HitTestResult::StatusUndoHistory:
-            s->undoHistoryOpen = !s->undoHistoryOpen; InvalidateRect(hwnd, nullptr, FALSE); return 0;
-        case ui::HitTestResult::UndoHistoryRow:
-            if (hit.sub_index != 2 && hit.index >= 0 && static_cast<size_t>(hit.index) < vm.status.history.size()) {
-                const auto& row = vm.status.history[hit.index];
-                HandleUndoHistoryAction(*s, row.task_id, row.undone, hit.sub_index == 1);
-            }
-            return 0;
-        case ui::HitTestResult::UndoHistorySurface: return 0;
-        default: break;
-        }
         // A narrow pane's opened size slider closes on any press outside it.
         if (hit.region != ui::HitTestResult::PaneSizeSlider && hit.region != ui::HitTestResult::PaneSizeButton) {
             for (int slot = 0; slot < static_cast<int>(vm.pane_slots.size()); ++slot)
@@ -4851,11 +4832,6 @@ LRESULT HandleRButtonUp(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 }
 
 LRESULT HandleMouseWheel(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-        if (s && s->undoHistoryOpen) {
-            const int count = static_cast<int>(s->ops.UndoHistoryCount());
-            s->undoHistoryOffset = std::clamp(s->undoHistoryOffset + (GET_WHEEL_DELTA_WPARAM(wParam) < 0 ? 1 : -1), 0, std::max(0, count - 1));
-            InvalidateRect(hwnd, nullptr, FALSE); return 0;
-        }
         if (!s) return DefWindowProcW(hwnd, msg, wParam, lParam);
         {
             POINT wp{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
@@ -5046,7 +5022,6 @@ LRESULT HandleKeyDown(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
         if (wParam == VK_ESCAPE && ToolbarPinDragging()) { EndToolbarPinDrag(*s, true); return 0; }
         if (wParam == VK_ESCAPE && CancelColumnHeaderPress(*s)) return 0;
         if (wParam == VK_ESCAPE && DismissPaneLayoutControls(*s)) return 0;
-        if (wParam == VK_ESCAPE && s->undoHistoryOpen) { s->undoHistoryOpen = false; InvalidateRect(hwnd, nullptr, FALSE); return 0; }
         if (wParam == VK_ESCAPE && AiAssistantEscape(*s)) return 0;
         if (AiAssistantSelectionKey(*s, wParam)) return 0;   // Pulse 助手: Ctrl+C / Ctrl+A on its text
         if (AiAssistantMenuKey(*s, wParam)) return 0;   // the 思考强度 slider's keys   // Pulse 助手's model menu

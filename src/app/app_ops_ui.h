@@ -45,7 +45,6 @@ size_t ShowBatchRenameWith(AppState& s, const std::vector<std::wstring>& paths, 
 // Builds this window's operations window the first time it has to show it.
 bool EnsureOperationWindow(AppState& s);
 void PinAndShowOperationWindow(AppState& s);
-void HandleUndoHistoryAction(AppState& s, uint64_t task_id, bool undone, bool locate);
 void HandleOperationStatusAction(AppState& s, int action);
 void HandleOperationHistoryAction(AppState& s, uint64_t task_id, int action);
 std::vector<ui::FluentMenuItem> BuildOperationHistoryMenu(AppState& s, const std::vector<ops::OpStatus>& history);

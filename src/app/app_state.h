@@ -648,8 +648,6 @@ struct AppState : AppCoreOwner {
     std::vector<ZipJob> zipJobs;
     std::unique_ptr<ui::FileOperationWindow> operationWindow;
     uint64_t operationUiTaskId = 0;
-    bool undoHistoryOpen = false;
-    int undoHistoryOffset = 0;
     uint64_t undoHistoryNotified = 0;
     uint64_t operationHistoryTaskId = 0;
     std::unordered_set<uint64_t> hiddenOperationHistory;

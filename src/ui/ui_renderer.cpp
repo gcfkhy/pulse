@@ -1225,8 +1225,7 @@ bool MainRenderer::NonHoverMotionActive() const {
     for (const auto& motion : list_shift_) if (motion.Active(m)) return true;
     for (const auto& motion : view_morph_) if (motion.Active(m)) return true;
     for (const auto& motion : link_pill_motion_) if (motion.Active(m)) return true;
-    if ((task_pill_done_at_ != 0 && now - task_pill_done_at_ < task_pill_hold_ms_ + 400) ||
-        (task_pill_pop_at_ != 0 && now - task_pill_pop_at_ < kTaskPillPopMs + 40))
+    if (task_pill_pop_at_ != 0 && now - task_pill_pop_at_ < kTaskPillPopMs + 40)
         return true;
     if (ticks_active_ || motion_frame_wanted_) return true;
     if (m < tab_motion_until_ || m < row_leave_until_ || m < mtime_flash_until_ ||
@@ -1813,138 +1812,8 @@ void MainRenderer::Render(const WindowViewModel& vm, const D2D1_RECT_F& rect,
         }
         MakeBrush(dc,theme.accent_text,brAccentText_);
     }
-    if (vm.status.history_open) {
-        // drag_undo_mockup.html .hist: 440 DIP flyout, radius 10, the "现在"
-        // line in accent, 28 DIP state circles, footer with the shortcuts.
-        const MockupInk mk = MakeMockupInk(theme, vm.dark);
-        if (!paneHeaderStroke_.get()) command_icons::CreateStrokeStyle(dc, &paneHeaderStroke_);
-        MakeBrush(dc, theme.text, brText_);
-        MakeBrush(dc, theme.text_secondary, brTextSecondary_);
-        MakeBrush(dc, theme.text_disabled, brTextDisabled_);
-        MakeBrush(dc, mk.accent_fg, brAccent_);
-        MakeBrush(dc, theme.stroke_divider, brStrokeDivider_);
-        IDWriteFactory2* const factory = compositor_->DwriteFactory();
-        IDWriteTextFormat* const small_fmt = compositor_->SmallFormat();
-        IDWriteTextFormat* const title_fmt = compositor_->FileNameFormat() ? compositor_->FileNameFormat() : small_fmt;
-        const auto card = UndoHistoryBounds(vm, rect, scale_);
-        DrawFlyoutShadow(dc, card, 10 * scale_, scale_, vm.dark);
-        painter_.FillRoundedRect(card, 10 * scale_, theme.surface_flyout);
-        painter_.StrokeRoundedRect(card, 10 * scale_, theme.stroke_card);
-        const auto text = [&](const std::wstring& value, float x, float y, float width, ID2D1SolidColorBrush* brush,
-                              IDWriteTextFormat* fmt = nullptr) {
-            DrawTextEndEllipsis(compositor_, fmt ? fmt : small_fmt, brush, value, x, y, std::max(0.0f, width), 20 * scale_);
-        };
-        // .hh: the title on the left, the counts on the right, one line.
-        const unsigned undo_count = static_cast<unsigned>(std::count_if(vm.status.history.begin(), vm.status.history.end(), [](const auto& row) { return row.supported && !row.undone; }));
-        const unsigned redo_count = static_cast<unsigned>(std::count_if(vm.status.history.begin(), vm.status.history.end(), [](const auto& row) { return row.undone; }));
-        wchar_t counts[128]{};
-        swprintf_s(counts, l10n::Get(l10n::StringId::HistoryCounts).c_str(), undo_count, redo_count);
-        const float inner = card.right - card.left - 28 * scale_;
-        const float counts_w = std::min(inner * 0.6f, MeasureTextWidth(factory, small_fmt, counts));
-        text(counts, card.right - 14 * scale_ - counts_w, card.top + 10 * scale_, counts_w + 1, brTextSecondary_.get());
-        IDWriteTextFormat* const header_fmt = compositor_->HeaderFormat() ? compositor_->HeaderFormat() : small_fmt;
-        text(l10n::Get(l10n::StringId::OpHistory), card.left + 14 * scale_, card.top + 10 * scale_, inner - counts_w - 12 * scale_, brText_.get(), header_fmt);
-        dc->PushAxisAlignedClip(D2D1::RectF(card.left, card.top + 40 * scale_, card.right, card.bottom - 34 * scale_), D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
-        bool now = false;
-        const int hot = vm.hover_region == HitTestResult::UndoHistoryRow ? vm.hover_control_index : -1;
-        for (size_t i = static_cast<size_t>(vm.status.history_offset); i < std::min<size_t>(vm.status.history_offset + 7, vm.status.history.size()); ++i) {
-            const auto& row = vm.status.history[i];
-            const float y = UndoHistoryRowTop(vm, card, i, scale_);
-            if (i == 0 && row.undone && UndoHistoryUndoneSection(vm))
-                text(l10n::Get(l10n::StringId::HistoryUndoneSection), card.left + 16 * scale_, y - 22 * scale_, inner, brTextDisabled_.get());
-            if (!row.undone && !now) {
-                // .hnow: an 8 DIP accent dot in a 3 DIP soft ring, the word,
-                // then a 1.5 DIP accent rule at half strength.
-                const float my = std::round(y - 12 * scale_);
-                const auto dot = D2D1::Point2F(card.left + 18 * scale_, my);
-                MakeBrush(dc, mk.accent_soft2, brFillSelected_);
-                dc->FillEllipse(D2D1::Ellipse(dot, 7 * scale_, 7 * scale_), brFillSelected_.get());
-                dc->FillEllipse(D2D1::Ellipse(dot, 4 * scale_, 4 * scale_), brAccent_.get());
-                const std::wstring& now_label = l10n::Get(l10n::StringId::HistoryNow);
-                const float now_w = MeasureTextWidth(factory, small_fmt, now_label);
-                text(now_label, card.left + 30 * scale_, my - 10 * scale_, now_w + 1, brAccent_.get());
-                brAccent_->SetOpacity(0.5f);
-                dc->DrawLine(D2D1::Point2F(card.left + 38 * scale_ + now_w, my), D2D1::Point2F(card.right - 14 * scale_, my), brAccent_.get(), 1.5f * scale_);
-                brAccent_->SetOpacity(1.0f);
-                now = true;
-            }
-            const auto row_rect = D2D1::RectF(card.left + 8 * scale_, y, card.right - 8 * scale_, y + kUndoHistoryRowHeight * scale_);
-            // .hrow.inrange: what "撤销到这里" would sweep (accent-soft), or
-            // "重做到这里" (hover wash) for undone rows.
-            if (hot >= 0 && static_cast<size_t>(hot) < vm.status.history.size() && row.supported && row.undone == vm.status.history[hot].undone &&
-                (row.undone ? i >= static_cast<size_t>(hot) : i <= static_cast<size_t>(hot)))
-                painter_.FillRoundedRect(row_rect, 6 * scale_, row.undone ? theme.fill_hover : mk.accent_soft);
-            const bool row_hot = hot == static_cast<int>(i);
-            if (row_hot) painter_.FillRoundedRect(row_rect, 6 * scale_, theme.fill_hover);
-            const float label_left = card.left + 52 * scale_;
-            // .hic: accent-soft circle; undone: hover wash, tertiary ink; locked: danger.
-            const auto center = D2D1::Point2F(card.left + 28 * scale_, y + 22 * scale_);
-            const auto icon_rect = D2D1::RectF(center.x - 14 * scale_, center.y - 14 * scale_, center.x + 14 * scale_, center.y + 14 * scale_);
-            MakeBrush(dc, !row.supported ? mk.danger_soft : row.undone ? theme.fill_hover : mk.accent_soft, brFillSelected_);
-            dc->FillEllipse(D2D1::Ellipse(center, 14 * scale_, 14 * scale_), brFillSelected_.get());
-            MakeBrush(dc, !row.supported ? mk.danger : row.undone ? mk.text3 : mk.accent_fg, brAccentText_);
-            command_icons::Draw(dc, brAccentText_.get(), paneHeaderStroke_.get(), !row.supported ? command_icons::Icon::Lock :
-                row.undone ? command_icons::Icon::Undo : command_icons::FromGlyph(row.icon_glyph),
-                command_icons::CenteredBounds(icon_rect, 13 * scale_), 1, command_icons::kStroke);
-            // .hrow .tm: the time at the right, replaced by the actions on hover.
-            const float time_w = !row_hot && !row.time.empty() ? MeasureTextWidth(factory, small_fmt, row.time) : 0.0f;
-            if (time_w > 0.0f) text(row.time, card.right - 16 * scale_ - time_w, y + 12 * scale_, time_w + 1, brTextDisabled_.get());
-            const float actions_width = row_hot ? (row.elsewhere ? 166.0f : 111.0f) * scale_ : 14 * scale_ + (time_w > 0.0f ? time_w + 12 * scale_ : 0.0f);
-            const float label_width = std::max(0.0f, card.right - label_left - actions_width);
-            auto* title_ink = row.undone ? brTextDisabled_.get() : !row.supported ? brTextSecondary_.get() : brText_.get();
-            text(row.label, label_left, y + 3 * scale_, label_width, title_ink, title_fmt);
-            if (row.undone) {
-                const float strike_width = std::min(label_width, MeasureTextWidth(factory, title_fmt, row.label));
-                const float sy = std::round(y + 13 * scale_) + 0.5f;
-                dc->DrawLine(D2D1::Point2F(label_left, sy), D2D1::Point2F(label_left + strike_width, sy), brTextDisabled_.get(), scale_);
-            }
-            text(row.detail, label_left, y + 21 * scale_, label_width, brTextSecondary_.get());
-            if (row_hot && vm.hover_sub_index >= 0 && vm.hover_sub_index <= 1) {
-                const bool locate = vm.hover_sub_index == 1;
-                painter_.FillRoundedRect(D2D1::RectF(card.right - (locate ? 160 : 105) * scale_, y + 9 * scale_,
-                    card.right - (locate ? 110 : 10) * scale_, y + 35 * scale_), 4 * scale_, theme.fill_pressed);
-            }
-            if (row_hot) {
-                auto* action_ink = row.supported ? brAccent_.get() : brTextDisabled_.get();
-                const auto action_icon = [&](command_icons::Icon glyph, float x, bool mirror) {
-                    D2D1_MATRIX_3X2_F original; dc->GetTransform(&original);
-                    const auto box = D2D1::RectF(x, y + 15 * scale_, x + 14 * scale_, y + 29 * scale_);
-                    if (mirror) dc->SetTransform(D2D1::Matrix3x2F::Scale(-1, 1, D2D1::Point2F(x + 7 * scale_, y + 22 * scale_)) * original);
-                    command_icons::Draw(dc, action_ink, paneHeaderStroke_.get(), glyph, box, 1, command_icons::kStroke);
-                    dc->SetTransform(original);
-                };
-                if (row.elsewhere) {
-                    action_icon(command_icons::Icon::FolderOpen, card.right - 158 * scale_, false);
-                    text(l10n::Get(l10n::StringId::OpLocateShort), card.right - 140 * scale_, y + 12 * scale_, 32 * scale_, brAccent_.get());
-                }
-                action_icon(row.supported ? command_icons::Icon::Undo : command_icons::Icon::Lock, card.right - 103 * scale_, row.undone);
-                text(l10n::Get(!row.supported ? l10n::StringId::HistoryLocked : row.undone ? l10n::StringId::HistoryRedoTo : l10n::StringId::HistoryUndoTo),
-                     card.right - 85 * scale_, y + 12 * scale_, 75 * scale_, action_ink);
-            }
-        }
-        dc->PopAxisAlignedClip();
-        if (vm.status.history.empty()) text(l10n::Get(l10n::StringId::HistoryEmpty), card.left + 14 * scale_, card.top + 45 * scale_, inner, brTextSecondary_.get());
-        // .hfoot: hairline, the hint on the left, the two shortcuts as keys on the right.
-        const float rule = std::round(card.bottom - 32 * scale_) + 0.5f;
-        dc->DrawLine(D2D1::Point2F(card.left + 14 * scale_, rule), D2D1::Point2F(card.right - 14 * scale_, rule), brStrokeDivider_.get(), scale_);
-        const std::wstring keys[] = {L"Ctrl+Z", L"Ctrl+Y"};
-        float key_x = card.right - 14 * scale_;
-        const float key_top = card.bottom - 25 * scale_, key_bottom = card.bottom - 9 * scale_;
-        for (int k = 1; k >= 0; --k) {
-            const float key_w = MeasureTextWidth(factory, small_fmt, keys[k]) + 10 * scale_;
-            const auto key = D2D1::RectF(key_x - key_w, key_top, key_x, key_bottom);
-            painter_.FillRoundedRect(key, 4 * scale_, theme.fill_hover);
-            painter_.StrokeRoundedRect(key, 4 * scale_, theme.stroke_card);
-            text(keys[k], key.left + 5 * scale_, key.top - 2 * scale_, key_w - 9 * scale_, brTextSecondary_.get());
-            key_x = key.left - 4 * scale_;
-        }
-        text(l10n::Get(l10n::StringId::HistoryFooter), card.left + 14 * scale_, card.bottom - 27 * scale_,
-             key_x - card.left - 22 * scale_, brTextDisabled_.get());
-        MakeBrush(dc, theme.accent, brAccent_);
-        MakeBrush(dc, theme.fill_selected, brFillSelected_);
-    }
     if (vm.teach.visible && vm.drag_badge.empty()) DrawTeachBubble(vm, rect, theme);
-    if (!vm.status.history_open && !vm.change_popover.visible && vm.drag_badge.empty() && !vm.tooltip_text.empty() &&
+    if (!vm.change_popover.visible && vm.drag_badge.empty() && !vm.tooltip_text.empty() &&
         !group_wheel_.Visible() && !window_switcher_.IsOpen() && !window_overview_.IsOpen()) {
         IDWriteTextFormat* fmt = compositor_->SmallFormat();
         // Multi-line tooltips ("\n"): one row per line, widest line sets the width.
@@ -2846,63 +2715,6 @@ void MainRenderer::DrawStatusBar(const WindowViewModel& vm, const D2D1_RECT_F& f
     IDWriteTextFormat* small_fmt = compositor_->SmallFormat();
     const StatusBarMetrics sb = MakeStatusBarMetrics(
         vm, full, scale_, status_height_, factory, small_fmt);
-    if (sb.undo_chip.right > sb.undo_chip.left) {
-    const uint64_t identity = vm.status.history.empty() ? 0 : vm.status.history.front().task_id * 2 + static_cast<uint64_t>(vm.status.can_redo);
-    if (identity != undo_chip_identity_) { undo_chip_identity_ = identity; undo_chip_bump_at_ = motion_now_; }
-    D2D1_MATRIX_3X2_F before_chip; dc->GetTransform(&before_chip);
-    if (undo_chip_bump_at_ && motion_now_ - undo_chip_bump_at_ < 450 && motion::SystemAnimationsEnabled()) {
-        const float progress = static_cast<float>(motion_now_ - undo_chip_bump_at_) / 450.0f;
-        const float bump = 1.0f + 0.06f * (progress < 0.4f ? progress / 0.4f : (1.0f - progress) / 0.6f);
-        dc->SetTransform(D2D1::Matrix3x2F::Scale(bump, bump, D2D1::Point2F((sb.undo_chip.left+sb.undo_chip.right)*0.5f,(sb.undo_chip.top+sb.undo_chip.bottom)*0.5f)) * before_chip);
-        RequestMotionFrame();
-    }
-    const bool history_hot = IsHovered(vm, HitTestResult::StatusUndoHistory);
-    const MockupInk chip_ink = MakeMockupInk(theme, vm.dark);
-    // drag_undo_mockup .undo > button:hover: the pressed wash fills the whole
-    // segment, cut by the capsule's rounded ends and square at the dividers.
-    const auto segment_hover = [&](D2D1_RECT_F segment) {
-        MakeBrush(dc, theme.fill_pressed, brFillSelected_);
-        dc->PushAxisAlignedClip(segment, D2D1_ANTIALIAS_MODE_ALIASED);
-        dc->FillRoundedRectangle(D2D1::RoundedRect(sb.undo_chip, 11 * scale_, 11 * scale_), brFillSelected_.get());
-        dc->PopAxisAlignedClip();
-    };
-    MakeBrush(dc, theme.fill_hover, brFillHover_);
-    MakeBrush(dc, theme.text, brText_);
-    MakeBrush(dc, theme.text_secondary, brTextSecondary_);
-    MakeBrush(dc, theme.stroke_divider, brStrokeDivider_);
-    dc->FillRoundedRectangle(D2D1::RoundedRect(sb.undo_chip, 11 * scale_, 11 * scale_), brFillHover_.get());
-    if (vm.status.history_open) {
-        MakeBrush(dc, chip_ink.accent_fg, brAccent_);
-        auto outline = sb.undo_chip; outline.left += 0.5f * scale_; outline.top += 0.5f * scale_;
-        outline.right -= 0.5f * scale_; outline.bottom -= 0.5f * scale_;
-        dc->DrawRoundedRectangle(D2D1::RoundedRect(outline, 10.5f * scale_, 10.5f * scale_), brAccent_.get(), scale_);
-    }
-    if (!paneHeaderStroke_.get()) command_icons::CreateStrokeStyle(dc, &paneHeaderStroke_);
-    const auto icon = [&](const D2D1_RECT_F& button, command_icons::Icon glyph, bool enabled, bool mirror) {
-        if (enabled && glyph == command_icons::Icon::Undo && IsHovered(vm, mirror ? HitTestResult::StatusRedo : HitTestResult::StatusUndo))
-            segment_hover(button);
-        D2D1_MATRIX_3X2_F saved; dc->GetTransform(&saved);
-        if (mirror) dc->SetTransform(D2D1::Matrix3x2F::Scale(-1, 1, D2D1::Point2F((button.left+button.right)*0.5f, 0)) * saved);
-        MakeBrush(dc, glyph == command_icons::Icon::ChevronUp || !enabled ? theme.text_disabled : chip_ink.accent_fg, brAccent_);
-        command_icons::Draw(dc, brAccent_.get(), paneHeaderStroke_.get(), glyph,
-            command_icons::CenteredBounds(button, (glyph == command_icons::Icon::ChevronUp ? 8.0f : 11.0f) * scale_), 1.0f, command_icons::kStroke);
-        dc->SetTransform(saved);
-    };
-    icon(sb.undo_button, command_icons::Icon::Undo, vm.status.can_undo, false);
-    const float label_right = vm.status.can_redo ? sb.redo_button.left : sb.undo_chip.right;
-    if (history_hot) segment_hover(D2D1::RectF(sb.undo_button.right, sb.undo_chip.top, label_right, sb.undo_chip.bottom));
-    const auto chevron = D2D1::RectF(label_right-22*scale_, sb.undo_chip.top, label_right-2*scale_, sb.undo_chip.bottom);
-    DrawTextEndEllipsis(compositor_, small_fmt, brText_.get(), vm.status.undo_label,
-        sb.undo_button.right + 7 * scale_, sb.undo_chip.top,
-        std::max(0.0f, chevron.left - sb.undo_button.right - 9 * scale_), sb.undo_chip.bottom - sb.undo_chip.top);
-    icon(chevron, command_icons::Icon::ChevronUp, true, false);
-    const auto divider = [&](float x) { dc->DrawLine(D2D1::Point2F(x,sb.undo_chip.top+5*scale_),D2D1::Point2F(x,sb.undo_chip.bottom-5*scale_),brStrokeDivider_.get()); };
-    divider(sb.undo_button.right);
-    if (vm.status.can_redo) { divider(sb.redo_button.left); icon(sb.redo_button, command_icons::Icon::Undo, true, true); }
-    dc->SetTransform(before_chip);
-    MakeBrush(dc, theme.accent, brAccent_);
-    MakeBrush(dc, theme.fill_selected, brFillSelected_);
-    }
     // Everything but the AI chip ends left of it (MakeStatusBarMetrics).
     D2D1_RECT_F rect = full;
     rect.right = sb.content_right;
@@ -3008,7 +2820,6 @@ void MainRenderer::DrawStatusBar(const WindowViewModel& vm, const D2D1_RECT_F& f
     } else {
         task_pill_was_active_ = false;
         task_pill_spinning_ = false;
-        task_pill_done_at_ = 0;
     }
 
 }
@@ -3051,51 +2862,30 @@ void MainRenderer::DrawTaskPill(const WindowViewModel& vm, const D2D1_RECT_F& ar
     const ULONGLONG now = GetTickCount64();
     if (task_pill_id_ != vm.status.task_id) {
         task_pill_id_ = vm.status.task_id;
-        task_pill_done_at_ = 0;
         task_pill_pop_at_ = 0;
         task_pill_was_active_ = false;
     }
     const bool active = vm.status.task_active;
-    // Edge-detect completion: running -> finished without error shows the check.
     if (active) {
         task_pill_was_active_ = true;
-        task_pill_done_at_ = 0;
     } else if (task_pill_was_active_) {
         task_pill_was_active_ = false;
-        task_pill_done_at_ = vm.status.task_failed ? 0 : now;
         task_pill_animate_ = motion::SystemAnimationsEnabled();
-        if (task_pill_animate_ && (!vm.status.task_failed || vm.status.task_failed_items > 0))
+        if (task_pill_animate_ && (vm.status.task_failed || vm.status.task_failed_items > 0))
             task_pill_pop_at_ = now;
     }
     // Partial failure: red until the next
     // operation, the click opens the list.
     const bool bad = !active && (vm.status.task_failed || vm.status.task_failed_items > 0);
     if (task_pill_pop_at_ != 0 && now - task_pill_pop_at_ >= kTaskPillPopMs) task_pill_pop_at_ = 0;
-    float strength = 1.0f;
-    const bool done = !active && !bad && !vm.status.task_failed;
-    const bool offers = done && (vm.status.task_can_undo || vm.status.task_can_open);
-    task_pill_hold_ms_ = kTaskPillActionsMs;
     for (auto& action : task_action_rects_) action = {};
-    if (done && task_pill_done_at_ == 0) task_pill_done_at_ = now;
-    const bool compact = done && now - task_pill_done_at_ >= task_pill_hold_ms_;
-    const bool show_actions = offers && !compact;
-    const std::wstring undo_label = l10n::Get(l10n::StringId::Undo);
-    const std::wstring open_label = l10n::Get(l10n::StringId::OpLocateShort);
     const std::wstring resume_label = l10n::Get(l10n::StringId::OpResume);
     const float action_pad = 6.0f * scale_;
-    float undo_w = show_actions && vm.status.task_can_undo
-        ? MeasureTextWidth(factory, fmt, undo_label) + action_pad * 2.0f : 0.0f;
-    float open_w = show_actions && vm.status.task_can_open
-        ? MeasureTextWidth(factory, fmt, open_label) + action_pad * 2.0f : 0.0f;
     float resume_w = active && vm.status.task_paused
         ? MeasureTextWidth(factory, fmt, resume_label) + action_pad * 2.0f : 0.0f;
-    // Drop complete buttons before they would overlap the state icon.
     const float action_budget = std::max(0.0f, area.right - area.left - 36.0f * scale_);
-    if (undo_w + open_w + resume_w > action_budget) undo_w = 0.0f;
-    if (open_w + resume_w > action_budget) open_w = 0.0f;
     if (resume_w > action_budget) resume_w = 0.0f;
-    const float actions_w = undo_w + open_w + resume_w > 0.0f
-        ? undo_w + open_w + resume_w + 4.0f * scale_ : 0.0f;
+    const float actions_w = resume_w > 0.0f ? resume_w + 4.0f * scale_ : 0.0f;
     const bool indeterminate = active && !vm.status.task_paused && vm.status.task_progress < 0.0f;
     task_pill_spinning_ = indeterminate;
 
@@ -3103,13 +2893,12 @@ void MainRenderer::DrawTaskPill(const WindowViewModel& vm, const D2D1_RECT_F& ar
     const float area_w = std::max(0.0f, area.right - area.left);
     const float cy = (area.top + area.bottom) * 0.5f;
     const float pill_h = std::min(area.bottom - area.top - 4.0f * scale_, 22.0f * scale_);
-    // Completed operations retain a compact, clickable state icon.
     // file_ops_mockup .pill .ring: 14 DIP, a 2.5 DIP band.
-    const float ring_d = 14.0f * scale_ * (active || bad ? 1.0f : done ? strength : 0.0f);
-    const float pad_l = 9.0f * scale_ * strength;
-    const float pad_r = 10.0f * scale_ * strength;
-    const float gap = compact ? 0.0f : 6.0f * scale_ * (active || bad ? 1.0f : done ? strength : 0.0f);
-    const float text_w = compact || text.empty() ? 0.0f : MeasureTextWidth(factory, fmt, text);
+    const float ring_d = 14.0f * scale_ * (active || bad ? 1.0f : 0.0f);
+    const float pad_l = 9.0f * scale_;
+    const float pad_r = 10.0f * scale_;
+    const float gap = 6.0f * scale_ * (active || bad ? 1.0f : 0.0f);
+    const float text_w = text.empty() ? 0.0f : MeasureTextWidth(factory, fmt, text);
     // .pill .count: "+N" operations queued behind this one, an accent badge
     // 16 DIP tall after the words (running only).
     const std::wstring queued = active && !vm.status.task_paused && vm.status.task_queued > 0
@@ -3119,8 +2908,7 @@ void MainRenderer::DrawTaskPill(const WindowViewModel& vm, const D2D1_RECT_F& ar
     const float queued_room = queued_w > 0.0f ? queued_w + 7.0f * scale_ : 0.0f;
     const float pill_w = std::min(area_w, pad_l + ring_d + gap + text_w + queued_room + actions_w +
                                           (actions_w > 0.0f ? 4.0f * scale_ - pad_r : 0.0f) + pad_r + 1.0f);
-    // Right after the counts and the history capsule, like the mockup's
-    // #pillSlot; the hint keeps the far right.
+    // Right after the counts, like the mockup's #pillSlot; the hint keeps the far right.
     const D2D1_RECT_F pill = D2D1::RectF(area.left, cy - pill_h * 0.5f,
                                          area.left + pill_w, cy + pill_h * 0.5f);
     task_pill_rect_ = pill;
@@ -3130,7 +2918,7 @@ void MainRenderer::DrawTaskPill(const WindowViewModel& vm, const D2D1_RECT_F& ar
     // neutral hover wash, the others on their soft fills.
     const MockupInk mk = MakeMockupInk(theme, vm.dark);
     const bool paused = active && vm.status.task_paused;
-    const D2D1_COLOR_F tone = bad ? mk.danger : done ? mk.ok : paused ? mk.warn : mk.accent_fg;
+    const D2D1_COLOR_F tone = bad ? mk.danger : paused ? mk.warn : mk.accent_fg;
     // HTML pillIn: .85 -> 1.06 at 60% -> 1, over 400 ms.
     D2D1_MATRIX_3X2_F saved_transform{};
     // Also while running: the card shrank into the pill (PopTaskPill).
@@ -3145,8 +2933,8 @@ void MainRenderer::DrawTaskPill(const WindowViewModel& vm, const D2D1_RECT_F& ar
     }
 
     dc->PushAxisAlignedClip(pill, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
-    if (strength > 0.0f) {
-        const D2D1_COLOR_F fill = bad ? mk.danger_soft : done ? mk.ok_soft : paused ? mk.warn_soft
+    {
+        const D2D1_COLOR_F fill = bad ? mk.danger_soft : paused ? mk.warn_soft
             : hovered ? theme.fill_pressed : theme.fill_hover;
         painter_.FillRoundedRect(pill, pill_h * 0.5f, fill);
         // .pill:hover: a hairline ring on top of the wash.
@@ -3171,12 +2959,6 @@ void MainRenderer::DrawTaskPill(const WindowViewModel& vm, const D2D1_RECT_F& ar
             DrawIconText(c.x - ring_d * 0.5f - 2.0f * scale_, cy - ring_d * 0.5f - 2.0f * scale_,
                          ring_d + 4.0f * scale_, ring_d + 4.0f * scale_,
                          L"\xE7BA", L"!", tone, 0.82f);
-        } else if (done) {
-            D2D1_COLOR_F accent = tone;
-            accent.a = std::max(strength, 0.0f);
-            DrawIconText(c.x - ring_d * 0.5f - 2.0f * scale_, cy - ring_d * 0.5f - 2.0f * scale_,
-                         ring_d + 4.0f * scale_, ring_d + 4.0f * scale_,
-                         L"\xE73E", L"\u2713", accent, 0.82f);
         } else {
             // Track: the mockup's --divider, a touch firmer so it reads on the wash.
             MakeBrush(dc, WithAlpha(theme.text, vm.dark ? 0.14f : 0.12f), brStrokeDivider_);
@@ -3198,7 +2980,7 @@ void MainRenderer::DrawTaskPill(const WindowViewModel& vm, const D2D1_RECT_F& ar
         }
         text_x += ring_d + gap;
     }
-    if (!compact && !text.empty()) {
+    if (!text.empty()) {
         // .pill: the words in the normal text colour; state lives in the
         // icon and the wash.
         D2D1_COLOR_F color = theme.text;
@@ -3218,25 +3000,17 @@ void MainRenderer::DrawTaskPill(const WindowViewModel& vm, const D2D1_RECT_F& ar
                             badge.left + (queued_w - queued_text_w) * 0.5f, area.top, queued_text_w + 1.0f, status_height_);
     }
     if (actions_w > 0.0f) {
-        // .pill .act: accent text buttons at the right end, 定位 before 撤销
-        // as in the mockup; the card colour on hover.
-        float x = pill.right - 4.0f * scale_ - open_w - undo_w - resume_w;
+        // .pill .act: 继续 while paused.
+        const float x = pill.right - 4.0f * scale_ - resume_w;
         const float top = pill.top + 2.0f * scale_;
         const float bottom = pill.bottom - 2.0f * scale_;
-        const std::wstring* labels[3] = { &undo_label, &open_label, &resume_label };
-        const float widths[3] = { undo_w, open_w, resume_w };
-        constexpr int order[3] = { 1, 0, 2 };
-        for (const int i : order) {
-            if (widths[i] <= 0.0f) continue;
-            const D2D1_RECT_F button = D2D1::RectF(x, top, x + widths[i], bottom);
-            task_action_rects_[i] = button;
-            if (IsHovered(vm, HitTestResult::StatusBarTask, -1, i))
-                painter_.FillRoundedRect(button, (bottom - top) * 0.5f, theme.surface_card);
-            MakeBrush(dc, mk.accent_fg, brAccentText_);
-            DrawTextEndEllipsis(compositor_, fmt, brAccentText_.get(), *labels[i], x + action_pad, area.top,
-                                widths[i] - action_pad * 2.0f + 1.0f, status_height_);
-            x += widths[i];
-        }
+        const D2D1_RECT_F button = D2D1::RectF(x, top, x + resume_w, bottom);
+        task_action_rects_[2] = button;
+        if (IsHovered(vm, HitTestResult::StatusBarTask, -1, 2))
+            painter_.FillRoundedRect(button, (bottom - top) * 0.5f, theme.surface_card);
+        MakeBrush(dc, mk.accent_fg, brAccentText_);
+        DrawTextEndEllipsis(compositor_, fmt, brAccentText_.get(), resume_label, x + action_pad, area.top,
+                            resume_w - action_pad * 2.0f + 1.0f, status_height_);
     }
     dc->PopAxisAlignedClip();
     if (popping) dc->SetTransform(saved_transform);

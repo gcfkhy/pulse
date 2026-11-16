@@ -2946,10 +2946,7 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
             SetCursor(LoadCursorW(nullptr, IDC_IBEAM));
             return TRUE;
         }
-        if (hit.region == ui::HitTestResult::StatusBarTask || hit.region == ui::HitTestResult::StatusBarCancelSearch ||
-            hit.region == ui::HitTestResult::StatusUndo || hit.region == ui::HitTestResult::StatusRedo ||
-            hit.region == ui::HitTestResult::StatusUndoHistory ||
-            (hit.region == ui::HitTestResult::UndoHistoryRow && hit.sub_index != 2)) {
+        if (hit.region == ui::HitTestResult::StatusBarTask || hit.region == ui::HitTestResult::StatusBarCancelSearch) {
             SetCursor(LoadCursorW(nullptr, IDC_HAND));
             return TRUE;
         }

@@ -7429,23 +7429,6 @@ void MainRenderer::DrawList(const PaneViewModel& vm, float x, float y, float w, 
         dc->PopAxisAlignedClip();
     }
 
-    if (!vm.history_preview_paths.empty()) {
-        dc->PushAxisAlignedClip(viewport, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
-        MakeBrush(dc, theme.accent, brAccent_);
-        for (int i = startIdx; i >= 0 && i <= endIdx; ++i) {
-            const int source = vm.SourceIndex(i);
-            if (source < 0) continue;
-            const auto& entry = MakeVisibleEntry(vm, static_cast<size_t>(source));
-            if (std::any_of(vm.history_preview_paths.begin(), vm.history_preview_paths.end(), [&](const auto& path) {
-                return _wcsicmp(path.c_str(), entry.path.c_str()) == 0;
-            })) {
-                const auto cell = layout.ItemRect(i);
-                dc->FillRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(cell.left + 2 * scale_, cell.top + 4 * scale_,
-                    cell.left + 5 * scale_, cell.bottom - 4 * scale_), 1.5f * scale_, 1.5f * scale_), brAccent_.get());
-            }
-        }
-        dc->PopAxisAlignedClip();
-    }
     DrawScrollbar(vm, x, y, w, h, theme);
     if (vm.view_mode == ViewMode::List && layout.MaxScrollX() > 0.0f)
         painter_.DrawScrollbar(PaneHScrollbarSpec(vm, D2D1::RectF(x, y, x + w, y + h), layout.MaxScrollX(), scale_));

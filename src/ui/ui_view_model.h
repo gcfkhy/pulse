@@ -253,7 +253,6 @@ struct TagQueryChipView {
 struct AiListOverlay;
 
 struct PaneViewModel {
-    std::vector<std::wstring> history_preview_paths;
     using FilterMap = std::vector<int>;
     using TagDots = std::unordered_map<int, std::vector<D2D1_COLOR_F>>;
 
@@ -641,19 +640,7 @@ struct DetailsHitRects {
 // The AI chip at the left end of the status bar (app ai_status.h, Pulse 助手).
 enum class StatusAiState : uint8_t { Hidden, Idle, Busy, Waiting, Done, Error, Warn };
 
-struct UndoHistoryRowView {
-    uint64_t task_id = 0;
-    std::wstring label, detail;
-    std::wstring time;             // HH:MM it was recorded; empty when unknown
-    bool undone = false, supported = true, elsewhere = false;
-    std::wstring icon_glyph = L"\xE8A5";
-};
-
 struct StatusBarView {
-    bool can_undo = false, can_redo = false, history_open = false;
-    int history_offset = 0;
-    std::wstring undo_label;
-    std::vector<UndoHistoryRowView> history;
     bool query_active = false;
     bool query_cancellable = false;
     float query_progress = -1.0f; // 0..1 of this query's candidates; negative means unknown.
@@ -674,8 +661,6 @@ struct StatusBarView {
     bool task_paused = false;      // paused or pausing: amber pill
     uint32_t task_queued = 0;      // operations waiting behind the running one ("+N")
     uint64_t task_failed_items = 0; // partial failure: red pill until the next operation
-    bool task_can_undo = false;    // finished pill offers 撤销 (sub_index 0)
-    bool task_can_open = false;    // finished pill offers locate (sub_index 1); resume uses 2
     std::wstring performance_text; // development diagnostics; empty hides it
     std::wstring performance_compact_text;
     StatusAiState ai_state = StatusAiState::Hidden;
@@ -1461,7 +1446,6 @@ struct HitTestResult {
         DetailsPreviewEnable,   // preview pane on/off chip inside the well
         DetailsResize,
         StatusBar,
-        StatusUndo, StatusUndoHistory, StatusRedo, UndoHistoryRow, UndoHistorySurface,
         PaneExpand, PaneLayoutPeek, PaneLayoutPreset, PaneLayoutZoom, PaneLayoutRestore, PaneLayoutCell, PaneLayoutTray, PaneLayoutCompare,
         StatusBarTask,
         StatusBarCancelSearch,

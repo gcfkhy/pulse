@@ -996,7 +996,7 @@ int RunToolbarInteractionTest(AppState& s, const wchar_t* output) {
             check(probe.seen && probe.below_threshold && s.menu->DraggedCommand()>0 && ToolbarPinDragging(),
                   "real More menu threshold hands capture to toolbar drag");
             SendMessageW(s.hwnd,WM_KEYDOWN,VK_ESCAPE,0);
-            log<<"after menu Escape dragging="<<ToolbarPinDragging()<<" history="<<s.undoHistoryOpen<<" before=";
+            log<<"after menu Escape dragging="<<ToolbarPinDragging()<<" before=";
             auto ids=[&](const std::vector<std::wstring>& values) {
                 for(const auto& id:values){for(wchar_t c:id)log<<static_cast<char>(c);log<<",";}
             };

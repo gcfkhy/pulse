@@ -425,80 +425,15 @@ int RunContentProgressUiTest(int argc, char** argv) {
             rect = wide_rect;
             s.compositor.Resize(static_cast<UINT>(rect.right), static_cast<UINT>(rect.bottom));
             auto done = base;
-            done.status.task_text = L"\x5df2\x590d\x5236 12 \x4e2a\x9879\x76ee";
-            done.status.task_can_undo = done.status.task_can_open = true;
-            frame(done, nullptr);
-            Sleep(650);   // past the finish pop
             frame(done, L"done");
-            // The pill follows counts/history; 定位 precedes 撤销 in the current layout.
             const float y = rect.bottom - 12.0f * scale;
-            float undo_x = -1, open_x = -1;
-            int plain = 0;
+            int done_hits = 0;
+            for (float x = 0; x < rect.right; x += 1.0f) {
+                if (s.renderer.HitTest(done, rect, x, y).region == ui::HitTestResult::StatusBarTask) ++done_hits;
+            }
             const auto done_bounds = s.renderer.TaskPillRect();
-            bool done_bounds_match = true;
-            for (float x = 0; x < rect.right; x += 1.0f) {
-                const auto area = s.renderer.HitTest(done, rect, x, y);
-                done_bounds_match &= (area.region == ui::HitTestResult::StatusBarTask) == ui::ContainsPt(done_bounds, x, y);
-                if (area.region != ui::HitTestResult::StatusBarTask) continue;
-                if (area.sub_index == 0 && undo_x < 0) undo_x = x;
-                else if (area.sub_index == 1 && open_x < 0) open_x = x;
-                else if (area.sub_index < 0) ++plain;
-            }
-            check(done_bounds_match && open_x >= done_bounds.left && undo_x > open_x && undo_x < done_bounds.right && plain > 0,
-                  "finished pill: locate precedes undo with separate semantic targets, the rest opens details");
-            if (dark) {
-                Sleep(12050);
-                frame(done, L"done-compact");
-                int compact_hits = 0, compact_actions = 0;
-                const auto compact_bounds = s.renderer.TaskPillRect();
-                bool compact_bounds_match = true;
-                for (float x = 0; x < rect.right; ++x) {
-                    const auto pill_hit = s.renderer.HitTest(done, rect, x, y);
-                    compact_bounds_match &= (pill_hit.region == ui::HitTestResult::StatusBarTask) == ui::ContainsPt(compact_bounds, x, y);
-                    if (pill_hit.region == ui::HitTestResult::StatusBarTask) {
-                        ++compact_hits;
-                        if (pill_hit.sub_index >= 0) ++compact_actions;
-                    }
-                }
-                check(compact_hits > 0 && compact_bounds_match && compact_actions == 0 &&
-                      compact_bounds.left >= rect.left && compact_bounds.right <= status_content_right(done, rect, scale) &&
-                      compact_bounds.right - compact_bounds.left < done_bounds.right - done_bounds.left,
-                      "after 12 seconds a clickable icon remains without stale action targets");
-                rect.right = 360 * scale;
-                s.compositor.Resize(static_cast<UINT>(rect.right), static_cast<UINT>(rect.bottom));
-                frame(done, L"done-compact-narrow");
-                int narrow_compact = 0;
-                const auto narrow_bounds = s.renderer.TaskPillRect();
-                bool narrow_bounds_match = true;
-                for (float x = 0; x < rect.right; ++x) {
-                    const auto narrow_hit = s.renderer.HitTest(done, rect, x, y);
-                    narrow_bounds_match &= (narrow_hit.region == ui::HitTestResult::StatusBarTask) == ui::ContainsPt(narrow_bounds, x, y);
-                    if (narrow_hit.region == ui::HitTestResult::StatusBarTask) ++narrow_compact;
-                }
-                check(narrow_compact > 0 && narrow_bounds_match && narrow_bounds.left >= rect.left &&
-                      narrow_bounds.right <= status_content_right(done, rect, scale) &&
-                      std::abs((narrow_bounds.right - narrow_bounds.left) - (compact_bounds.right - compact_bounds.left)) < 0.1f,
-                      "compact narrow pill matches visible icon bounds and retains the same icon-only width");
-                rect = wide_rect;
-                s.compositor.Resize(static_cast<UINT>(rect.right), static_cast<UINT>(rect.bottom));
-                frame(running, nullptr);
-                frame(done, nullptr);
-            }
-            auto hover = done;
-            hover.hover_region = ui::HitTestResult::StatusBarTask;
-            hover.hover_sub_index = 0;
-            frame(hover, L"done-hover");
-            auto no_undo = base;
-            no_undo.status.task_text = done.status.task_text;
-            no_undo.status.task_can_open = true;
-            frame(running, nullptr);
-            frame(no_undo, nullptr);
-            int undo_hits = 0;
-            for (float x = 0; x < rect.right; x += 1.0f) {
-                const auto no_undo_hit = s.renderer.HitTest(no_undo, rect, x, y);
-                if (no_undo_hit.region == ui::HitTestResult::StatusBarTask && no_undo_hit.sub_index == 0) ++undo_hits;
-            }
-            check(undo_hits == 0, "no undo target when the operation cannot be undone");
+            check(done_hits == 0 && done_bounds.right <= done_bounds.left,
+                  "successful completion shows no task pill");
             auto bad = base;
             bad.status.task_text = L"2 \x9879\x672a\x6210\x529f \x00b7 \x70b9\x51fb\x67e5\x770b";
             bad.status.task_failed = true;

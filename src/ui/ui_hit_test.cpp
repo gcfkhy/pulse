@@ -111,25 +111,6 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
         compositor_ ? compositor_->DwriteFactory() : nullptr,
         compositor_ ? compositor_->SmallFormat() : nullptr);
     if (layout_hit.region != HitTestResult::None) return layout_hit;
-    if (vm.status.history_open) {
-        const auto bounds = UndoHistoryBounds(vm, rect, scale_);
-        if (ContainsPt(bounds, x, y)) {
-            r.region = HitTestResult::UndoHistorySurface;
-            for (int index = vm.status.history_offset; index < std::min(vm.status.history_offset + 7, static_cast<int>(vm.status.history.size())); ++index) {
-                const float top = UndoHistoryRowTop(vm, bounds, static_cast<size_t>(index), scale_);
-                if (y < top || y >= top + kUndoHistoryRowHeight * scale_ || y >= bounds.bottom - 30 * scale_) continue;
-                r.region = HitTestResult::UndoHistoryRow; r.index = index;
-                const bool row_hot = vm.hover_region == HitTestResult::UndoHistoryRow && vm.hover_control_index == index;
-                r.sub_index = 2;
-                if (row_hot && y >= top + 9 * scale_ && y < top + 35 * scale_ && x < bounds.right - 7 * scale_) {
-                    if (vm.status.history[index].elsewhere && x >= bounds.right - 160 * scale_ && x < bounds.right - 105 * scale_) r.sub_index = 1;
-                    else if (vm.status.history[index].supported && x >= bounds.right - 105 * scale_) r.sub_index = 0;
-                }
-                break;
-            }
-            return r;
-        }
-    }
     if (vm.change_popover.visible) {
         const auto popup = ChangePopoverRect(vm.change_popover, rect, scale_);
         if (ContainsPt(popup, x, y)) {

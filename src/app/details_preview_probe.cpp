@@ -321,15 +321,7 @@ int RunDetailsPreviewProbe(pulse::AppState& s, const wchar_t* report) {
         }
         history += L"]";
         check(s.ops.UndoFromJson(history), "isolated history fixture loads twelve thousand source paths");
-        s.undoHistoryOpen = false;
-        const auto closed_vm = BuildVm(s);
-        check(closed_vm.status.history.size() <= 1 && !closed_vm.status.undo_label.empty(),
-            "closed history BuildVm keeps only pill summary and undo label");
-        s.undoHistoryOpen = true;
-        const auto open_vm = BuildVm(s);
-        check(open_vm.status.history.size() == 12,
-            "open history BuildVm includes all twelve operation rows");
-        s.undoHistoryOpen = false;
+        (void)BuildVm(s);
         check(s.ops.UndoFromJson(previous_history), "isolated history fixture restores prior history");
         preview.Close();
         fprintf(log, "failures=%d\n", failures);

@@ -391,9 +391,8 @@ public:
         for (const auto& m : list_shift_) active = active || m.Active(motion_now);
         for (const auto& m : view_morph_) active = active || m.Active(motion_now);
         for (const auto& m : link_pill_motion_) active = active || m.Active(motion_now);
-        // Operation pill: the completion check fade and pop.
+        // Operation pill: the finish pop when a running task becomes failed.
         active = active ||
-                 (task_pill_done_at_ != 0 && now - task_pill_done_at_ < task_pill_hold_ms_ + 400) ||
                  (task_pill_pop_at_ != 0 && now - task_pill_pop_at_ < kTaskPillPopMs + 40);
         bool ticked = false;
         if (copy_feedback_.Tick(now)) ticked = true;
@@ -1375,21 +1374,15 @@ private:
         motion_probe::Record(location);
         motion_frame_wanted_ = true;
     }
-    static constexpr ULONGLONG kTaskPillDoneMs = 1600;
     static constexpr ULONGLONG kTaskPillFadeMs = 300;
     uint64_t task_pill_id_ = 0;
-    uint64_t undo_chip_identity_ = 0, undo_chip_bump_at_ = 0;
     bool task_pill_was_active_ = false;
     bool task_pill_spinning_ = false;
     bool task_pill_animate_ = true;
-    ULONGLONG task_pill_done_at_ = 0;
     ULONGLONG task_pill_pop_at_ = 0;     // finish pop
     static constexpr ULONGLONG kTaskPillPopMs = 400;
-    // Completed operations collapse to a persistent icon after 12 seconds.
-    static constexpr ULONGLONG kTaskPillActionsMs = 12000;
-    ULONGLONG task_pill_hold_ms_ = kTaskPillDoneMs;
     D2D1_RECT_F task_pill_rect_{};
-    D2D1_RECT_F task_action_rects_[3]{};   // as last drawn; empty = not offered
+    D2D1_RECT_F task_action_rects_[3]{};   // [2] = resume; [0]/[1] unused
     mutable ColumnAutoWidths auto_widths_{};
     mutable float auto_widths_scale_ = -1.0f;
     mutable std::wstring auto_widths_language_;

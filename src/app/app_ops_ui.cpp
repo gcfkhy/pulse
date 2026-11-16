@@ -617,34 +617,6 @@ void CopyPathsToClipboard(AppState& s, const std::vector<std::wstring>& paths, b
     }
 }
 
-void HandleUndoHistoryAction(AppState& s, uint64_t task_id, bool undone, bool locate) {
-    const auto history = s.ops.UndoHistorySummary();
-    const auto found = std::find_if(history.begin(), history.end(), [&](const auto& row) {
-        return row.task_id == task_id && row.undone == undone;
-    });
-    if (found == history.end()) return;
-    const auto& item = *found;
-    if (locate) {
-        const auto paths = s.ops.UndoHistoryPreviewPaths(task_id);
-        if (paths.empty()) return;
-        const auto folder = fs::ParentPath(paths.front());
-        if (folder.empty()) return;
-        NavigateTo(s, folder);
-        s.arrivalSelect = {};
-        ArmArrivalSelection(s, s.pane, 0, 10000);
-        s.arrivalSelect.expected_only = true;
-        s.arrivalSelect.until = 0;
-        for (const auto& path : paths) ExpectArrival(s, path);
-        if (s.pane) if (auto* tab = s.pane->ActiveTab()) ApplyArrivalSelection(s, *s.pane, *tab, true);
-        s.undoHistoryOpen = false;
-    } else if (item.supported) {
-        if (item.undone) s.ops.RedoTo(item.task_id);
-        else s.ops.UndoTo(item.task_id);
-    }
-    s.undoHistoryOffset = 0;
-    InvalidateRect(s.hwnd, nullptr, FALSE);
-}
-
 static void LocateOperationResults(AppState& s, uint64_t task_id) {
     const auto results = s.ops.TaskLocations(task_id);
     if (results.destinations.empty()) return;
@@ -890,11 +862,6 @@ std::vector<ui::FluentMenuItem> BuildOperationHistoryMenu(AppState& s, const std
 
 void HandleOperationStatusAction(AppState& s, int action) {
     const auto current = s.ops.Status();
-    if (action == 0) {
-        if (s.ops.CanUndoTask(current.task_id)) s.ops.UndoTask(current.task_id);
-        return;
-    }
-    if (action == 1) { LocateOperationResults(s, current.task_id); return; }
     if (action == 2) {
         if (current.active && current.can_pause) {
             if (current.pause_requested || current.phase == ops::OpPhase::Paused) s.ops.ResumeCurrent();
@@ -902,28 +869,7 @@ void HandleOperationStatusAction(AppState& s, int action) {
         }
         return;
     }
-    if (current.active || current.phase == ops::OpPhase::Failed) { PinAndShowOperationWindow(s); return; }
-    if (!s.menu) return;
-    auto history = s.ops.RecentStatuses();
-    std::erase_if(s.hiddenOperationHistory, [&](uint64_t task_id) {
-        return task_id != current.task_id && std::none_of(history.begin(), history.end(),
-            [&](const auto& status) { return status.task_id == task_id; });
-    });
-    if (current.task_id && std::none_of(history.begin(), history.end(),
-        [&](const auto& status) { return status.task_id == current.task_id; })) history.insert(history.begin(), current);
-    std::erase_if(history, [&](const auto& status) { return s.hiddenOperationHistory.contains(status.task_id); });
-    auto items = BuildOperationHistoryMenu(s, history);
-    POINT point{}; GetCursorPos(&point);
-    const int command = s.menu->TrackPopup(point, std::move(items));
-    if (command == 1) {
-        HandleOperationHistoryAction(s, 0, 3);
-        return;
-    }
-    if (command < 100) return;
-    const auto index = static_cast<size_t>((command - 100) / 3);
-    if (index >= history.size()) return;
-    const auto& selected = history[index];
-    HandleOperationHistoryAction(s, selected.task_id, (command - 100) % 3);
+    if (current.active || current.phase == ops::OpPhase::Failed) PinAndShowOperationWindow(s);
 }
 
 // Both batch-rename entries (the selection and a path list) submit through here.

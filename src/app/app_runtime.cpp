@@ -2066,77 +2066,12 @@ ui::WindowViewModel BuildVm(AppState& s, bool probe_details) {
         vm.status.selection_text = std::wstring(count) + L"  \u00B7  " +
             (bytes ? pulse::format::ByteSize(*bytes, true) : l10n::Get(l10n::StringId::LoadingEllipsis));
     }
-    vm.status.can_undo = s.ops.CanUndo();
-    vm.status.can_redo = s.ops.CanRedo();
-    vm.status.history_open = s.undoHistoryOpen;
-    vm.status.history_offset = s.undoHistoryOffset;
-    vm.status.undo_label = l10n::Get(l10n::StringId::OpHistory);
-    const auto undo_history = s.ops.UndoHistorySummary(s.undoHistoryOpen);
     const bool history_has_entries = s.ops.HistoryProgress().has_entries;
-    for (const auto& item : undo_history) {
-        const auto& e = item;
-        ui::UndoHistoryRowView row;
-        row.task_id = e.task_id; row.undone = item.undone; row.supported = e.supported;
-        auto verb = l10n::StringId::Operation;
-        switch (e.type) {
-        case ops::OpType::Copy: row.icon_glyph = L"\xE8C8"; verb = l10n::StringId::TrayIntentCopy; break;
-        case ops::OpType::Move: row.icon_glyph = L"\xE7C2"; verb = l10n::StringId::TrayIntentMove; break;
-        case ops::OpType::Rename: row.icon_glyph = L"\xE8AC"; verb = l10n::StringId::Rename; break;
-        case ops::OpType::BatchRename: row.icon_glyph = L"\xE8AC"; verb = l10n::StringId::BatchRename; break;
-        case ops::OpType::CreateFolder: row.icon_glyph = L"\xE8F4"; verb = l10n::StringId::NewFolder; break;
-        case ops::OpType::CreateTextFile: verb = l10n::StringId::NewTextDocument; break;
-        case ops::OpType::RestoreRecycle: row.icon_glyph = L"\xE7A7"; verb = l10n::StringId::Restore; break;
-        case ops::OpType::RealDelete: row.icon_glyph = L"\xE74D"; verb = l10n::StringId::PermanentlyDelete; break;
-        default: row.icon_glyph = L"\xE74D"; verb = l10n::StringId::Delete; break;
-        }
-        if (!item.undone && e.supported && vm.status.undo_label == l10n::Get(l10n::StringId::OpHistory)) {
-            vm.status.undo_label = l10n::Get(l10n::StringId::Undo) + L" " + l10n::Get(verb) +
-                L" · " + std::to_wstring(e.source_count);
-        }
-        // The closed history pill needs identity and label only. Never format
-        // hidden rows or normalize their paths during scrolling/animation.
-        if (!s.undoHistoryOpen) {
-            vm.status.history.push_back(std::move(row));
-            continue;
-        }
-        if (e.recorded_at != 0) {
-            FILETIME utc{static_cast<DWORD>(e.recorded_at & 0xFFFFFFFFu), static_cast<DWORD>(e.recorded_at >> 32)};
-            FILETIME local{};
-            SYSTEMTIME clock{};
-            if (FileTimeToLocalFileTime(&utc, &local) && FileTimeToSystemTime(&local, &clock)) {
-                wchar_t stamp[16]{};
-                swprintf_s(stamp, L"%02u:%02u", static_cast<unsigned>(clock.wHour), static_cast<unsigned>(clock.wMinute));
-                row.time = stamp;
-            }
-        }
-        row.label = e.label.empty() ? l10n::Get(verb) + L" · " + std::to_wstring(e.source_count) : e.label;
-        const auto& first_path = item.PreviewPath();
-        const size_t path_count = item.PreviewCount();
-        if (path_count != 0) {
-            const auto leaf = [](const std::wstring& value) {
-                std::wstring short_path = path::FriendlyPathText(value);
-                while (short_path.size() > 3 && (short_path.back() == L'\\' || short_path.back() == L'/')) short_path.pop_back();
-                const auto slash = short_path.find_last_of(L"\\/");
-                return slash == std::wstring::npos || slash + 1 == short_path.size() ? short_path : short_path.substr(slash + 1);
-            };
-            const auto folder = fs::ParentPath(first_path);
-            row.detail = leaf(folder);
-            if (e.source_count != 0 && e.destination_count != 0 &&
-                (e.type == ops::OpType::Copy || e.type == ops::OpType::Move)) {
-                const auto source_folder = fs::ParentPath(e.first_source);
-                const auto destination_folder = fs::ParentPath(e.first_destination);
-                row.detail = leaf(source_folder) + L" → " + leaf(destination_folder);
-            } else if (path_count == 1) row.detail += L" · " + leaf(first_path);
-            if (auto* active = ActiveTab(s)) row.elsewhere = _wcsicmp(fs::ParentPath(first_path).c_str(), fs::NormalizePath(active->current_path).c_str()) != 0;
-        }
-        if (item.redo_cleared) row.detail += L" · " + l10n::Get(l10n::StringId::HistoryRedoCleared);
-        vm.status.history.push_back(std::move(row));
-    }
-    std::stable_partition(vm.status.history.begin(), vm.status.history.end(), [](const auto& row) { return row.undone; });
-    vm.status.history_offset = std::clamp(vm.status.history_offset, 0, std::max(0, static_cast<int>(vm.status.history.size()) - 1));
     ops::OpStatus st = s.ops.Status();
     vm.status.task_id = st.task_id;
-    if (st.active || !st.last_error.empty() || !st.summary.empty()) {
+    const bool success_done = !st.active && st.phase == ops::OpPhase::Completed &&
+        st.last_error.empty() && st.failed_items == 0;
+    if (!success_done && (st.active || !st.last_error.empty() || !st.summary.empty())) {
         vm.status.task_text = st.last_error.empty() ? st.summary
             : st.summary + L" — " + st.last_error;
         vm.status.task_progress = st.active ? st.percent : -1.0f;
@@ -2150,12 +2085,6 @@ ui::WindowViewModel BuildVm(AppState& s, bool probe_details) {
                 : st.type == ops::OpType::RealDelete || st.type == ops::OpType::RecycleDelete
                     ? l10n::StringId::OpDeletePaused
                 : st.type == ops::OpType::RestoreRecycle ? l10n::StringId::OpRestorePaused : l10n::StringId::OpPaused);
-        }
-        if (!st.active && st.phase == ops::OpPhase::Completed && st.last_error.empty()) {
-            // The finished pill offers 撤销 / 打开.
-            vm.status.task_can_undo = s.ops.CanUndoTask(st.task_id);
-            vm.status.task_can_open = (st.type == ops::OpType::Copy || st.type == ops::OpType::Move) &&
-                                      !st.destination_dir.empty();
         }
         if (!st.active && st.phase == ops::OpPhase::Failed && st.failed_items > 0 && !st.failures.empty()) {
             // Partial failure: what did not go through, and where to look.
@@ -2690,13 +2619,6 @@ ui::WindowViewModel BuildVm(AppState& s, bool probe_details) {
     s.renderer.SetToolbarViewSlots(drop_mode ? std::array<int, ui::kToolbarViewControls>{-1, -1, -1, -1}
                                              : app::ToolbarViewSlots(s.appPrefs.toolbar_tools));
     FillSettingsSearchVm(s, vm);
-    if (s.undoHistoryOpen && s.hoverRegion == ui::HitTestResult::UndoHistoryRow && s.hoverControlIndex >= 0 &&
-        static_cast<size_t>(s.hoverControlIndex) < vm.status.history.size()) {
-        const uint64_t id = vm.status.history[s.hoverControlIndex].task_id;
-        const auto paths = s.ops.UndoHistoryPreviewPaths(id);
-        vm.pane.history_preview_paths = paths;
-        for (auto& slot : vm.pane_slots) slot.pane.history_preview_paths = paths;
-    }
     extensions::native::SyncSettingsPagesHost(s, vm);
     return vm;
 }
@@ -2774,9 +2696,6 @@ std::wstring TooltipForHover(AppState& s) {
     }
     case R::TabNew: return text(s.appPrefs.show_hints ? I::TipxNewTab : I::TooltipNewTab);
     case R::ThemeToggle: return text(I::TooltipToggleTheme);
-    case R::StatusUndo: return s.ops.CanUndo() ? s.ops.UndoLabel() + L"  Ctrl+Z" : text(I::HistoryLocked);
-    case R::StatusRedo: return text(I::HistoryRedo) + L"  Ctrl+Y";
-    case R::StatusUndoHistory: return text(I::OpHistory);
     case R::StatusBarAi: return text(I::AiChipTip);   // Pulse 助手  Ctrl+J
     case R::WindowManageButton: return text(I::WindowManage);
     case R::SettingsButton: return text(I::Settings);
@@ -2963,10 +2882,8 @@ std::wstring TooltipForHover(AppState& s) {
         return text(s.detailsPreviewEnabled ? I::PreviewHide : I::PreviewShow);
     case R::DetailsPreview: return L"";
     case R::StatusBarTask:
-        if (s.hoverSubIndex == 0) return s.ops.UndoLabel();
-        if (s.hoverSubIndex == 1) return text(I::OpLocateResults) + L" · " + s.ops.Status().destination_dir;
         if (s.hoverSubIndex == 2) return text(I::OpResume);
-        return text(s.ops.Status().active ? I::OpDetails : I::OpHistory);
+        return text(I::OpDetails);
     case R::StatusBarCancelSearch: return text(I::ContentCancelSearch);
     case R::DetailsNewTab: return text(I::OpenNewTab);
     case R::DetailsCopyPath: return text(I::CopyPath);

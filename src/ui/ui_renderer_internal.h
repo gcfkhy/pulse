@@ -1515,7 +1515,7 @@ struct StatusBarMetrics {
     D2D1_RECT_F task{};
     D2D1_RECT_F cancel_search{};
     D2D1_RECT_F hint_action{};   // empty unless the hint carries a clickable action
-    D2D1_RECT_F undo_chip{}, undo_button{}, redo_button{}, status_label{}, selection_label{};
+    D2D1_RECT_F status_label{}, selection_label{};
     D2D1_RECT_F ai_chip{};       // the AI chip at the far left; empty when hidden
     bool ai_chip_text = false;   // the chip has room for its words (else "✦ AI" only)
     float content_left = 0.0f;   // where everything else starts (right of the AI chip)
@@ -1523,26 +1523,6 @@ struct StatusBarMetrics {
     float pad = 0.0f;
     float right_reserved = 0.0f;
 };
-
-constexpr float kUndoHistoryRowHeight = 44.0f;
-// drag_undo_mockup .hsec: undone rows (listed first) sit under their own
-// 24 DIP heading while the list is scrolled to the top.
-bool UndoHistoryUndoneSection(const WindowViewModel& vm) {
-    return vm.status.history_offset == 0 && !vm.status.history.empty() && vm.status.history.front().undone;
-}
-D2D1_RECT_F UndoHistoryBounds(const WindowViewModel& vm, const D2D1_RECT_F& full, float scale) {
-    const bool section = !vm.status.history.empty() && vm.status.history.front().undone;
-    const float height = (114.0f + (section ? 24.0f : 0.0f) +
-                          46.0f * static_cast<float>(std::min<size_t>(vm.status.history.size(), 7))) * scale;
-    return D2D1::RectF(full.left + 12 * scale, std::max(full.top + 60 * scale, full.bottom - 36 * scale - height),
-        // drag_undo_mockup .hist: 440 DIP wide.
-        std::min(full.right - 12 * scale, full.left + 452 * scale), full.bottom - 36 * scale);
-}
-
-float UndoHistoryRowTop(const WindowViewModel& vm, const D2D1_RECT_F& card, size_t index, float scale) {
-    return card.top + (48.0f + 46.0f * static_cast<float>(index - vm.status.history_offset) +
-        (UndoHistoryUndoneSection(vm) ? 24.0f : 0.0f) + (vm.status.history[index].undone ? 0.0f : 24.0f)) * scale;
-}
 
 constexpr float kAiChipMaxTextDip = 240.0f;
 
@@ -1634,7 +1614,7 @@ StatusBarMetrics MakeStatusBarMetrics(const WindowViewModel& vm, const D2D1_RECT
             m.cancel_search = D2D1::RectF(m.task.right + cancel_gap, m.bar.top + 2.0f * scale,
                 left + width, m.bar.bottom - 2.0f * scale);
     }
-    // HTML order: AI, item count, optional selection count, history, flexible trailing area.
+    // HTML order: AI, item count, optional selection count, task pill, trailing hints.
     const float gap = 14 * scale;
     const float left_limit = centered_progress ? m.task.left - gap :
         rect.right - m.pad - (has_task ? std::min(190.0f * scale, (rect.right - m.content_left) * 0.32f) : 0.0f);
@@ -1648,22 +1628,12 @@ StatusBarMetrics MakeStatusBarMetrics(const WindowViewModel& vm, const D2D1_RECT
     };
     column(vm.status.status_text, m.status_label);
     column(vm.status.selection_text, m.selection_label);
-    const float controls = (vm.status.can_redo ? 98.0f : 70.0f) * scale;
-    const float preferred = std::min(240.0f * scale,
-        MeasureTextWidth(factory, small_format, vm.status.undo_label) + controls);
-    const float available = std::max(0.0f, left_limit - cursor);
-    if (available >= controls + 24 * scale) {
-        m.undo_chip = D2D1::RectF(cursor, (m.bar.top + m.bar.bottom) * 0.5f - 11 * scale, cursor + std::min(preferred, available), (m.bar.top + m.bar.bottom) * 0.5f + 11 * scale);
-        m.undo_button = m.undo_chip; m.undo_button.right = cursor + 28 * scale;
-        if (vm.status.can_redo) { m.redo_button = m.undo_chip; m.redo_button.left = m.redo_button.right - 28 * scale; }
-        cursor = m.undo_chip.right + gap;
-    }
     if (!centered_progress) {
-        // Right-side hints yield before the count or history capsule.
+        // Right-side hints yield before the count.
         m.right_reserved = std::min(m.right_reserved, std::max(m.pad, rect.right - cursor));
         if (m.hint_action.left < cursor) m.hint_action = {};
         if (has_task) {
-            // file_ops_mockup: the pill follows the counts and history directly.
+            // file_ops_mockup: the pill follows the counts directly.
             m.task.left = cursor;
             m.task.right = std::max(m.task.left, rect.right - m.right_reserved);
         }
@@ -2491,9 +2461,6 @@ HitTestResult::Region StatusBarHitRegion(const WindowViewModel& vm, const D2D1_R
     IDWriteTextFormat* fmt = compositor ? compositor->SmallFormat() : nullptr;
     const StatusBarMetrics sb = MakeStatusBarMetrics(
         vm, rect, scale, status_height, factory, fmt);
-    if (ContainsPt(sb.undo_button, x, y)) return HitTestResult::StatusUndo;
-    if (vm.status.can_redo && ContainsPt(sb.redo_button, x, y)) return HitTestResult::StatusRedo;
-    if (ContainsPt(sb.undo_chip, x, y)) return HitTestResult::StatusUndoHistory;
     if (sb.ai_chip.right > sb.ai_chip.left && ContainsPt(sb.ai_chip, x, y)) return HitTestResult::StatusBarAi;
     if (vm.status.query_cancellable && ContainsPt(sb.cancel_search, x, y)) return HitTestResult::StatusBarCancelSearch;
     if (sb.hint_action.right > sb.hint_action.left && ContainsPt(sb.hint_action, x, y))
