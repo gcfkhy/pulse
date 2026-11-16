@@ -5011,6 +5011,16 @@ BEGIN
     IDS_SURFACE_TONE_DEFAULT "默认"
     IDS_SURFACE_TONE_NEUTRAL "中性灰"
     IDS_SURFACE_TONE_CUSTOM "自定义…"
+    IDS_TOOLBAR_VIEW "视图"
+    IDS_VIEW_WHEEL_HINT_DETAILS "名称、日期、类型和大小分列显示"
+    IDS_VIEW_WHEEL_HINT_LIST "紧凑的名称列表，排满一列后换列"
+    IDS_VIEW_WHEEL_HINT_SMALL "小图标，一屏容纳更多项目"
+    IDS_VIEW_WHEEL_HINT_MEDIUM "中等图标，图片和名称都清楚"
+    IDS_VIEW_WHEEL_HINT_LARGE "大图标，便于辨认图片和文档"
+    IDS_VIEW_WHEEL_HINT_EXTRA_LARGE "超大图标，适合浏览照片"
+    IDS_VIEW_WHEEL_HINT_TILES "图标加两行说明"
+    IDS_VIEW_WHEEL_HINT_CONTENT "名称下方带日期和大小等详情"
+    IDS_VIEW_WHEEL_HINT_WALL "照片按原比例连续排布"
 END
 
 LANGUAGE 0x09, 0x01
@@ -10021,6 +10031,16 @@ BEGIN
     IDS_SURFACE_TONE_DEFAULT "Default"
     IDS_SURFACE_TONE_NEUTRAL "Neutral gray"
     IDS_SURFACE_TONE_CUSTOM "Custom…"
+    IDS_TOOLBAR_VIEW "View"
+    IDS_VIEW_WHEEL_HINT_DETAILS "Name, date, type and size in columns"
+    IDS_VIEW_WHEEL_HINT_LIST "Compact names, wrapping into columns"
+    IDS_VIEW_WHEEL_HINT_SMALL "Small icons, more items on screen"
+    IDS_VIEW_WHEEL_HINT_MEDIUM "Medium icons, pictures and names stay clear"
+    IDS_VIEW_WHEEL_HINT_LARGE "Large icons, easy to tell pictures apart"
+    IDS_VIEW_WHEEL_HINT_EXTRA_LARGE "Extra large icons, made for browsing photos"
+    IDS_VIEW_WHEEL_HINT_TILES "An icon with two lines of details"
+    IDS_VIEW_WHEEL_HINT_CONTENT "The name with its date and size beneath"
+    IDS_VIEW_WHEEL_HINT_WALL "Pictures in rows at their own shape"
 END
 
 // Traditional Chinese (Taiwan), generated from the Simplified entries above.

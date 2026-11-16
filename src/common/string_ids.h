@@ -5029,5 +5029,15 @@
 #define IDS_SURFACE_TONE_DEFAULT                                                         6456
 #define IDS_SURFACE_TONE_NEUTRAL                                                         6457
 #define IDS_SURFACE_TONE_CUSTOM                                                          6458
+#define IDS_TOOLBAR_VIEW                                                                 6459
+#define IDS_VIEW_WHEEL_HINT_DETAILS                                                      6460
+#define IDS_VIEW_WHEEL_HINT_LIST                                                         6461
+#define IDS_VIEW_WHEEL_HINT_SMALL                                                        6462
+#define IDS_VIEW_WHEEL_HINT_MEDIUM                                                       6463
+#define IDS_VIEW_WHEEL_HINT_LARGE                                                        6464
+#define IDS_VIEW_WHEEL_HINT_EXTRA_LARGE                                                  6465
+#define IDS_VIEW_WHEEL_HINT_TILES                                                        6466
+#define IDS_VIEW_WHEEL_HINT_CONTENT                                                      6467
+#define IDS_VIEW_WHEEL_HINT_WALL                                                         6468
 
 #endif  // PULSE_STRING_IDS_H

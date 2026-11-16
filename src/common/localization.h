@@ -5021,6 +5021,16 @@ enum class StringId : UINT {
     SurfaceToneDefault = IDS_SURFACE_TONE_DEFAULT,
     SurfaceToneNeutral = IDS_SURFACE_TONE_NEUTRAL,
     SurfaceToneCustom = IDS_SURFACE_TONE_CUSTOM,
+    ToolbarView = IDS_TOOLBAR_VIEW,
+    ViewWheelHintDetails = IDS_VIEW_WHEEL_HINT_DETAILS,
+    ViewWheelHintList = IDS_VIEW_WHEEL_HINT_LIST,
+    ViewWheelHintSmall = IDS_VIEW_WHEEL_HINT_SMALL,
+    ViewWheelHintMedium = IDS_VIEW_WHEEL_HINT_MEDIUM,
+    ViewWheelHintLarge = IDS_VIEW_WHEEL_HINT_LARGE,
+    ViewWheelHintExtraLarge = IDS_VIEW_WHEEL_HINT_EXTRA_LARGE,
+    ViewWheelHintTiles = IDS_VIEW_WHEEL_HINT_TILES,
+    ViewWheelHintContent = IDS_VIEW_WHEEL_HINT_CONTENT,
+    ViewWheelHintWall = IDS_VIEW_WHEEL_HINT_WALL,
 };
 
 bool IsLanguageId(std::wstring_view id) noexcept;
