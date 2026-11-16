@@ -1349,6 +1349,7 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
         // Header controls use the full pane; below the header the column
         // view narrows the regular list to its body.
         D2D1_RECT_F paneRc = paneRect;
+        const float headerH = PaneHeaderHeightFor(paneVm);
         HitTestResult out;
         out.pane_index = paneIndex;
         // Returning panes are still snapshot-only; never hit invisible rows below them.
@@ -1368,7 +1369,8 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
             return out;
         }
         const D2D1_RECT_F detailsRc = PaneDetailsRect(paneRc, 1.0f, paneVm.size_control);
-        if ((vm.pane_slots.size() > 1 || vm.layout_controls.zoom_index >= 0 || (focused && paneVm.header_controls_opacity > 0.05f))) {
+        if (headerH > 0.0f &&
+            (vm.pane_slots.size() > 1 || vm.layout_controls.zoom_index >= 0 || (focused && paneVm.header_controls_opacity > 0.05f))) {
             // The size slider can open over the title, so it goes first.
             const D2D1_RECT_F sizeRc[] = {PaneSizeSliderRect(paneVm, paneRc), PaneSizeButtonRect(paneVm, paneRc)};
             const HitTestResult::Region sizeHits[] = {HitTestResult::PaneSizeSlider, HitTestResult::PaneSizeButton};
@@ -1376,10 +1378,10 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
                 out.region = sizeHits[i]; out.index = paneIndex; return out;
             }
         }
-        if (compositor_ && ContainsPt(ChangeTitleRect(paneRc, PaneHeaderTitleRight(paneVm, paneRc), pane_header_height_, paneVm.title_change_badge, scale_, compositor_, paneVm.header_text), x, y)) {
+        if (headerH > 0.0f && compositor_ && ContainsPt(ChangeTitleRect(paneRc, PaneHeaderTitleRight(paneVm, paneRc), headerH, paneVm.title_change_badge, scale_, compositor_, paneVm.header_text), x, y)) {
             out.region = HitTestResult::ChangeBadge; out.index = -1; return out;
         }
-        if (PaneViewControlsShown() &&
+        if (headerH > 0.0f && PaneViewControlsShown() &&
             (vm.pane_slots.size() > 1 || vm.layout_controls.zoom_index >= 0 || (focused && paneVm.header_controls_opacity > 0.05f))) {
             const D2D1_RECT_F buttons[] = {detailsRc, PaneMediumIconsRect(paneRc, 1.0f, paneVm.size_control),
                                            PaneWallRect(paneVm, paneRc), PaneViewButtonRect(paneRc)};
@@ -1397,7 +1399,7 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
                 return out;
             }
         }
-        if (y >= paneRect.top + pane_header_height_ && paneVm.column_strip.Active()) {
+        if (y >= paneRect.top + headerH && paneVm.column_strip.Active()) {
             if (HitTestColumnStrip(paneVm, paneRect, x, y, out)) return out;
             paneRc = PaneBodyBounds(paneVm, paneRect);
             if (x >= paneRc.right) {
@@ -1410,9 +1412,9 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
         }
         const float banner = PaneBannerHeight(paneVm, paneRc.right - paneRc.left, scale_, compositor_);
         if (banner > 0 && !paneVm.is_changes &&
-            y >= paneRc.top + pane_header_height_ && y < paneRc.top + pane_header_height_ + banner - 4 * scale_) {
-            const D2D1_RECT_F bar = D2D1::RectF(paneRc.left + 8 * scale_, paneRc.top + pane_header_height_,
-                paneRc.right - 8 * scale_, paneRc.top + pane_header_height_ + banner - 4 * scale_);
+            y >= paneRc.top + headerH && y < paneRc.top + headerH + banner - 4 * scale_) {
+            const D2D1_RECT_F bar = D2D1::RectF(paneRc.left + 8 * scale_, paneRc.top + headerH,
+                paneRc.right - 8 * scale_, paneRc.top + headerH + banner - 4 * scale_);
             PaneBannerParts parts;
             BuildPaneBanner(paneVm, bar, paneIndex, parts);
             const fluent::InfoBarLayout lay = painter_.LayoutInfoBar(parts.bar);
@@ -1429,7 +1431,7 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
             }
         }
         const float extra = PaneExtraTop(paneVm, scale_, paneRc.right - paneRc.left, compositor_);
-        const float recentTop = paneRc.top + pane_header_height_ + banner;
+        const float recentTop = paneRc.top + headerH + banner;
         const float filterExtra = (paneVm.is_recent ? kRecentControlsDip * scale_ : 0.0f) +
                                   (paneVm.is_query_search ? kSearchFiltersDip * scale_ : 0.0f);
         const float changesTop = recentTop + filterExtra;
@@ -1472,7 +1474,7 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
                                 TagQueryBarHeight(paneVm, scale_) + DupFunnelHeight(paneVm, scale_) +
                                 DriveOverviewHeight(paneVm, scale_);
         const float listHeader = ListHeaderHeight(paneVm);
-        float listTop = paneRc.top + pane_header_height_ + extra + listHeader;
+        float listTop = paneRc.top + headerH + extra + listHeader;
         const float parentTop = listHeader > 0.0f ? columnTop : paneRc.top + 5.0f * scale_;
         if (!paneVm.drag_parent_path.empty() && y >= parentTop && y < parentTop + 30.0f * scale_) {
             out.region = HitTestResult::DropParent;
@@ -1480,7 +1482,7 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
             out.pane_index = paneIndex;
             return out;
         }
-        if (y >= paneRc.top && y < paneRc.top + pane_header_height_) {
+        if (headerH > 0.0f && y >= paneRc.top && y < paneRc.top + headerH) {
             out.region = HitTestResult::PaneHeader;
             // index 0: the empty strip right of the title (and its change
             // badge), which counts as list blank space for blank double clicks.
@@ -1490,7 +1492,7 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
             if (compositor_ && !paneVm.header_text.empty()) {
                 titleEnd += std::min(textRight - textLeft, MeasureLayoutText(compositor_,
                     compositor_->DwriteFactory(), compositor_->HeaderFormat(), paneVm.header_text));
-                const D2D1_RECT_F badge = ChangeTitleRect(paneRect, textRight, pane_header_height_,
+                const D2D1_RECT_F badge = ChangeTitleRect(paneRect, textRight, headerH,
                     paneVm.title_change_badge, scale_, compositor_, paneVm.header_text);
                 if (badge.right > badge.left) titleEnd = std::max(titleEnd, badge.right);
             }
@@ -1500,14 +1502,14 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
         if (paneVm.is_recent && y >= recentTop && y < columnTop) {
             for (int i = 0; i < 3; ++i) {
                 if (ContainsPt(RecentFilterRect(
-                        paneRc, pane_header_height_ + banner, scale_, i), x, y)) {
+                        paneRc, headerH + banner, scale_, i), x, y)) {
                     out.region = HitTestResult::RecentFilter;
                     out.index = i;
                     return out;
                 }
             }
             if (ContainsPt(RecentClearRect(
-                    paneRc, pane_header_height_ + banner, scale_), x, y)) {
+                    paneRc, headerH + banner, scale_), x, y)) {
                 out.region = HitTestResult::RecentClear;
                 out.index = paneIndex;
                 return out;
@@ -1522,11 +1524,11 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
             SearchFilterChipWidthsPx(painter_, scale_, labels, widths);
             for (int i = 0; i < 5; ++i) {
                 if (ContainsPt(SearchFilterRect(
-                        paneRc, pane_header_height_ + banner, scale_, i, widths), x, y)) {
+                        paneRc, headerH + banner, scale_, i, widths), x, y)) {
                     out.region = HitTestResult::SearchFilter;
                     out.index = i;
                     out.control_bounds = SearchFilterRect(
-                        paneRc, pane_header_height_ + banner, scale_, i, widths);
+                        paneRc, headerH + banner, scale_, i, widths);
                     return out;
                 }
             }
@@ -1644,7 +1646,7 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
                 return out;
             }
             if (const ListGroups* groups = paneVm.Groups()) {
-                const D2D1_RECT_F list = PaneListRect(paneRc, extra, ListHeaderHeight(paneVm));
+                const D2D1_RECT_F list = PaneListRect(paneRc, extra, ListHeaderHeight(paneVm), PaneHeaderHeightFor(paneVm));
                 const ViewLayout grouped(paneVm.view_mode, list, paneVm.EntryCount(),
                                          paneVm.scroll_x, paneVm.scroll_y, scale_,
                                          ListRowHeightDip(paneVm, list), groups);
@@ -1666,7 +1668,7 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
             }
             // 滚动时固定上级: the pinned folders cover the rows under them.
             if (paneVm.tree && paneVm.view_mode == ViewMode::Details) {
-                const StickyTree sticky = StickyTreeRows(paneVm, PaneListRect(paneRc, extra, ListHeaderHeight(paneVm)));
+                const StickyTree sticky = StickyTreeRows(paneVm, PaneListRect(paneRc, extra, ListHeaderHeight(paneVm), PaneHeaderHeightFor(paneVm)));
                 for (const TreePin& pin : sticky.pins) {
                     const float top = sticky.top + pin.y;
                     if (y >= top && y < top + sticky.row_h) {
@@ -1690,7 +1692,7 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
                     const DetailsTreeRow* treeRow = paneVm.tree ? paneVm.tree->At(viewRow) : nullptr;
                     if (treeRow && treeRow->kind != TreeRowKind::Entry) viewRow = -1;
                     if (viewRow >= 0 && compositor_ && compositor_->DwriteFactory()) {
-                        const D2D1_RECT_F list = PaneListRect(paneRc, extra, ListHeaderHeight(paneVm));
+                        const D2D1_RECT_F list = PaneListRect(paneRc, extra, ListHeaderHeight(paneVm), PaneHeaderHeightFor(paneVm));
                         const DetailsColumnLayout columns = DetailsColumns(list, paneVm);
                         ViewLayout layout(paneVm.view_mode, list, paneVm.EntryCount(),
                                           paneVm.scroll_x, paneVm.scroll_y, scale_,

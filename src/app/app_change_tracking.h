@@ -37,6 +37,9 @@ void ApplyChangeSummaries(AppState& s, uint32_t request, const index::ChangeResp
 void ApplyChangeDetails(AppState& s, uint32_t request, const index::ChangeResponse& result);
 void FillChangePane(AppState& s, app::Tab& tab, ui::PaneViewModel& pane,
                     const D2D1_RECT_F& bounds);
+// Whether FillChangePane would give this tab's pane a title badge. The lone
+// pane keeps its title row when the badge is visible.
+bool HasTitleChangeBadge(const AppState& s, const app::Tab& tab);
 void FillChangePopover(AppState& s, ui::WindowViewModel& vm);
 void OpenChangeView(AppState& s, const std::wstring& root);
 void LoadChangeView(AppState& s, app::Tab& tab, const std::wstring& root, bool append = false, bool refresh = false);

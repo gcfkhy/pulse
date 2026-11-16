@@ -64,7 +64,7 @@ int RunSearchManagementTest(AppState& s,const wchar_t* output) {
     POINT point{};bool found=false;
     if(!vm.pane_slots.empty()) {
         const auto pane=vm.pane_slots.front().rect;
-        point={static_cast<LONG>(pane.right-40*s.scale),static_cast<LONG>(pane.top+s.renderer.PaneHeaderHeight()+16*s.scale)};
+        point={static_cast<LONG>(pane.right-40*s.scale),static_cast<LONG>(pane.top+s.renderer.PaneHeaderHeightFor(vm.pane_slots.front().pane)+16*s.scale)};
         found=s.renderer.HitTest(vm,bounds,static_cast<float>(point.x),static_cast<float>(point.y)).region==ui::HitTestResult::ContentIndexManage;
     }
     check(found,"inline content management target found");

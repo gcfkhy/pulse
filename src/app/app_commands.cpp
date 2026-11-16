@@ -5803,7 +5803,7 @@ bool SelectedQuickPreviewItem(AppState& s, ui::QuickPreviewItem& item) {
     // "6 / 12" in the preview header: the row among the rows on screen.
     if (s.pane) {
         ui::PaneViewModel pane;
-        app::FillPaneViewModel(pane, *s.pane, &s.places);
+        FillPaneViewModelForState(s, pane, *s.pane);
         const int view = pane.ViewIndex(tab->selected_index);
         const int count = static_cast<int>(pane.EntryCount());
         if (view >= 0 && view < count) {
@@ -5836,7 +5836,7 @@ void OpenQuickPreview(AppState& s, const ui::QuickPreviewItem& item, bool activa
         const POINT* zoom_from = nullptr;
         if (app::Tab* tab = ActiveTab(s); tab && s.pane) {
             ui::PaneViewModel pane;
-            app::FillPaneViewModel(pane, *s.pane, &s.places);
+            FillPaneViewModelForState(s, pane, *s.pane);
             const int view = pane.ViewIndex(tab->selected_index);
             if (view >= 0) {
                 const D2D1_RECT_F bounds = FocusedPaneRect(s);

@@ -349,6 +349,16 @@ void FillChangePane(AppState& s, app::Tab& tab, ui::PaneViewModel& pane, const D
     }
 }
 
+bool HasTitleChangeBadge(const AppState& s, const app::Tab& tab) {
+    if (!s.appPrefs.change_tracking_enabled) return false;
+    std::wstring path = RootOf(tab);
+    if (path.empty()) path = tab.current_path;
+    if (path.empty() || fs::IsVirtualPath(path)) return false;
+    const auto found = s.changes.summaries.find(SummaryKey(path, s.appPrefs.change_tracking_days));
+    if (found == s.changes.summaries.end()) return false;
+    return !Badge(found->second, s.appPrefs.change_tracking_days).label.empty();
+}
+
 void UpdateChangeHover(AppState& s, const ui::HitTestResult& hit, POINT point) {
     auto& state = s.changes;
     if (hit.region == ui::HitTestResult::ChangeOpen) { state.hover_deadline = GetTickCount64() + 350; return; }

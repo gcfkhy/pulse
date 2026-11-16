@@ -97,6 +97,11 @@ void RememberPath(AppState& s, const std::wstring& path);
 void RecordRecentOpen(AppState& s, const std::wstring& path,
                              app::PlaceItemKind kind);
 void FillPaneSlots(AppState& s, ui::WindowViewModel& vm);
+// A lone main-window pane has no title row. Builds the per-pane flag from the
+// layout, view mode and title badge; embedded hosts always keep the row.
+void FillPaneHeaderVisibility(ui::WindowViewModel& vm, bool embedded);
+// FillPaneViewModel for a window pane, with the title-row flag settled too.
+void FillPaneViewModelForState(AppState& s, ui::PaneViewModel& out, const app::Pane& pane);
 void RefreshStarredViews(AppState& s);
 void RefreshRecentViews(AppState& s);
 bool IsRecycleTab(const app::Tab* tab);

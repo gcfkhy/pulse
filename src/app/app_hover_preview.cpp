@@ -702,7 +702,7 @@ bool StageHoverPreviewShot(AppState& s, int nth_file) {
     app::Tab* tab = s.pane ? s.pane->ActiveTab() : nullptr;
     if (!tab || !tab->snapshot) return false;
     ui::PaneViewModel pane;
-    app::FillPaneViewModel(pane, *s.pane, &s.places);
+    FillPaneViewModelForState(s, pane, *s.pane);
     const D2D1_RECT_F bounds = FocusedPaneRect(s);
     const int count = static_cast<int>(tab->EntryCount());
     // PULSE_TEST_HOVER_FOLDER=1: the Nth folder instead (its listing read

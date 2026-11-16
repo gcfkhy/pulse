@@ -4,6 +4,7 @@
 #include "../ui/pane_header_icons.h"
 #include "../common/windows_compat.h"
 #include "pane_header_animation.h"
+#include "app_runtime.h"
 #include "../ui/toolbar_layout.h"
 #include "../ui/address_search_layout.h"
 #include "context_menu.h"
@@ -236,10 +237,16 @@ struct PaneHeaderIconTest {
                             vm.pane_slots.resize(split ? 2 : 1);
                             vm.layout_controls.pane_names = split ? std::vector<std::wstring>{L"Left", L"Right"}
                                 : std::vector<std::wstring>{L"Only pane"};
+                            FillPaneHeaderVisibility(vm, false);
                             auto& active_slot = vm.pane_slots[0];
                             dc->BeginDraw();
                             renderer.DrawSinglePane(vm,active_slot.pane,paneRect,0,true,false,theme);
                             check(SUCCEEDED(dc->EndDraw()), "single and split header geometry renders");
+                            if (!split) {
+                                check(renderer.PaneListRect(active_slot.pane, paneRect).top ==
+                                      paneRect.top + renderer.ColumnHeaderHeight(),
+                                      "a lone pane gives its title row to the list");
+                            }
                             const D2D1_RECT_F buttons[] = {
                                 renderer.PaneDetailsRect(paneRect,1.0f,active_slot.pane.size_control),
                                 renderer.PaneMediumIconsRect(paneRect,1.0f,active_slot.pane.size_control),
@@ -253,11 +260,36 @@ struct PaneHeaderIconTest {
                                         (button.top+button.bottom)*0.5f);
                                     // The view group moved to the toolbar's 视图 button: where it used
                                     // to be is plain header, whatever the focus and the fade.
-                                    check(hit.region == HitTestResult::PaneHeader,
-                                        "the pane header holds no view group; the toolbar's view button chooses views");
+                                    check(split ? hit.region == HitTestResult::PaneHeader
+                                                : hit.region != HitTestResult::PaneHeader,
+                                        split ? "the pane header holds no view group; the toolbar's view button chooses views"
+                                              : "a lone pane has no title row to hit");
                                 }
                             }
                         }
+                        vm.pane_slots.resize(1);
+                        vm.layout_controls.pane_names = {L"Only pane"};
+                        vm.layout_controls.zoom_index = -1;
+                        auto& lone = vm.pane_slots[0].pane;
+                        lone.title_change_badge = {};
+                        lone.size_control = true;
+                        lone.view_mode = ViewMode::MediumIcons;
+                        FillPaneHeaderVisibility(vm, false);
+                        check(!lone.hide_header, "the icon view keeps the title row for its size control");
+                        lone.view_mode = ViewMode::Details;
+                        lone.title_change_badge = {L"Today", L"Includes descendants", 6, false, 0};
+                        FillPaneHeaderVisibility(vm, false);
+                        check(!lone.hide_header, "a title badge keeps the title row");
+                        check(renderer.PaneListRect(lone, paneRect).top ==
+                              paneRect.top + renderer.PaneHeaderHeight() + renderer.ColumnHeaderHeight(),
+                              "the title badge keeps its row above the list");
+                        lone.title_change_badge = {};
+                        vm.layout_controls.zoom_index = 0;
+                        FillPaneHeaderVisibility(vm, false);
+                        check(!lone.hide_header, "a zoomed pane keeps the title row");
+                        vm.layout_controls.zoom_index = -1;
+                        FillPaneHeaderVisibility(vm, true);
+                        check(!lone.hide_header, "an embedded picker pane keeps the title row");
                     }
                 }
             }

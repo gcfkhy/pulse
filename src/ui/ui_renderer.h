@@ -251,6 +251,11 @@ public:
     WindowIdentityGeometry WindowIdentityLayout(const WindowViewModel& vm, float w) const;
     D2D1_RECT_F WindowIdentityRect(const WindowViewModel& vm, float w) const { return WindowIdentityLayout(vm, w).hit; }
     float PaneHeaderHeight() const { return pane_header_height_; }
+    // The title row this pane reserves; a lone pane without its own header
+    // controls gives the space to the list.
+    float PaneHeaderHeightFor(const PaneViewModel& vm) const {
+        return vm.hide_header ? 0.0f : pane_header_height_;
+    }
     // Height the focused pane's banner strip took in the last frame (one or
     // two lines plus its gap); 0 before any frame or without a banner.
     float FocusedPaneBannerHeight() const { return focused_banner_height_; }
@@ -302,7 +307,8 @@ public:
     void SetExtensionDockVisible(bool visible) { extension_dock_visible_ = visible; }
     D2D1_RECT_F ExtensionDockRect(float w, float h) const;
     // header_height: the Details column header above the list (ListHeaderHeight).
-    D2D1_RECT_F PaneListRect(const D2D1_RECT_F& pane_bounds, float extra_top, float header_height) const;
+    D2D1_RECT_F PaneListRect(const D2D1_RECT_F& pane_bounds, float extra_top, float header_height,
+                             float pane_header_height) const;
     D2D1_RECT_F PaneListRect(const PaneViewModel& vm, const D2D1_RECT_F& pane_bounds) const;
     // Height of the Details column header above a pane's list. None in column
     // view: its columns carry no caption, so rows start right under the pane header.
@@ -669,7 +675,8 @@ public:
                              const DetailsColumnWidths& column_dividers = {},
                              bool search_view = false,
                              const std::array<float, 4>& search_dividers = {},
-                             float row_height_px = 0.0f) const;
+                             float row_height_px = 0.0f,
+                             float pane_header_height = 0.0f) const;
     // How far the focused pane's expanded name (the single selected icon-grid
     // item's whole name) ran past the bottom of the list in the last frame,
     // and whose it was; 0 and -1 when it fit or none was shown.

@@ -96,12 +96,12 @@ bool pulse::app::RunChangeTrackingUiTest() {
             const auto& pane = vm.pane_slots.front();
             const auto title = ChangeTitleRect(pane.rect,
                 renderer.PaneHeaderTitleRight(pane.pane, pane.rect),
-                renderer.PaneHeaderHeight(), pane.pane.title_change_badge, scale, &compositor, pane.pane.header_text);
+                renderer.PaneHeaderHeightFor(pane.pane), pane.pane.title_change_badge, scale, &compositor, pane.pane.header_text);
             const auto hit = renderer.HitTest(vm, bounds, (title.left + title.right) / 2,
                 (title.top + title.bottom) / 2);
             ok &= Check(hit.region == HitTestResult::ChangeBadge && hit.index == -1 && hit.pane_index == 0,
                 "title badge hit preserves pane and title index");
-            const float row_y = pane.rect.top + renderer.PaneHeaderHeight() +
+            const float row_y = pane.rect.top + renderer.PaneHeaderHeightFor(pane.pane) +
                 renderer.ColumnHeaderHeight() + renderer.RowHeight() * 0.5f;
             bool row_hit = false;
             for (float x = pane.rect.left; x < pane.rect.right; x += scale) {

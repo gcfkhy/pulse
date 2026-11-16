@@ -169,7 +169,8 @@ bool RunNameHighlightUiTest() {
                 if (variant == 3) vm.pane_slots.front().rect.right = 620 * scale;
                 if (variant == 3) {
                     const auto& slot = vm.pane_slots.front();
-                    const auto list = renderer.PaneListRect(slot.rect, 0, renderer.ColumnHeaderHeight());
+                    const auto list = renderer.PaneListRect(slot.rect, 0, renderer.ColumnHeaderHeight(),
+                        renderer.PaneHeaderHeightFor(slot.pane));
                     const auto columns = renderer.DetailsColumns(list, slot.pane);
                     ViewLayout positions(ViewMode::Details, list, slot.pane.EntryCount(), 0, 0,
                         scale, renderer.ListRowHeightDip(slot.pane, list));

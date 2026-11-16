@@ -40,7 +40,7 @@ std::vector<std::wstring> SelectedNames(const app::Tab& tab) {
 
 void CenterResultInPane(AppState& s, app::Pane& pane, app::Tab& tab, int index) {
     ui::PaneViewModel vm;
-    app::FillPaneViewModel(vm, pane, &s.places);
+    FillPaneViewModelForState(s, vm, pane);
     int row = index;
     if (vm.filter_map || !vm.filter_text.empty()) {
         row = vm.ViewIndex(index);

@@ -85,7 +85,7 @@ void ApplyMarqueeSelection(AppState& s) {
     const float bottom = std::max(std::max(static_cast<float>(start.y), curY), top + 1.0f);
 
     ui::PaneViewModel pane;
-    app::FillPaneViewModel(pane, *s.pane, &s.places);
+    FillPaneViewModelForState(s, pane, *s.pane);
     auto& hits = s.listSelection.hits;
     hits.clear();
     if (n > 0 && right > left && bottom > top) {

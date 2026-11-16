@@ -173,7 +173,7 @@ ColumnStripLayout MainRenderer::ColumnStripGeometry(const PaneViewModel& vm,
         out.body = pane_bounds;
         return out;
     }
-    return LayoutColumnStrip(pane_bounds, pane_bounds.top + pane_header_height_,
+    return LayoutColumnStrip(pane_bounds, pane_bounds.top + PaneHeaderHeightFor(vm),
                              cs.ancestors.size(), cs.has_child, cs.widths_dip, scale_,
                              cs.scroll_from_right_dip);
 }
@@ -245,7 +245,7 @@ ColumnStripLayout MainRenderer::DrawColumnStrip(const WindowViewModel& vm, const
         const float shown = StepStripHScroll(pm, key, rest, settled.max_scroll_px, motion_now_,
                                              animate && !cs.hscroll_pressed, pm.moving);
         if (std::fabs(shown - rest) > 0.01f) {
-            strip = LayoutColumnStrip(bounds, bounds.top + pane_header_height_, cs.ancestors.size(),
+            strip = LayoutColumnStrip(bounds, bounds.top + PaneHeaderHeightFor(pane), cs.ancestors.size(),
                                       cs.has_child, cs.widths_dip, scale_, shown / (std::max)(0.5f, scale_));
         }
     } else {
@@ -329,7 +329,7 @@ ColumnStripLayout MainRenderer::DrawColumnStrip(const WindowViewModel& vm, const
         }
         if (ancestor) dc->PopAxisAlignedClip();
     }
-    for (const StripDivider& divider : StripDividers(strip, bounds, bounds.top + pane_header_height_)) {
+    for (const StripDivider& divider : StripDividers(strip, bounds, bounds.top + PaneHeaderHeightFor(pane))) {
         const float lx = divider.x;
         if (IsAncestorId(divider.id) && has_viewport &&
             (lx < strip.viewport.left || lx > strip.viewport.right + 0.5f)) {
@@ -591,7 +591,7 @@ bool MainRenderer::HitTestColumnStrip(const PaneViewModel& vm, const D2D1_RECT_F
         out.sub_index = -1;
         return true;
     }
-    for (const StripDivider& divider : StripDividers(strip, pane_bounds, pane_bounds.top + pane_header_height_)) {
+    for (const StripDivider& divider : StripDividers(strip, pane_bounds, pane_bounds.top + PaneHeaderHeightFor(vm))) {
         if (y < divider.top || y >= divider.bottom) continue;
         const float lx = divider.x;
         if (!in_viewport(divider.id, lx) || (IsAncestorId(divider.id) && lx > strip.viewport.right + 0.5f))

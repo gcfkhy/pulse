@@ -498,6 +498,25 @@ app::Pane* PaneAtSlot(AppState& s, int index) {
 // Defined further below; the details-panel fill in BuildVm needs it.
 std::wstring EntryFullPath(const app::Tab& tab, int index);
 
+namespace {
+bool HidePaneHeaderForLayout(const AppState& s, const ui::PaneViewModel& pane,
+                             const app::Tab* tab) {
+    if (!tab || s.renderer.Embedded()) return false;
+    const auto* layout = s.window_tabs.Active();
+    if (!layout || layout->VisiblePanes().size() > 1 || ZoomedPane(*layout)) return false;
+    if (pane.size_control && ui::IsZoomIconMode(pane.view_mode)) return false;
+    return !HasTitleChangeBadge(s, *tab);
+}
+bool HideFocusedPaneHeader(const AppState& s) {
+    const app::Tab* tab = s.pane ? s.pane->ActiveTab() : nullptr;
+    if (!tab) return false;
+    ui::PaneViewModel pane;
+    pane.size_control = true;
+    pane.view_mode = tab->view_mode;
+    return HidePaneHeaderForLayout(s, pane, tab);
+}
+} // namespace
+
 D2D1_RECT_F ListRect(const AppState& s) {
     D2D1_RECT_F pane = FocusedPaneRect(s);
     float extra = 0.0f;
@@ -514,14 +533,16 @@ D2D1_RECT_F ListRect(const AppState& s) {
     }
     if (virtual_kind == L"changes") extra += 36.0f * s.scale;
     const ui::ViewMode mode = tab ? tab->view_mode : ui::ViewMode::Details;
-    float header = ui::ShowsColumnHeader(mode) ? s.renderer.ColumnHeaderHeight() : 0.0f;
+    float list_header = ui::ShowsColumnHeader(mode) ? s.renderer.ColumnHeaderHeight() : 0.0f;
+    ui::PaneViewModel header;
+    header.hide_header = HideFocusedPaneHeader(s);
     if (tab && tab->column_layout) {
         ui::PaneViewModel strip;
         app::FillColumnStripView(strip.column_strip, *tab);
         pane = s.renderer.PaneBodyBounds(strip, pane);
-        if (strip.column_strip.Active()) header = 0.0f;  // column view has no header
+        if (strip.column_strip.Active()) list_header = 0.0f;  // column view has no header
     }
-    pane.top += s.renderer.PaneHeaderHeight() + extra + header;
+    pane.top += s.renderer.PaneHeaderHeightFor(header) + extra + list_header;
     return pane;
 }
 bool ScrollbarGeometry(const AppState& s, const ui::PaneViewModel& pane,
@@ -652,6 +673,23 @@ static void AnimatePaneLayout(AppState& s, const D2D1_RECT_F& content,
     }
     m.last.clear();
     for (const auto& [pane, r] : laid) m.last.emplace_back(pane, r);
+}
+
+void FillPaneHeaderVisibility(ui::WindowViewModel& vm, bool embedded) {
+    const bool single = vm.pane_slots.size() <= 1 && vm.layout_controls.pane_names.size() <= 1;
+    const bool zoomed = vm.layout_controls.zoom_index >= 0;
+    auto apply = [&](ui::PaneViewModel& pane) {
+        pane.hide_header = !embedded && single && !zoomed &&
+            !(pane.size_control && ui::IsZoomIconMode(pane.view_mode)) &&
+            pane.title_change_badge.label.empty();
+    };
+    apply(vm.pane);
+    for (auto& slot : vm.pane_slots) apply(slot.pane);
+}
+
+void FillPaneViewModelForState(AppState& s, ui::PaneViewModel& out, const app::Pane& pane) {
+    app::FillPaneViewModel(out, pane, &s.places);
+    out.hide_header = HidePaneHeaderForLayout(s, out, pane.ActiveTab());
 }
 
 void FillPaneSlots(AppState& s, ui::WindowViewModel& vm) {
@@ -1260,6 +1298,10 @@ void FillPaneSlots(AppState& s, ui::WindowViewModel& vm) {
             if (slot.focused) slot.pane = vm.pane;
             else app::FillPaneViewModel(slot.pane, *p, &s.places);
             if (app::Tab* tab = p->ActiveTab()) {
+                // FillChangePane measures visible rows, so settle the lone
+                // pane's header before it adds the title badge.
+                slot.pane.hide_header = HidePaneHeaderForLayout(s, slot.pane, tab);
+                if (slot.focused) vm.pane.hide_header = slot.pane.hide_header;
                 FillChangePane(s, *tab, slot.pane, slot.rect);
                 FillGitPane(s, *tab, slot.pane);
                 FillSyncPane(s, *tab, slot.pane);   // SVN marks (outside Git) and OneDrive states
@@ -1317,6 +1359,7 @@ void FillPaneSlots(AppState& s, ui::WindowViewModel& vm) {
         vm.pane_slots.push_back(std::move(slot));
     }
     s.renderer.PruneWallViews(vm.pane_slots);
+    FillPaneHeaderVisibility(vm, s.renderer.Embedded());
 }
 // ---------------------------------------------------------------------------
 // Details panel helpers: star shortcuts, byte/time formatting, size walk.
@@ -3171,7 +3214,7 @@ void QueueVisibleTagDiscovery(AppState& s) {
     if (!tab || tab->loading || !tab->snapshot || tab->EntryCount() == 0) return;
 
     ui::PaneViewModel pane;
-    app::FillPaneViewModel(pane, *s.pane, &s.places);
+    FillPaneViewModelForState(s, pane, *s.pane);
     const auto bounds = FocusedPaneRect(s);
     const auto list = s.renderer.PaneListRect(pane, bounds);
     if (list.right <= list.left || list.bottom <= list.top) return;

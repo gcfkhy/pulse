@@ -317,15 +317,19 @@ std::wstring BaseName(const std::wstring& path) {
 bool PointOnPaneHeader(const AppState& s, const ui::WindowViewModel& vm,
                               int pane_index, float x, float y) {
     D2D1_RECT_F rc{};
+    const ui::PaneViewModel* pane = nullptr;
     if (pane_index >= 0 && pane_index < static_cast<int>(vm.pane_slots.size())) {
-        rc = vm.pane_slots[static_cast<size_t>(pane_index)].rect;
+        const auto& slot = vm.pane_slots[static_cast<size_t>(pane_index)];
+        rc = slot.rect;
+        pane = &slot.pane;
     } else if (vm.pane_slots.empty() && pane_index == 0) {
         rc = s.renderer.ContentRect(static_cast<float>(s.compositor.Width()),
                                     static_cast<float>(s.compositor.Height()));
+        pane = &vm.pane;
     } else {
         return false;
     }
-    const float header = s.renderer.PaneHeaderHeight();
+    const float header = s.renderer.PaneHeaderHeightFor(*pane);
     return x >= rc.left && x < rc.right && y >= rc.top && y < rc.top + header;
 }
 
@@ -1212,7 +1216,7 @@ void StartDragOut(AppState& s) {
 float MaxScrollForActivePane(AppState& s, ui::PaneViewModel* out) {
     if (!s.pane || !s.pane->ActiveTab()) return 0.0f;
     ui::PaneViewModel pane;
-    app::FillPaneViewModel(pane, *s.pane, &s.places);
+    FillPaneViewModelForState(s, pane, *s.pane);
     float max_scroll = s.renderer.MaxScrollForPane(pane, FocusedPaneRect(s));
     // A rename card below the list's end made it taller for now.
     if (s.renameIndex >= 0) max_scroll += s.renameScrollRoom;
@@ -1595,7 +1599,7 @@ void StartSmoothScroll(AppState& s, float delta, bool horizontal) {
 
     if (horizontal) {
         ui::PaneViewModel pane;
-        app::FillPaneViewModel(pane, *s.pane, &s.places);
+        FillPaneViewModelForState(s, pane, *s.pane);
         const float maximum = s.renderer.MaxScrollXForPane(pane, FocusedPaneRect(s));
         s.scrollTargetX = std::clamp(s.scrollTargetX + delta, 0.0f, maximum);
     } else {
@@ -2850,7 +2854,7 @@ static void ClickTreeSticky(AppState& s, int pane_slot, int view_row) {
     if (!ActiveTab(s)) return;
     if (s.scrollAnimating) CancelScrollAnimation(s);
     ui::PaneViewModel vm;
-    app::FillPaneViewModel(vm, *s.pane, &s.places);
+    FillPaneViewModelForState(s, vm, *s.pane);
     const D2D1_RECT_F bounds = FocusedPaneRect(s);
     const float row_top = s.renderer.ItemRectInPane(vm, bounds, view_row).top;
     const float list_top = s.renderer.PaneListRect(vm, bounds).top;
@@ -2865,7 +2869,7 @@ static void ClickGroupHeader(AppState& s, int pane_slot, int group, bool select)
     app::Tab* tab = pane->ActiveTab();
     if (!tab) return;
     ui::PaneViewModel vm;
-    app::FillPaneViewModel(vm, *pane, &s.places);
+    FillPaneViewModelForState(s, vm, *pane);
     const ui::ListGroups* groups = vm.Groups();
     if (!groups || group < 0 || group >= static_cast<int>(groups->size())) return;
     const ui::ListGroup& g = (*groups)[static_cast<size_t>(group)];
@@ -5011,7 +5015,7 @@ static POINT KeyboardMenuPoint(AppState& s) {
     if (tab && !SelectedFullPaths(*tab).empty() && tab->selected_index >= 0) {
         EnsureRowVisible(s, *tab, tab->selected_index);
         ui::PaneViewModel pane;
-        app::FillPaneViewModel(pane, *s.pane, &s.places);
+        FillPaneViewModelForState(s, pane, *s.pane);
         const int view = pane.ViewIndex(tab->selected_index);
         if (view >= 0) {
             const D2D1_RECT_F item = s.renderer.ItemRectInPane(pane, FocusedPaneRect(s), view);

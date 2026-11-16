@@ -274,6 +274,9 @@ struct PaneViewModel {
     // snapshot, while emptiness changes without a new listing.
     std::unordered_set<int> empty_folders;
     ChangeBadge title_change_badge;
+    // A lone main-window pane has no title row: its folder name repeats the
+    // tab and the breadcrumb. Pane geometry asks PaneHeaderHeightFor.
+    bool hide_header = false;
     bool is_changes = false;
     std::wstring change_empty_text, change_status_text;
     std::wstring change_time_label, change_type_label;
