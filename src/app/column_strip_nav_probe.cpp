@@ -359,6 +359,45 @@ int Probe::Run() {
     Pump(600);
     Check(FromRight() == 0.0f, "moving the selection scrolls the strip back to the list");
     Shot(L"09_final");
+
+    // A file clicked in the parent column moves the list there; the folder that was
+    // open beside it (e.g. after moving a file up a level) stays open on the right.
+    {
+        const std::wstring opened = fs::NormalizePath(Tab()->current_path);
+        const int click_id = static_cast<int>(Tab()->column_strip.ancestors.size()) - 1;
+        const app::ColumnStripColumn& parent = Tab()->column_strip.ancestors[static_cast<size_t>(click_id)];
+        const std::wstring parent_path = parent.path;
+        int file_row = -1;
+        if (parent.rows && parent.rows_snapshot) {
+            for (size_t r = 0; r < parent.rows->size() && file_row < 0; ++r) {
+                const int source = (*parent.rows)[r];
+                if (!(*parent.rows_snapshot)[static_cast<size_t>(source)].is_dir) file_row = static_cast<int>(r);
+            }
+        }
+        Check(file_row >= 0, "the parent column lists a file to click");
+        if (file_row >= 0) {
+            ui::HitTestResult hit;
+            hit.region = ui::HitTestResult::ColumnStripRow;
+            hit.pane_index = 0;
+            hit.sub_index = click_id;
+            hit.index = file_row;
+            HandleColumnStripMouseDown(s, Geo().vm, hit, 0);
+            Pump(800);
+            Check(fs::NormalizePath(Tab()->current_path) == fs::NormalizePath(parent_path),
+                  "clicking a file in the parent column moves the list there");
+            Check(Tab()->SelectedCount() == 1 && Tab()->selected_index >= 0 &&
+                      !Tab()->EntryAt(static_cast<size_t>(Tab()->selected_index)).is_dir,
+                  "the clicked file is the selection");
+            g = Geo();
+            Check(HasChildColumn(g) && fs::NormalizePath(Tab()->column_strip.child.path) == opened,
+                  "the folder that was open stays as the column on the right");
+            Shot(L"10_file_in_parent");
+            // A blank click in the list (selection cleared) does not close it either.
+            Tab()->ClearSelection();
+            Pump(400);
+            Check(HasChildColumn(Geo()), "clearing the selection keeps that column");
+        }
+    }
     return failures ? 1 : 0;
 }
 } // namespace

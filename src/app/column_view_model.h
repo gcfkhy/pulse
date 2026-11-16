@@ -32,6 +32,11 @@ struct ColumnStripState {
     std::wstring for_path;                     // current_path the ancestors belong to
     std::vector<ColumnStripColumn> ancestors;  // farthest -> parent
     ColumnStripColumn child;                   // selected folder (path empty = none)
+    // A file clicked in an earlier column moves the list there; the folder that was open
+    // beside that column (kept_child, a subfolder of kept_for) keeps the right-hand column
+    // for as long as no folder is selected and the list stays in kept_for.
+    std::wstring kept_child;
+    std::wstring kept_for;
     // Scroll of the whole strip (ancestors, list, child) from its resting right end;
     // 0 = the last column ends at the pane's right edge.
     float scroll_from_right_dip = 0.0f;

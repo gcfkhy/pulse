@@ -164,7 +164,19 @@ void SyncTab(AppState& s, app::Tab& tab) {
     }
     for (auto& col : state.ancestors) SyncColumn(s, tab, col);
 
-    const std::wstring folder = SelectedFolder(tab);
+    std::wstring folder = SelectedFolder(tab);
+    if (!folder.empty()) {
+        state.kept_child.clear(); // a selected folder takes the column over
+        state.kept_for.clear();
+    } else if (!state.kept_child.empty()) {
+        if (SamePath(state.kept_for, tab.current_path) &&
+            SamePath(fs::ParentPath(state.kept_child), tab.current_path)) {
+            folder = state.kept_child;
+        } else {
+            state.kept_child.clear(); // the list moved on
+            state.kept_for.clear();
+        }
+    }
     if (!SamePath(folder, state.child.path)) {
         state.child = {};
         state.child.path = folder;
@@ -270,10 +282,25 @@ bool ClickRow(AppState& s, app::Tab& tab, int column_id, int row) {
     }
     const int source = (*col->rows)[static_cast<size_t>(row)];
     if (source < 0 || static_cast<size_t>(source) >= col->rows_snapshot->size()) return false;
-    const std::wstring name = (*col->rows_snapshot)[static_cast<size_t>(source)].name;
+    const fs::DirEntry& clicked = (*col->rows_snapshot)[static_cast<size_t>(source)];
+    const std::wstring name = clicked.name;
     const std::wstring folder = col->path; // col is invalidated by navigation
+    // A file in an earlier column leaves the folder open beside it where it was: the list
+    // moves up, but the column the user just had open does not close.
+    std::wstring keep;
+    const bool opens_folder = clicked.is_dir || (clicked.link_target_is_dir && !clicked.link_target.empty());
+    if (column_id != ui::kColumnStripChildId && !opens_folder && !col->highlight_name.empty() &&
+        !SamePath(folder, tab.current_path)) {
+        keep = fs::NormalizePath(Join(folder, col->highlight_name));
+    }
     if (!SamePath(folder, tab.current_path)) NavigateTo(s, folder);
-    if (app::Tab* active = ActiveTab(s)) SelectByName(s, *active, name);
+    if (app::Tab* active = ActiveTab(s)) {
+        SelectByName(s, *active, name);
+        if (!keep.empty()) {
+            active->column_strip.kept_child = keep;
+            active->column_strip.kept_for = fs::NormalizePath(folder);
+        }
+    }
     s.stripClickTick = GetTickCount64();
     return true;
 }
