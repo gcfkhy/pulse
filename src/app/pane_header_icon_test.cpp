@@ -70,6 +70,13 @@ struct PaneHeaderIconTest {
                         "address text and search target do not overlap in separate or merged chrome");
                     check(hit(layout.search)==HitTestResult::AddressSearch,"search entry remains accessible");
                 }
+                // 视图 leads the view buttons; an open filter in the narrow tier takes its room.
+                const bool view_steps_aside=expanded && window.right-left<540*scale;   // the narrow tier
+                check((layout.view.right>layout.view.left)!=view_steps_aside,"toolbar view button is offered unless an open filter needs its room");
+                if (layout.view.right>layout.view.left) {
+                    check(hit(layout.view)==HitTestResult::ToolbarView,"toolbar view hit target");
+                    check(layout.view.right<=layout.sort.left,"toolbar view button comes before sort");
+                }
                 check(hit(layout.sort)==HitTestResult::ToolbarSort,"toolbar sort hit target");
                 check(hit(layout.filter)==HitTestResult::FilterBox,"toolbar filter hit target");
                 if (layout.overflow.right>layout.overflow.left) {
@@ -224,8 +231,6 @@ struct PaneHeaderIconTest {
                         slot.pane = pane;
                         slot.pane.filter_expand = 0;
                         slot.pane.filter_text.clear();
-                        const HitTestResult::Region actions[] = {HitTestResult::PaneDetails,
-                            HitTestResult::PaneMediumIcons,HitTestResult::PaneViewButton};
                         for (bool split : {false,true}) {
                             // Actual view models have one name per slot; split headers stay visible.
                             vm.pane_slots.resize(split ? 2 : 1);
@@ -246,8 +251,10 @@ struct PaneHeaderIconTest {
                                     const auto& button=buttons[i];
                                     const auto hit=renderer.HitTest(vm,window,(button.left+button.right)*0.5f,
                                         (button.top+button.bottom)*0.5f);
-                                    check(hit.region == (split || (focused && opacity > 0.05f) ? actions[i] : HitTestResult::PaneHeader),
-                                        "split headers stay clickable; single headers require visible focused actions");
+                                    // The view group moved to the toolbar's 视图 button: where it used
+                                    // to be is plain header, whatever the focus and the fade.
+                                    check(hit.region == HitTestResult::PaneHeader,
+                                        "the pane header holds no view group; the toolbar's view button chooses views");
                                 }
                             }
                         }

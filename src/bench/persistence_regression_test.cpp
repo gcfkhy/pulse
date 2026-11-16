@@ -241,16 +241,24 @@ int main(int argc, char** argv) {
     }
     if (argc == 2 && std::string_view(argv[1]) == "--toolbar-view-order") {
         using pulse::app::AppPrefs;
-        const std::vector<std::wstring> expected{L"group", L"sort", L"filter"};
+        const std::vector<std::wstring> expected{L"group", L"view", L"sort", L"filter"};
         AppPrefs prefs, reloaded;
         prefs.toolbar_view_order = expected;
         prefs.toolbar_show_sort = false;
-        Check(reloaded.FromJson(prefs.ToJson()) && reloaded.toolbar_view_order == expected && !reloaded.toolbar_show_sort,
+        prefs.toolbar_show_view = false;
+        Check(reloaded.FromJson(prefs.ToJson()) && reloaded.toolbar_view_order == expected && !reloaded.toolbar_show_sort &&
+            !reloaded.toolbar_show_view && reloaded.toolbar_show_filter && reloaded.toolbar_show_group,
             "toolbar view order and visibility round trip independently");
-        Check(reloaded.FromJson(L"{}") && reloaded.toolbar_view_order == std::vector<std::wstring>{L"sort", L"filter", L"group"},
-            "older preferences retain original toolbar order");
-        Check(reloaded.FromJson(LR"({"toolbar_view_order":["group","unknown","group","sort"]})") &&
-            reloaded.toolbar_view_order == expected, "invalid view order is normalized without losing valid choices");
+        Check(reloaded.FromJson(L"{}") &&
+            reloaded.toolbar_view_order == std::vector<std::wstring>{L"view", L"sort", L"filter", L"group"} &&
+            reloaded.toolbar_show_view,
+            "older preferences get the 视图 button, shown and before 排序");
+        Check(reloaded.FromJson(LR"({"toolbar_view_order":["sort","filter","group"]})") &&
+            reloaded.toolbar_view_order == std::vector<std::wstring>{L"view", L"sort", L"filter", L"group"},
+            "a saved three-control order keeps its order and gains 视图 at the front");
+        Check(reloaded.FromJson(LR"({"toolbar_view_order":["group","unknown","group","view","sort"]})") &&
+            reloaded.toolbar_view_order == std::vector<std::wstring>{L"group", L"view", L"sort", L"filter"},
+            "invalid view order is normalized without losing valid choices");
         return failures ? 1 : 0;
     }
     if (argc == 2 && std::string_view(argv[1]) == "--tag-ads") return TagAdsOnly();

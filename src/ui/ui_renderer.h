@@ -191,12 +191,14 @@ public:
     bool SearchHidden() const { return search_hidden_; }
     // Toolbar "Group" button: -1 hidden, 0 not grouped, 1..4 app::GroupBy value.
     void SetToolbarGroup(int group_by) { toolbar_group_ = group_by; }
-    // 自定义工具栏 → 排序与筛选: which of 排序 / 筛选 / 分组 the toolbar shows
-    // (the caller already forces an active filter or grouping on).
-    void SetToolbarView(bool sort, bool filter, bool group, std::array<int, 3> order = {0, 1, 2}) {
+    // 自定义工具栏 → 排序与筛选: which of 视图 / 排序 / 筛选 / 分组 the toolbar
+    // shows (the caller already forces an active filter or grouping on).
+    void SetToolbarView(bool sort, bool filter, bool group, bool view,
+                        std::array<int, kToolbarViewControls> order = {3, 0, 1, 2}) {
         toolbar_show_sort_ = sort;
         toolbar_show_filter_ = filter;
         toolbar_show_group_ = group;
+        toolbar_show_view_ = view;
         toolbar_view_order_ = order;
     }
     // 自定义工具栏: the New button's main action (0 folder, 1 the type made
@@ -214,7 +216,7 @@ public:
         pin_drop_label_ = std::move(drop_label);
     }
     // The user's separators between pinned tools (bit i: before pin i).
-    void SetToolbarViewSlots(std::array<int,3> slots) { pin_view_slots_ = slots; }
+    void SetToolbarViewSlots(std::array<int,kToolbarViewControls> slots) { pin_view_slots_ = slots; }
     void SetToolbarRightFrom(int slot) { pin_right_from_ = slot; }
     void SetToolbarSeparators(uint64_t mask) { pin_separators_ = mask; }
     float ToolbarPinLabelWidth() const;
@@ -314,6 +316,13 @@ public:
     D2D1_RECT_F PaneZoomChipRect(const PaneViewModel& pane, const D2D1_RECT_F& bounds) const;
     D2D1_RECT_F PaneExpandRect(const D2D1_RECT_F& bounds) const;
     D2D1_RECT_F PaneCloseRect(const D2D1_RECT_F& bounds) const;
+    // A pane header's view group (Details, icons, photo wall and the view menu
+    // "…"). The main window chooses views with the toolbar's 视图 button; the
+    // file picker has no toolbar, so its panes keep the group.
+    bool PaneViewControlsShown() const { return embedded_; }
+    // Left edge of the header's right-hand controls: the view group, or what
+    // stays right of the title without it (pane expand / close).
+    float PaneControlsLeft(const D2D1_RECT_F& pane_bounds, bool wall) const;
     D2D1_RECT_F PaneViewButtonRect(const D2D1_RECT_F& pane_bounds,
                                    float filter_expand = 1.0f) const;
     D2D1_RECT_F PaneDetailsRect(const D2D1_RECT_F& pane_bounds,
@@ -1108,14 +1117,15 @@ private:
     bool search_hidden_ = false;
     int toolbar_group_ = -1;
     bool toolbar_show_sort_ = true;
-    std::array<int, 3> toolbar_view_order_{0, 1, 2};
+    std::array<int, kToolbarViewControls> toolbar_view_order_{3, 0, 1, 2};
     bool toolbar_show_filter_ = true;
     bool toolbar_show_group_ = true;
+    bool toolbar_show_view_ = true;
     int new_primary_ = 0;
     bool new_last_text_ = false;
     int pin_count_ = 0;
     int pin_app_from_ = -1;
-    std::array<int,3> pin_view_slots_{-1,-1,-1};
+    std::array<int,kToolbarViewControls> pin_view_slots_{-1,-1,-1,-1};
     int pin_right_from_ = -1;
     uint64_t pin_separators_ = 0;
     bool pin_drop_mode_ = false;

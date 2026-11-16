@@ -70,17 +70,17 @@ inline int ToolbarRightFrom(const std::vector<std::wstring>& tools) {
     }
     return -1;
 }
-inline constexpr std::array<std::wstring_view,3> kToolbarViewMarker{L"::sort",L"::filter",L"::group"};
-inline std::array<int,3> ToolbarViewSlots(const std::vector<std::wstring>& tools) {
-    std::array<int,3> slots{-1,-1,-1};int slot=0;
+inline constexpr std::array<std::wstring_view,4> kToolbarViewMarker{L"::sort",L"::filter",L"::group",L"::view"};
+inline std::array<int,4> ToolbarViewSlots(const std::vector<std::wstring>& tools) {
+    std::array<int,4> slots{-1,-1,-1,-1};int slot=0;
     for(const auto& id:tools) {
-        for(int i=0;i<3;++i) if(id==kToolbarViewMarker[i]) slots[i]=slot;
+        for(int i=0;i<4;++i) if(id==kToolbarViewMarker[i]) slots[i]=slot;
         if(IsToolbarTool(id))++slot;
     }
     return slots;
 }
 inline std::vector<std::wstring> SetToolbarViewSlot(std::vector<std::wstring> tools,int view,int slot) {
-    if(view<0 || view>=3)return tools;
+    if(view<0 || view>=4)return tools;
     for(auto it=tools.begin();it!=tools.end();) {
         if(*it==kToolbarViewMarker[view])it=tools.erase(it);else ++it;
     }
@@ -112,10 +112,10 @@ inline std::vector<std::wstring> NormalizeToolbarTools(const std::vector<std::ws
     std::vector<std::wstring> out;
     size_t count = 0;
     bool right_seen = false;
-    std::array<bool,3> view_seen{};
+    std::array<bool,4> view_seen{};
     for (const auto& id : tools) {
         bool view_marker=false;
-        for(int i=0;i<3;++i) if(id==kToolbarViewMarker[i]) {
+        for(int i=0;i<4;++i) if(id==kToolbarViewMarker[i]) {
             if(!view_seen[i])out.emplace_back(id);
             view_seen[i]=true;view_marker=true;
         }
@@ -187,7 +187,7 @@ inline std::vector<std::wstring> SetToolbarRightFrom(std::vector<std::wstring> t
 
 inline std::vector<std::wstring> KeepToolbarViewSlots(const std::vector<std::wstring>& old,std::vector<std::wstring> changed) {
     const auto slots=ToolbarViewSlots(old);
-    for(int i=0;i<3;++i)changed=SetToolbarViewSlot(std::move(changed),i,slots[i]);
+    for(int i=0;i<4;++i)changed=SetToolbarViewSlot(std::move(changed),i,slots[i]);
     return changed;
 }
 

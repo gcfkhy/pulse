@@ -2947,8 +2947,10 @@ LRESULT HandleLButtonDown(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARA
                 if (app::Pane* pane = PaneAtSlot(*s, slot)) pane->size_slider_open = false;
         }
         if (hit.region==ui::HitTestResult::ToolbarSort || hit.region==ui::HitTestResult::ToolbarGroup ||
+            hit.region==ui::HitTestResult::ToolbarView ||
             (hit.region==ui::HitTestResult::FilterBox && s->pane && s->pane->filter_expand<=0)) {
-            BeginToolbarViewDrag(*s,hit.region==ui::HitTestResult::ToolbarSort?0:hit.region==ui::HitTestResult::FilterBox?1:2,POINT{mx,my});
+            BeginToolbarViewDrag(*s,hit.region==ui::HitTestResult::ToolbarSort?0:hit.region==ui::HitTestResult::FilterBox?1:
+                hit.region==ui::HitTestResult::ToolbarView?3:2,POINT{mx,my});
             return 0;
         }
         if (BeginToolbarSeparatorDrag(*s, POINT{mx, my})) return 0;
@@ -3651,30 +3653,23 @@ LRESULT HandleLButtonDown(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARA
             s->showDetailsPanel = !s->showDetailsPanel;
             s->renderer.SetDetailsPanelVisible(s->showDetailsPanel, true);
             InvalidateRect(hwnd, nullptr, FALSE);
-        } else if (hit.region == ui::HitTestResult::PaneMediumIcons ||
-                   hit.region == ui::HitTestResult::PaneWall ||
-                   hit.region == ui::HitTestResult::PaneSizeSlider ||
+        } else if (hit.region == ui::HitTestResult::PaneSizeSlider ||
                    hit.region == ui::HitTestResult::PaneSizeButton) {
-            // One branch (this chain is at MSVC's nesting limit, see Sort/Group).
-            // Icons / photo wall buttons: the size used last in this tab (Medium
-            // at first), as a grid or as a photo wall.
-            if (hit.region == ui::HitTestResult::PaneMediumIcons || hit.region == ui::HitTestResult::PaneWall)
-                ShowIconWall(*s, hit.region == ui::HitTestResult::PaneWall);
-            else PressPaneSize(*s, hwnd, hit, mx);
-        } else if (hit.region == ui::HitTestResult::PaneDetails) {
-            SetViewMode(*s, ui::ViewMode::Details);
+            // The icon size control. The header's view group (Details, icons,
+            // photo wall) lives on the toolbar's 视图 button in this window.
+            PressPaneSize(*s, hwnd, hit, mx);
         } else if (hit.region == ui::HitTestResult::ToolbarSort ||
                    hit.region == ui::HitTestResult::ToolbarGroup ||
+                   hit.region == ui::HitTestResult::ToolbarView ||
                    hit.region == ui::HitTestResult::ToolbarGroupClear) {
-            // One branch for the Sort/Group pair: this else-if chain sits at
-            // MSVC's nesting limit (C1061).
+            // One branch for the Sort/Group/View buttons: this else-if chain sits
+            // at MSVC's nesting limit (C1061).
             if (hit.region == ui::HitTestResult::ToolbarSort) ShowSortDropdown(*s);
+            else if (hit.region == ui::HitTestResult::ToolbarView) ShowViewDropdown(*s);
             else if (hit.region == ui::HitTestResult::ToolbarGroup) ShowGroupDropdown(*s);
             else SetGroupBy(*s, 0);
         } else if (hit.region == ui::HitTestResult::ToolbarMore) {
             ShowToolbarMore(*s);
-        } else if (hit.region == ui::HitTestResult::PaneViewButton) {
-            ShowViewDropdown(*s, hit.pane_index);
         } else if (hit.region == ui::HitTestResult::FilterBox) {
             ShowFilterEditor(*s);
         } else if (hit.region == ui::HitTestResult::FilterClear) {
@@ -4665,6 +4660,7 @@ LRESULT HandleRButtonUp(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         if (hit.region == ui::HitTestResult::ToolbarSort ||
             hit.region == ui::HitTestResult::ToolbarGroup ||
             hit.region == ui::HitTestResult::ToolbarGroupClear ||
+            hit.region == ui::HitTestResult::ToolbarView ||
             hit.region == ui::HitTestResult::FilterBox ||
             hit.region == ui::HitTestResult::FilterClear) {
             ShowToolbarViewMenu(*s, hit.region, sp);

@@ -3891,8 +3891,9 @@ void TestViewZoomAnchor() {
                                                                       dvm.pane_slots.front().rect);
         Check(hidden.right <= hidden.left, L"view header: Details hides the size slider");
 
-        // Photo wall (P2b): the segment holds details, icons and photo wall
-        // ahead of the view menu; the wall keeps the size and the folder keeps it.
+        // Photo wall (P2b): the toolbar's 视图 button offers details, the icon
+        // sizes and the photo wall; the wall keeps the size and the folder keeps it.
+        // The pane header no longer holds a view group (the file picker's does).
         SetViewMode(*state, ViewMode::LargeIcons);
         const ui::WindowViewModel gvm = BuildVm(*state);
         const ui::PaneViewModel& gpane = gvm.pane_slots.front().pane;
@@ -3904,20 +3905,20 @@ void TestViewZoomAnchor() {
         const auto region_at = [&](const ui::WindowViewModel& v, const D2D1_RECT_F& r) {
             return state->renderer.HitTest(v, client, (r.left + r.right) * 0.5f, (r.top + r.bottom) * 0.5f).region;
         };
-        Check(seg_wall.right > seg_wall.left && seg_list.right <= seg_grid.left && seg_grid.right <= seg_wall.left &&
-              seg_wall.right <= seg_more.left && state->renderer.PaneSizeSliderRect(gpane, grect).right <= seg_list.left &&
-              region_at(gvm, seg_list) == ui::HitTestResult::PaneDetails &&
-              region_at(gvm, seg_grid) == ui::HitTestResult::PaneMediumIcons &&
-              region_at(gvm, seg_wall) == ui::HitTestResult::PaneWall &&
-              region_at(gvm, seg_more) == ui::HitTestResult::PaneViewButton,
-              L"photo wall: the header segment holds details, icons and photo wall ahead of the view menu");
+        Check(!state->renderer.PaneViewControlsShown() &&
+              region_at(gvm, seg_list) != ui::HitTestResult::PaneDetails &&
+              region_at(gvm, seg_grid) != ui::HitTestResult::PaneMediumIcons &&
+              region_at(gvm, seg_wall) != ui::HitTestResult::PaneWall &&
+              region_at(gvm, seg_more) != ui::HitTestResult::PaneViewButton &&
+              state->renderer.PaneSizeSliderRect(gpane, grect).right <= state->renderer.PaneControlsLeft(grect, true),
+              L"view header: the pane header holds no view group and the size slider keeps clear of its own controls");
         const D2D1_RECT_F grid_item = state->renderer.ItemRectInPane(gpane, grect, 3);
         const auto press = [&](const D2D1_RECT_F& r) {
             const float cx = (r.left + r.right) * 0.5f, cy = (r.top + r.bottom) * 0.5f;
             HandleLButtonDown(state.get(), hwnd, WM_LBUTTONDOWN, MK_LBUTTON, client_at(cx, cy));
             HandleLButtonUp(state.get(), hwnd, WM_LBUTTONUP, 0, client_at(cx, cy));
         };
-        press(seg_wall);
+        ShowIconWall(*state, true);   // what the 视图 picker's 照片墙 row runs
         const ui::WindowViewModel wvm = BuildVm(*state);
         // Wall rows arrive from a worker; the first frame intentionally uses the icon grid.
         const ULONGLONG wall_start = GetTickCount64();
@@ -3937,10 +3938,39 @@ void TestViewZoomAnchor() {
         ShowLastIconSize(*state);
         Check(tab->wall && tab->view_mode == ViewMode::LargeIcons && tab->icon_dip == 150.0f,
               L"photo wall: resizing and the way back from Details keep the wall");
-        press(seg_grid);
+        ShowIconWall(*state, false);   // the icon sizes' own rows
         Check(!tab->wall && tab->view_mode == ViewMode::LargeIcons && tab->icon_dip == 150.0f &&
               !state->appPrefs.folder_views.FindWall(tab->current_path),
               L"photo wall: the icons button returns to the grid at the same size");
+
+        // The toolbar's 视图 button leads the view buttons and opens the view
+        // picker on the current view; Enter applies the centred one.
+        SetViewMode(*state, ViewMode::Details);
+        const ui::WindowViewModel tvm = BuildVm(*state);
+        const auto toolbar = state->renderer.ToolbarLayoutAt(client.right,
+            state->renderer.NewButtonWidthPx(client.right - state->renderer.EffectiveSidebarWidth(client.right) <
+                                             600.0f * state->scale), 0.0f);
+        Check(toolbar.view.right > toolbar.view.left && toolbar.view.right <= toolbar.sort.left &&
+              region_at(tvm, toolbar.view) == ui::HitTestResult::ToolbarView,
+              L"view button: the toolbar offers 视图 before 排序");
+        press(toolbar.view);
+        auto& view_wheel = state->renderer.GroupWheelPicker();
+        Check(view_wheel.IsOpen() && view_wheel.IsViewPicker() &&
+              view_wheel.SelectedValue() == ui::ViewModeIndex(ViewMode::Details),
+              L"view button: a press opens the view picker on the current view");
+        view_wheel.Step(1);   // 列表 follows 详细信息
+        GroupWheelMessage(*state, hwnd, WM_KEYDOWN, VK_RETURN, 0);
+        Check(!view_wheel.IsOpen() && tab->view_mode == ViewMode::List,
+              L"view picker: Enter applies the centred view");
+        OpenViewWheel(*state);
+        view_wheel.StepTo(8);   // the last row is the photo wall
+        GroupWheelMessage(*state, hwnd, WM_KEYDOWN, VK_RETURN, 0);
+        Check(tab->wall && ui::IsZoomIconMode(tab->view_mode),
+              L"view picker: the photo wall row shows the wall");
+        OpenViewWheel(*state);
+        Check(view_wheel.SelectedValue() == 8, L"view picker: opens on the photo wall while it shows");
+        view_wheel.Close();
+        ShowIconWall(*state, false);
 
         // At the top with nothing selected there is nothing to follow.
         tab->selected_index = -1;

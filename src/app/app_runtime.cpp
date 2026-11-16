@@ -2605,6 +2605,7 @@ ui::WindowViewModel BuildVm(AppState& s, bool probe_details) {
         s.renderer.SetToolbarView(s.appPrefs.toolbar_show_sort,
                                   s.appPrefs.toolbar_show_filter || !vm.pane.filter_text.empty(),
                                   s.appPrefs.toolbar_show_group || toolbar_group > 0,
+                                  s.appPrefs.toolbar_show_view,
                                   app::ToolbarViewLayoutOrder(s.appPrefs.toolbar_view_order));
     }
     // Toolbar follows the pointer: a file drag over the window swaps the
@@ -2643,7 +2644,8 @@ ui::WindowViewModel BuildVm(AppState& s, bool probe_details) {
             separators |= uint64_t{1} << (app_from + k + 1);
     s.renderer.SetToolbarSeparators(drop_mode ? 0 : separators);
     s.renderer.SetToolbarRightFrom(drop_mode ? -1 : app::ToolbarRightFrom(s.appPrefs.toolbar_tools));
-    s.renderer.SetToolbarViewSlots(drop_mode ? std::array<int, 3>{-1, -1, -1} : app::ToolbarViewSlots(s.appPrefs.toolbar_tools));
+    s.renderer.SetToolbarViewSlots(drop_mode ? std::array<int, ui::kToolbarViewControls>{-1, -1, -1, -1}
+                                             : app::ToolbarViewSlots(s.appPrefs.toolbar_tools));
     FillSettingsSearchVm(s, vm);
     if (s.undoHistoryOpen && s.hoverRegion == ui::HitTestResult::UndoHistoryRow && s.hoverControlIndex >= 0 &&
         static_cast<size_t>(s.hoverControlIndex) < vm.status.history.size()) {
@@ -2831,6 +2833,7 @@ std::wstring TooltipForHover(AppState& s) {
         return text(mode) + L" \u00B7 " + std::to_wstring(static_cast<int>(dip + 0.5f));
     }
     case R::PaneDetails: return text(I::ViewDetails);
+    case R::ToolbarView: return text(I::ToolbarView);
     case R::ToolbarSort: return text(I::SortBy);
     case R::ToolbarGroup: return text(I::GroupBy);
     case R::ToolbarGroupClear: return text(I::GroupClear);

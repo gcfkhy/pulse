@@ -95,7 +95,7 @@ bool pulse::app::RunChangeTrackingUiTest() {
             auto vm = Fixture(scale, bounds.right);
             const auto& pane = vm.pane_slots.front();
             const auto title = ChangeTitleRect(pane.rect,
-                renderer.PaneDetailsRect(pane.rect, 0).left - 8 * scale,
+                renderer.PaneHeaderTitleRight(pane.pane, pane.rect),
                 renderer.PaneHeaderHeight(), pane.pane.title_change_badge, scale, &compositor, pane.pane.header_text);
             const auto hit = renderer.HitTest(vm, bounds, (title.left + title.right) / 2,
                 (title.top + title.bottom) / 2);

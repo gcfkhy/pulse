@@ -227,6 +227,7 @@ struct AppPrefs {
     bool toolbar_show_sort = true;
     bool toolbar_show_filter = true;
     bool toolbar_show_group = true;
+    bool toolbar_show_view = true;
     std::vector<std::wstring> toolbar_view_order = NormalizeToolbarViewOrder({});
     // Actions the selection chip may show, in chip order, by id
     // (toolbar_selection.h). Without the json key: all, default order.

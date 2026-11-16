@@ -131,7 +131,9 @@ void ZoomIconSize(AppState& s, int step, const POINT* anchor = nullptr, bool lea
 bool ApplyViewToAllFolders(AppState& s, bool confirm = true);
 // Group menu / group picker: `group_by` becomes every real folder's grouping (#75).
 bool ApplyGroupToAllFolders(AppState& s, int group_by, bool confirm = true);
-void ShowViewDropdown(AppState& s, int pane_index);
+// Toolbar "View" button: the views on the drum picker (the popup menu when
+// kViewWheel is off).
+void ShowViewDropdown(AppState& s);
 void ShowSortDropdown(AppState& s);
 // Toolbar "Group" button: the group-by choices on their own.
 void ShowGroupDropdown(AppState& s);

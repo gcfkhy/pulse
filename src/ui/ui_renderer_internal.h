@@ -171,6 +171,7 @@ void ClearTextWidthCache() {
     constexpr const wchar_t* kIconSearch = L"\xE721";
     constexpr const wchar_t* kIconInfo = L"\xE946";
     constexpr const wchar_t* kIconFilter = L"\xE71C";
+    constexpr const wchar_t* kToolbarViewGlyph = L"\xE8A9";   // the 视图 button (the context menu's View glyph)
     constexpr const wchar_t* kIconTheme = L"\xE793";
     constexpr const wchar_t* kIconSettings = L"\xE713";
     constexpr const wchar_t* kIconMinimize = L"\xE921";

@@ -819,7 +819,7 @@ void CALLBACK DriveToolbarInteraction(HWND, UINT, UINT_PTR timer, DWORD) {
     }
     if (p.menu_choice >= 0) { ui::CloseToolbarPicker(); return; }
     if (p.phase++ == 0) {
-        SendMessageW(picker,WM_MOUSEWHEEL,MAKEWPARAM(0,static_cast<WORD>(-120*20)),0);
+        SendMessageW(picker,WM_MOUSEWHEEL,MAKEWPARAM(0,static_cast<WORD>(-120*60)),0);   // to the end, whatever the page's length
         return;
     }
     if (p.phase == 2) {
@@ -903,7 +903,7 @@ int RunToolbarInteractionTest(AppState& s, const wchar_t* output) {
             while(GetTickCount64()<until){Render(s);Sleep(16);}
             Render(s);
         };
-        s.appPrefs.toolbar_show_sort=s.appPrefs.toolbar_show_filter=s.appPrefs.toolbar_show_group=true;
+        s.appPrefs.toolbar_show_sort=s.appPrefs.toolbar_show_filter=s.appPrefs.toolbar_show_group=s.appPrefs.toolbar_show_view=true;
         s.appPrefs.toolbar_tools = {L"copy_path", L"terminal", L"|", L"properties", L"hidden"};
         Render(s);
         auto layout = [&] {
@@ -959,6 +959,14 @@ int RunToolbarInteractionTest(AppState& s, const wchar_t* output) {
         check(s.appPrefs.toolbar_view_order!=view_order,"right view controls reorder by direct drag");
         RestoreToolbarDrag(s);Render(s);
         check(s.appPrefs.toolbar_view_order==view_order,"restore reverts view control order");
+        // 视图 leads by default and drags like the others: to the far end, then back.
+        check(!s.appPrefs.toolbar_view_order.empty() && s.appPrefs.toolbar_view_order.front()==L"view" &&
+              layout().view.right<=layout().sort.left,"view button leads the view controls by default");
+        BeginToolbarViewDrag(s,3,center(layout().view));MoveToolbarPinDrag(s,center(layout().group));EndToolbarPinDrag(s,false);
+        check(!s.appPrefs.toolbar_view_order.empty() && s.appPrefs.toolbar_view_order.back()==L"view",
+              "view button reorders by direct drag");
+        RestoreToolbarDrag(s);Render(s);
+        check(s.appPrefs.toolbar_view_order==view_order,"restore reverts the view button's position");
         BeginToolbarViewDrag(s,0,center(layout().sort));MoveToolbarPinDrag(s,center(layout().pins[1]));EndToolbarPinDrag(s,false);Render(s);
         check(app::ToolbarViewSlots(s.appPrefs.toolbar_tools)[0]>=0,"sort drag across central gap persists left slot");
         check(layout().sort.left<layout().pins[2].left,"sort is rendered between left tool pins");
@@ -1032,10 +1040,10 @@ int RunToolbarInteractionTest(AppState& s, const wchar_t* output) {
     }
     check(ActiveTab(s) && !ActiveTab(s)->loading && ActiveTab(s)->snapshot && !ActiveTab(s)->snapshot->empty(),
         "isolated folder-size fixture is enumerated before nested popup render regression");
-    s.appPrefs.toolbar_show_sort=s.appPrefs.toolbar_show_filter=s.appPrefs.toolbar_show_group=true;
+    s.appPrefs.toolbar_show_sort=s.appPrefs.toolbar_show_filter=s.appPrefs.toolbar_show_group=s.appPrefs.toolbar_show_view=true;
     for (bool theme : {false,true}) {
         s.darkMode=theme;
-        s.appPrefs.toolbar_view_order={L"sort",L"filter",L"group"};
+        s.appPrefs.toolbar_view_order={L"sort",L"filter",L"group",L"view"};
         Render(s);
         ToolbarInteractionProbe probe; probe.state=&s;probe.started=GetTickCount64();
         probe.screenshot=std::filesystem::path(output).parent_path()/(theme?L"toolbar-picker-dark.png":L"toolbar-picker-light.png");
@@ -1056,8 +1064,9 @@ int RunToolbarInteractionTest(AppState& s, const wchar_t* output) {
         log<<"screenshot="<<probe.screenshot.string()<<std::endl;
     }
     s.darkMode=dark;
+    // Two-row menus only: 视图's context menu leads with the whole view menu.
     for (int round=0;round<3;++round) for (int item=0;item<3;++item) {
-        s.appPrefs.toolbar_show_sort=s.appPrefs.toolbar_show_filter=s.appPrefs.toolbar_show_group=true;
+        s.appPrefs.toolbar_show_sort=s.appPrefs.toolbar_show_filter=s.appPrefs.toolbar_show_group=s.appPrefs.toolbar_show_view=true;
         for (int choice : {1,0}) {
             s.darkMode = choice==0;
             Render(s);

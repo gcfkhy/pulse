@@ -458,18 +458,25 @@ D2D1_RECT_F MainRenderer::PaneWallRect(const PaneViewModel& vm, const D2D1_RECT_
     return vm.size_control ? PaneMediumIconsRect(pane_bounds) : D2D1_RECT_F{};
 }
 
+float MainRenderer::PaneControlsLeft(const D2D1_RECT_F& pane_bounds, bool wall) const {
+    if (PaneViewControlsShown()) return PaneDetailsRect(pane_bounds, 1.0f, wall).left;
+    if (pane_expand_visible_) return PaneExpandRect(pane_bounds).left;
+    if (pane_close_visible_) return PaneCloseRect(pane_bounds).left;
+    return pane_bounds.right - 8.0f * scale_;
+}
+
 D2D1_RECT_F MainRenderer::PaneSizeButtonRect(const PaneViewModel& vm, const D2D1_RECT_F& pane_bounds) const {
     if (!ShowsSizeControl(vm) || pane_bounds.right - pane_bounds.left >= kSizeSliderMinPaneDip * scale_)
         return {};
     const D2D1_RECT_F details = PaneDetailsRect(pane_bounds, 1.0f, vm.size_control);
-    const float right = details.left - 6.0f * scale_;  // clear of the segment's groove
+    const float right = PaneControlsLeft(pane_bounds, vm.size_control) - 6.0f * scale_;  // clear of the segment's groove
     return D2D1::RectF(right - kCommandIconButtonDip * scale_, details.top, right, details.bottom);
 }
 
 D2D1_RECT_F MainRenderer::PaneSizeSliderRect(const PaneViewModel& vm, const D2D1_RECT_F& pane_bounds) const {
     if (!ShowsSizeControl(vm)) return {};
     const D2D1_RECT_F details = PaneDetailsRect(pane_bounds, 1.0f, vm.size_control);
-    float right = details.left - 10.0f * scale_;
+    float right = PaneControlsLeft(pane_bounds, vm.size_control) - 10.0f * scale_;
     if (pane_bounds.right - pane_bounds.left < kSizeSliderMinPaneDip * scale_) {
         if (!vm.size_slider_open) return {};
         right = PaneSizeButtonRect(vm, pane_bounds).left - 4.0f * scale_;
@@ -488,8 +495,9 @@ float MainRenderer::PaneSizeSliderValueAt(const PaneViewModel& vm, const D2D1_RE
 
 float MainRenderer::PaneHeaderTitleRight(const PaneViewModel& vm, const D2D1_RECT_F& pane_bounds) const {
     if(pane_bounds.right-pane_bounds.left<280*scale_)
-        return PaneViewButtonRect(pane_bounds).left-8*scale_;
-    float left = PaneDetailsRect(pane_bounds, 1.0f, vm.size_control).left;
+        return (PaneViewControlsShown() ? PaneViewButtonRect(pane_bounds).left
+                                        : PaneControlsLeft(pane_bounds, vm.size_control))-8*scale_;
+    float left = PaneControlsLeft(pane_bounds, vm.size_control);
     const D2D1_RECT_F button = PaneSizeButtonRect(vm, pane_bounds);
     const D2D1_RECT_F slider = PaneSizeSliderRect(vm, pane_bounds);
     if (button.right > button.left) left = button.left;  // an open slider covers the title instead
@@ -3333,7 +3341,7 @@ void MainRenderer::DrawSinglePane(const WindowViewModel& vm, const PaneViewModel
         const bool hasWall = wallRc.right > wallRc.left;
         const bool wallView = hasWall && pane.wall && IsZoomIconMode(pane.view_mode);
         const bool iconView = IsZoomIconMode(pane.view_mode) && !wallView;
-        if(bounds.right-bounds.left>=280*scale_) {
+        if(PaneViewControlsShown() && bounds.right-bounds.left>=280*scale_) {
         MakeBrush(dc, WithAlpha(theme.text, 0.05f), brFillHover_);
         FillRoundedRect(dc, brFillHover_.get(), detailsRc.left - 2.0f * scale_, detailsRc.top,
                         (hasWall ? wallRc.right : mediumRc.right) - detailsRc.left + 4.0f * scale_,
@@ -3362,7 +3370,7 @@ void MainRenderer::DrawSinglePane(const WindowViewModel& vm, const PaneViewModel
         headerButton(mediumRc, HitTestResult::PaneMediumIcons, PaneHeaderIcon::MediumIcons, iconView, true, false);
         if (hasWall) headerButton(wallRc, HitTestResult::PaneWall, PaneHeaderIcon::Wall, wallView, true, false);
         }
-        headerButton(viewRc, HitTestResult::PaneViewButton, PaneHeaderIcon::More, false);
+        if (PaneViewControlsShown()) headerButton(viewRc, HitTestResult::PaneViewButton, PaneHeaderIcon::More, false);
         const bool sizeButton = sizeButtonRc.right > sizeButtonRc.left;
         if (sizeButton)
             headerButton(sizeButtonRc, HitTestResult::PaneSizeButton, PaneHeaderIcon::Size, pane.size_slider_open);

@@ -1081,6 +1081,7 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
             }
             return r;
         }
+        if (toolbar.view.right>toolbar.view.left && ContainsPt(toolbar.view,x,y)) {r.region=HitTestResult::ToolbarView; return r;}
         if (toolbar.sort.right>toolbar.sort.left && ContainsPt(toolbar.sort,x,y)) {r.region=HitTestResult::ToolbarSort; return r;}
         if (toolbar.group.right>toolbar.group.left && ContainsPt(toolbar.group,x,y)) {
             const bool chip=toolbar_group_>0 && toolbar.group.right-toolbar.group.left>=60*scale_;
@@ -1378,7 +1379,8 @@ HitTestResult MainRenderer::HitTest(const WindowViewModel& vm, const D2D1_RECT_F
         if (compositor_ && ContainsPt(ChangeTitleRect(paneRc, PaneHeaderTitleRight(paneVm, paneRc), pane_header_height_, paneVm.title_change_badge, scale_, compositor_, paneVm.header_text), x, y)) {
             out.region = HitTestResult::ChangeBadge; out.index = -1; return out;
         }
-        if ((vm.pane_slots.size() > 1 || vm.layout_controls.zoom_index >= 0 || (focused && paneVm.header_controls_opacity > 0.05f))) {
+        if (PaneViewControlsShown() &&
+            (vm.pane_slots.size() > 1 || vm.layout_controls.zoom_index >= 0 || (focused && paneVm.header_controls_opacity > 0.05f))) {
             const D2D1_RECT_F buttons[] = {detailsRc, PaneMediumIconsRect(paneRc, 1.0f, paneVm.size_control),
                                            PaneWallRect(paneVm, paneRc), PaneViewButtonRect(paneRc)};
             const HitTestResult::Region actions[] = {HitTestResult::PaneDetails, HitTestResult::PaneMediumIcons,

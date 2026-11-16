@@ -1537,6 +1537,7 @@ struct HitTestResult {
         GroupSelect,         // header hover action (index = group): select the group
         ToolbarGroup,        // toolbar "Group" button / active chip: open the group menu
         ToolbarGroupClear,   // "x" on the active group chip: stop grouping
+        ToolbarView,         // toolbar "View" button: choose the view (the drum picker, or the menu)
         SettingsPreviewStore,  // Settings > Quick Look formats: get a missing system extension (index = row)
         SettingsPackAction,    // Settings > 预览增强包: index = PackAction
         TabScroll,             // overflowing tab strip arrows: index -1 = left, 1 = right

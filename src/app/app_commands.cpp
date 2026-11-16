@@ -1329,6 +1329,7 @@ void DispatchMenuCommand(AppState& s, int cmd) {
     if (cmd == 35010) { ShowSortDropdown(s); return; }
     if (cmd == 35011) { ShowFilterEditor(s); return; }
     if (cmd == 35012) { ShowGroupDropdown(s); return; }
+    if (cmd == 35013) { ShowViewDropdown(s); return; }
     if (HandleNativeCommandPin(s, cmd)) return;
     if (extensions::native::HandleContributedCommand(s, cmd)) return;
     if (extensions::native::HandlePackageCommand(s, cmd)) return;
@@ -3676,27 +3677,35 @@ void ZoomIconSize(AppState& s, int step, const POINT* anchor_point, bool leave_i
     ApplyViewMode(s, target.mode, target.dip, anchor_point);
 }
 
-void ShowViewDropdown(AppState& s, int pane_index) {
+// The view menu's rows for the open folder: the views, the photo wall, the
+// details pane, apply to all folders and the alias display.
+static std::vector<ui::FluentMenuItem> ViewMenuItems(AppState& s, const app::Tab& tab) {
+    return app::BuildViewMenu(tab.view_mode, s.showDetailsPanel,
+        !tab.current_path.empty() && !fs::IsVirtualPath(tab.current_path), tab.wall);
+}
+
+// Drum picker (group_wheel_ui.cpp) instead of the popup menu; false restores the menu.
+constexpr bool kViewWheel = true;
+
+void ShowViewDropdown(AppState& s) {
     if (!EnsureMenu(s)) return;
     app::Tab* tab = ActiveTab(s);
     if (!tab) return;
-    const ui::WindowViewModel vm = BuildVm(s);
-    D2D1_RECT_F paneRect = s.renderer.ContentRect(
-        static_cast<float>(s.compositor.Width()), static_cast<float>(s.compositor.Height()));
-    if (pane_index >= 0 && pane_index < static_cast<int>(vm.pane_slots.size()))
-        paneRect = vm.pane_slots[static_cast<size_t>(pane_index)].rect;
-    float filterExpand = 0.0f;
-    if (app::Pane* p = PaneAtSlot(s, pane_index)) filterExpand = p->filter_expand;
-    else if (s.pane) filterExpand = s.pane->filter_expand;
-    const D2D1_RECT_F button = s.renderer.PaneViewButtonRect(paneRect, filterExpand);
-    POINT anchor{ static_cast<LONG>(button.left), static_cast<LONG>(button.bottom) };
-    ClientToScreen(s.hwnd, &anchor);
-    auto items = app::BuildViewMenu(tab->view_mode, s.showDetailsPanel,
-        !tab->current_path.empty() && !fs::IsVirtualPath(tab->current_path), tab->wall);
-    items.back().separator_after=true;
-    items.push_back(app::BuildShortcutHints());
-    const int cmd = s.menu->TrackPopup(anchor, items);
-    if (cmd != app::CmdNone) DispatchMenuCommand(s, cmd);
+    if constexpr (kViewWheel) {
+        OpenViewWheel(s);
+    } else {
+        const float width = static_cast<float>(s.compositor.Width());
+        const float left = s.renderer.EffectiveSidebarWidth(width);
+        const auto layout = s.renderer.ToolbarLayoutAt(width, s.renderer.NewButtonWidthPx(width - left < 600 * s.scale),
+                                                       s.pane ? s.pane->filter_expand : 0.0f);
+        POINT anchor{static_cast<LONG>(layout.view.left), static_cast<LONG>(layout.view.bottom)};
+        ClientToScreen(s.hwnd, &anchor);
+        auto items = ViewMenuItems(s, *tab);
+        items.back().separator_after = true;
+        items.push_back(app::BuildShortcutHints());
+        const int cmd = s.menu->TrackPopup(anchor, std::move(items));
+        if (cmd != app::CmdNone) DispatchMenuCommand(s, cmd);
+    }
 }
 
 // Drum pickers (group_wheel_ui.cpp) instead of popup menus; false restores the menu.
@@ -4197,9 +4206,11 @@ std::vector<ui::FluentMenuItem> BuildToolbarMoreItems(AppState& s) {
         item.shortcut = L"\u22EE";
         items.push_back(std::move(item));
     }
-    const bool shown[]{s.appPrefs.toolbar_show_sort,s.appPrefs.toolbar_show_filter,s.appPrefs.toolbar_show_group};
-    const l10n::StringId view_labels[]{l10n::StringId::ToolbarSort,l10n::StringId::ToolbarFilter,l10n::StringId::ToolbarGroup};
-    for(int view=0;view<3;++view) if(!shown[view]) {
+    const bool shown[]{s.appPrefs.toolbar_show_sort,s.appPrefs.toolbar_show_filter,s.appPrefs.toolbar_show_group,
+                       s.appPrefs.toolbar_show_view};
+    const l10n::StringId view_labels[]{l10n::StringId::ToolbarSort,l10n::StringId::ToolbarFilter,l10n::StringId::ToolbarGroup,
+                                       l10n::StringId::ToolbarView};
+    for(int view=0;view<ui::kToolbarViewControls;++view) if(!shown[view]) {
         ui::FluentMenuItem item;item.command=35010+view;item.drag_command=1001+view;
         item.text=l10n::Get(view_labels[view]);item.shortcut=L"\u22EE";items.push_back(std::move(item));
     }
@@ -4304,6 +4315,7 @@ void ShowToolbarPinMenu(AppState& s, int slot, POINT screen) {
 void ShowToolbarViewMenu(AppState& s, ui::HitTestResult::Region region, POINT screen) {
     bool* shown = nullptr;
     switch (region) {
+    case ui::HitTestResult::ToolbarView: shown = &s.appPrefs.toolbar_show_view; break;
     case ui::HitTestResult::ToolbarSort: shown = &s.appPrefs.toolbar_show_sort; break;
     case ui::HitTestResult::ToolbarGroup:
     case ui::HitTestResult::ToolbarGroupClear: shown = &s.appPrefs.toolbar_show_group; break;
@@ -4319,6 +4331,13 @@ void ShowToolbarViewMenu(AppState& s, ui::HitTestResult::Region region, POINT sc
     remove.glyph = L"\xE711";
     remove.separator_after = true;
     std::vector<ui::FluentMenuItem> items;
+    // 视图: the whole view menu leads, so the details pane, apply to all folders
+    // and the alias display stay a right-click away from the drum picker.
+    if (region == ui::HitTestResult::ToolbarView)
+        if (const app::Tab* tab = ActiveTab(s)) {
+            items = ViewMenuItems(s, *tab);
+            items.back().separator_after = true;
+        }
     items.push_back(std::move(remove));
     items.push_back(CustomizeToolbarItem());
     ClearToolbarMenuTooltip(s);
@@ -4381,7 +4400,7 @@ struct ToolbarPinDrag {
     bool down = false, active = false, out = false, moved = false, separator = false, right = false;
     int view = -1;
     std::vector<std::wstring> original_views;
-    std::array<bool, 3> original_shown{};
+    std::array<bool, ui::kToolbarViewControls> original_shown{};
     int index = -1;        // the pin's slot now (tools, then apps)
     POINT start{};
     std::vector<std::wstring> original_tools, original_apps;
@@ -4392,7 +4411,7 @@ ToolbarPinDrag g_pin_drag;
 std::vector<std::wstring> g_toolbar_restore_tools, g_toolbar_restore_apps;
 HWND g_toolbar_restore_owner = nullptr;
 std::vector<std::wstring> g_toolbar_restore_views;
-std::array<bool,3> g_toolbar_restore_shown{};
+std::array<bool,ui::kToolbarViewControls> g_toolbar_restore_shown{};
 
 void PushToolbarPinDrag(AppState& s) {
     ui::ToolbarPinDragState state;
@@ -4538,20 +4557,26 @@ struct ToolbarViewDef {
     const wchar_t* glyph;
     l10n::StringId label;
 };
+// The first rows are the view controls in the order of app::kToolbarViewIds
+// (a tile's index is its control's identity); 收藏栏 follows them.
 static constexpr ToolbarViewDef kToolbarViews[] = {
     {L"sort", L"\xE8CB", l10n::StringId::ToolbarSort},
     {L"filter", L"\xE71C", l10n::StringId::ToolbarFilter},
     {L"group", L"\xF168", l10n::StringId::ToolbarGroup},
+    {L"view", L"\xE8A9", l10n::StringId::ToolbarView},
     {L"fav_bar", L"\xE728", l10n::StringId::FavoritesBar},   // 收藏栏, on the 窗格 section
 };
 static constexpr size_t kToolbarViewCount = std::size(kToolbarViews);
+static_assert(kToolbarViewCount == app::kToolbarViewIds.size() + 1, "the view controls, then 收藏栏");
 static bool& ToolbarViewPref(AppState& s, size_t i) {
     return i == 0 ? s.appPrefs.toolbar_show_sort : i == 1 ? s.appPrefs.toolbar_show_filter
-         : i == 2 ? s.appPrefs.toolbar_show_group : s.appPrefs.favorites_bar;
+         : i == 2 ? s.appPrefs.toolbar_show_group : i == 3 ? s.appPrefs.toolbar_show_view
+         : s.appPrefs.favorites_bar;
 }
 static bool ToolbarViewShown(const AppState& s, size_t i) {
     return i == 0 ? s.appPrefs.toolbar_show_sort : i == 1 ? s.appPrefs.toolbar_show_filter
-         : i == 2 ? s.appPrefs.toolbar_show_group : s.appPrefs.favorites_bar;
+         : i == 2 ? s.appPrefs.toolbar_show_group : i == 3 ? s.appPrefs.toolbar_show_view
+         : s.appPrefs.favorites_bar;
 }
 
 // Section of each toolbar_tools.h id on the picker's tools page.
@@ -4591,7 +4616,7 @@ static std::vector<size_t> ToolbarPinsOrder(const AppState& s) {
     }
     for (int index : app::ToolbarViewLayoutOrder(s.appPrefs.toolbar_view_order))
         order.push_back(app::kToolbarToolCount + static_cast<size_t>(index));
-    order.push_back(app::kToolbarToolCount + 3); // Favorites bar is not a view control.
+    order.push_back(app::kToolbarToolCount + app::kToolbarViewIds.size()); // Favorites bar is not a view control.
     return order;
 }
 
@@ -4697,7 +4722,8 @@ void ShowToolbarCustomize(AppState& s, int page) {
             else if (index - app::kToolbarToolCount < kToolbarViewCount) {
                 const size_t at = index - app::kToolbarToolCount;
                 view[at] = true;
-                if (at < app::kToolbarViewIds.size()) view_order.emplace_back(app::kToolbarViewIds[at]);
+                // 收藏栏 is a tile here but no view control: it has no order.
+                if (app::ToolbarViewIndex(kToolbarViews[at].id) >= 0) view_order.emplace_back(kToolbarViews[at].id);
             }
         }
         bool changed = false;
@@ -4870,7 +4896,8 @@ void BeginToolbarPinDrag(AppState& s, int index, POINT pt) {
     g_pin_drag.original_tools = s.appPrefs.toolbar_tools;
     g_pin_drag.original_apps = s.appPrefs.toolbar_apps;
     g_pin_drag.original_views = s.appPrefs.toolbar_view_order;
-    g_pin_drag.original_shown = {s.appPrefs.toolbar_show_sort,s.appPrefs.toolbar_show_filter,s.appPrefs.toolbar_show_group};
+    g_pin_drag.original_shown = {s.appPrefs.toolbar_show_sort,s.appPrefs.toolbar_show_filter,s.appPrefs.toolbar_show_group,
+                                 s.appPrefs.toolbar_show_view};
     g_pin_drag.grab = static_cast<float>(pt.x) - layout.pins[static_cast<size_t>(index)].left;
     SetCapture(s.hwnd);
 }
@@ -4880,8 +4907,8 @@ void BeginToolbarViewDrag(AppState& s, int view, POINT pt) {
     g_pin_drag.view = view;
     g_pin_drag.index = -1;
     const auto layout=CurrentToolbarLayout(s);
-    const D2D1_RECT_F views[]{layout.sort,layout.filter,layout.group};
-    if(view>=0 && view<3)g_pin_drag.grab=static_cast<float>(pt.x)-views[view].left;
+    const D2D1_RECT_F views[]{layout.sort,layout.filter,layout.group,layout.view};
+    if(view>=0 && view<ui::kToolbarViewControls)g_pin_drag.grab=static_cast<float>(pt.x)-views[view].left;
 }
 
 bool BeginToolbarSeparatorDrag(AppState& s, POINT pt) {
@@ -4900,10 +4927,11 @@ bool BeginToolbarSeparatorDrag(AppState& s, POINT pt) {
 }
 
 void BeginToolbarMenuDrag(AppState& s, int tool, POINT screen) {
-    if (tool >= 1000 && tool < 1003) {
+    if (tool >= 1000 && tool < 1000 + ui::kToolbarViewControls) {
         ScreenToClient(s.hwnd,&screen);
         BeginToolbarViewDrag(s,tool-1000,screen);
-        bool* shown[]{&s.appPrefs.toolbar_show_sort,&s.appPrefs.toolbar_show_filter,&s.appPrefs.toolbar_show_group};
+        bool* shown[]{&s.appPrefs.toolbar_show_sort,&s.appPrefs.toolbar_show_filter,&s.appPrefs.toolbar_show_group,
+                      &s.appPrefs.toolbar_show_view};
         *shown[tool-1000]=true;
         g_pin_drag.active=true;g_pin_drag.moved=true;
         return;
@@ -4937,12 +4965,12 @@ void MoveToolbarPinDrag(AppState& s, POINT pt) {
         if (!d.active && std::hypot(dx,dy) < 6.0f*s.scale) return;
         d.active = true;
         const auto layout = CurrentToolbarLayout(s);
-        const D2D1_RECT_F views[]{layout.sort,layout.filter,layout.group};
+        const D2D1_RECT_F views[]{layout.sort,layout.filter,layout.group,layout.view};
         const auto& more=layout.overflow;
         d.out=pt.y<more.top-30*s.scale || pt.y>more.bottom+26*s.scale ||
             (pt.x>=more.left && pt.x<=more.right);
         int target=d.view;float distance=1e9f;
-        for(int i=0;i<3;++i) {
+        for(int i=0;i<ui::kToolbarViewControls;++i) {
             if(views[i].right<=views[i].left)continue;
             const float delta=std::fabs(static_cast<float>(pt.x)-(views[i].left+views[i].right)*0.5f);
             if(delta<distance){distance=delta;target=i;}
@@ -5003,8 +5031,8 @@ void MoveToolbarPinDrag(AppState& s, POINT pt) {
     const int right_from = app::ToolbarRightFrom(s.appPrefs.toolbar_tools);
     float right_edge=layout.overflow.left;
     const auto view_slots=app::ToolbarViewSlots(s.appPrefs.toolbar_tools);
-    const D2D1_RECT_F view_rects[]{layout.sort,layout.filter,layout.group};
-    for(int view=0;view<3;++view) if(view_slots[view]<0 && view_rects[view].right>view_rects[view].left)
+    const D2D1_RECT_F view_rects[]{layout.sort,layout.filter,layout.group,layout.view};
+    for(int view=0;view<ui::kToolbarViewControls;++view) if(view_slots[view]<0 && view_rects[view].right>view_rects[view].left)
         right_edge=std::min(right_edge,view_rects[view].left);
     float boundary = (layout.create.right + right_edge) * 0.5f;
     if (right_from > 0 && right_from < tools && layout.pins[right_from].right > layout.pins[right_from].left)
@@ -5062,10 +5090,12 @@ void EndToolbarPinDrag(AppState& s, bool cancel) {
         s.appPrefs.toolbar_show_sort=d.original_shown[0];
         s.appPrefs.toolbar_show_filter=d.original_shown[1];
         s.appPrefs.toolbar_show_group=d.original_shown[2];
+        s.appPrefs.toolbar_show_view=d.original_shown[3];
     }
     bool changed = d.moved && !cancel;
     if (d.active && d.out && !cancel && d.view >= 0) {
-        bool* shown[]{&s.appPrefs.toolbar_show_sort,&s.appPrefs.toolbar_show_filter,&s.appPrefs.toolbar_show_group};
+        bool* shown[]{&s.appPrefs.toolbar_show_sort,&s.appPrefs.toolbar_show_filter,&s.appPrefs.toolbar_show_group,
+                      &s.appPrefs.toolbar_show_view};
         *shown[d.view]=false;changed=true;
     }
     if (d.active && d.out && !cancel && d.view < 0) {
@@ -5112,6 +5142,7 @@ void EndToolbarPinDrag(AppState& s, bool cancel) {
     if (!d.active && !cancel && d.view >= 0) {
         if(d.view==0) ShowSortDropdown(s);
         else if(d.view==1) ShowFilterEditor(s);
+        else if(d.view==3) ShowViewDropdown(s);
         else ShowGroupDropdown(s);
     }
     if (!d.active && !cancel && !d.separator && d.view < 0) RunToolbarAction(s, true, d.index);   // a click
@@ -5127,6 +5158,7 @@ void RestoreToolbarDrag(AppState& s) {
     s.appPrefs.toolbar_show_sort=g_toolbar_restore_shown[0];
     s.appPrefs.toolbar_show_filter=g_toolbar_restore_shown[1];
     s.appPrefs.toolbar_show_group=g_toolbar_restore_shown[2];
+    s.appPrefs.toolbar_show_view=g_toolbar_restore_shown[3];
     if (!s.isolatedTest) s.appPrefs.Save();
     PushToolbarPinDrag(s);
 }

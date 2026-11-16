@@ -402,6 +402,8 @@ std::wstring AppPrefs::ToJson() const {
     out += toolbar_show_filter ? L"true" : L"false";
     out += L",\n  \"toolbar_show_group\":";
     out += toolbar_show_group ? L"true" : L"false";
+    out += L",\n  \"toolbar_show_view\":";
+    out += toolbar_show_view ? L"true" : L"false";
     out += L",\n  \"toolbar_view_order\":[";
     const auto view_order = app::NormalizeToolbarViewOrder(toolbar_view_order);
     for (size_t i = 0; i < view_order.size(); ++i) {
@@ -710,6 +712,7 @@ bool AppPrefs::FromJson(const std::wstring& json) {
     toolbar_show_sort = pulse::json::ExtractBool(json, L"toolbar_show_sort", true);
     toolbar_show_filter = pulse::json::ExtractBool(json, L"toolbar_show_filter", true);
     toolbar_show_group = pulse::json::ExtractBool(json, L"toolbar_show_group", true);
+    toolbar_show_view = pulse::json::ExtractBool(json, L"toolbar_show_view", true);
     toolbar_view_order = app::NormalizeToolbarViewOrder(pulse::json::ExtractStringArray(json, L"toolbar_view_order"));
     toolbar_selection = json.find(L"\"toolbar_selection\"") != std::wstring::npos
         ? app::NormalizeToolbarSelection(pulse::json::ExtractStringArray(json, L"toolbar_selection"))

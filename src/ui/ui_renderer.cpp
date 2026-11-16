@@ -362,6 +362,8 @@ ToolbarLayout MainRenderer::ToolbarLayoutAt(float w, float create_width, float f
         : ToolbarCommandWidth(painter_, format, l10n::StringId::ToolbarSort, L"\xE8CB", true, scale_, 88.0f);
     const float filter_width = !toolbar_show_filter_ ? -1.0f
         : ToolbarCommandWidth(painter_, format, l10n::StringId::ToolbarFilter, kIconFilter, false, scale_, 88.0f);
+    const float view_width = !toolbar_show_view_ ? -1.0f
+        : ToolbarCommandWidth(painter_, format, l10n::StringId::ToolbarView, kToolbarViewGlyph, true, scale_, 88.0f);
     const float selection_span = selection_count_ > 0 && !embedded_ && !pin_drop_mode_
         ? SelectionChipSpan(scale_, SelectionChipLabelWidth(w, selection_count_), selection_actions_) : 0.0f;
     ToolbarPinOptions pins;
@@ -375,12 +377,12 @@ ToolbarLayout MainRenderer::ToolbarLayoutAt(float w, float create_width, float f
     if (!vertical_tabs_)
         return MakeToolbarLayout(w, scale_, title_bar_height_, margin_, create_width, left, filter_expand,
                                  search_hidden_ ? -1.0f : search_min_dip_, group_width, sort_width, filter_width, pin_count_,
-                                 selection_span, pins, navigation_can_forward_);
+                                 selection_span, pins, navigation_can_forward_, view_width);
     // Command row directly under the title bar; address row centered in it,
     // stopping short of the settings button.
     ToolbarLayout out = MakeToolbarLayout(w, scale_, title_bar_height_ - 46.0f * scale_, margin_,
                                           create_width, left, filter_expand, 0.0f, group_width, sort_width,
-                                          filter_width, pin_count_, selection_span, pins);
+                                          filter_width, pin_count_, selection_span, pins, true, view_width);
     const TitleChrome chrome = MakeTitleChrome(w, scale_, title_bar_height_);
     const float row_top = (title_bar_height_ - 36.0f * scale_) * 0.5f - 4.0f * scale_;
     const ToolbarLayout row = MakeToolbarLayout(chrome.windows_left - 4.0f * scale_, scale_, row_top,
