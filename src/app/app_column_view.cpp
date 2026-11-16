@@ -49,7 +49,10 @@ std::wstring SelectedFolder(const app::Tab& tab) {
     return {};
 }
 
-void RequestColumn(AppState& s, const app::Tab& tab, app::ColumnStripColumn& col) {
+// A column lists its folder in that folder's own remembered sort and folders-first mode,
+// the ones opening it would use, not in the sort of the folder the list is in: otherwise
+// entering a folder, or listing the others again after a move, reorders every column.
+void RequestColumn(AppState& s, app::ColumnStripColumn& col) {
     col.requested = true;
     col.error = false;
     uint64_t gen = 0;
@@ -71,9 +74,13 @@ void RequestColumn(AppState& s, const app::Tab& tab, app::ColumnStripColumn& col
             }
         });
     });
+    const app::FolderSort sort = s.appPrefs.folder_sorts.Find(col.path)
+        .value_or(s.appPrefs.folder_sorts.Default());
+    const int folder_mode = s.appPrefs.folder_sorts.FindFolderMode(col.path).value_or(-1);
     col.generation = shared != 0 ? shared
-                                 : s.worker.Refresh(col.path, tab.sort_column, tab.sort_direction, 0, nullptr,
-                                                    tab.EffectiveFolderSort());
+                                 : s.worker.Refresh(col.path, sort.column, sort.direction, 0, nullptr,
+                                                    folder_mode >= 0 ? app::FolderSortModeFromInt(folder_mode)
+                                                                     : app::DefaultFolderSortMode());
 }
 
 void RebuildRows(app::ColumnStripColumn& col, const app::Tab& tab) {
@@ -109,7 +116,7 @@ void SyncColumn(AppState& s, const app::Tab& tab, app::ColumnStripColumn& col) {
     // A copy / move / delete (or a watch) marked the folder dirty: list it
     // again. GetOrStart clears the mark when it starts that listing.
     if (col.requested && col.generation == 0 && s.store.IsDirty(col.path)) col.requested = false;
-    if (!col.requested) RequestColumn(s, tab, col);
+    if (!col.requested) RequestColumn(s, col);
     RebuildRows(col, tab);
 }
 

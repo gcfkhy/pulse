@@ -5464,6 +5464,14 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
             OleUninitialize();
             return result;
         }
+        wchar_t column_sort_probe[32768]{};
+        if (state.isolatedTest && GetEnvironmentVariableW(L"PULSE_TEST_COLUMN_SORT_FLOW", column_sort_probe, ARRAYSIZE(column_sort_probe))) {
+            extern int RunColumnSortProbe(AppState&, const wchar_t*);
+            const int result = WaitForShotReady(state) ? RunColumnSortProbe(state, column_sort_probe) : 4;
+            DestroyWindow(hwnd);
+            OleUninitialize();
+            return result;
+        }
 #endif
         if (state.isolatedTest && state.shot.active) {
             wchar_t fixture[256]{};
