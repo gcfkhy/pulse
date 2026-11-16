@@ -3684,28 +3684,21 @@ static std::vector<ui::FluentMenuItem> ViewMenuItems(AppState& s, const app::Tab
         !tab.current_path.empty() && !fs::IsVirtualPath(tab.current_path), tab.wall);
 }
 
-// Drum picker (group_wheel_ui.cpp) instead of the popup menu; false restores the menu.
-constexpr bool kViewWheel = true;
-
 void ShowViewDropdown(AppState& s) {
     if (!EnsureMenu(s)) return;
     app::Tab* tab = ActiveTab(s);
     if (!tab) return;
-    if constexpr (kViewWheel) {
-        OpenViewWheel(s);
-    } else {
-        const float width = static_cast<float>(s.compositor.Width());
-        const float left = s.renderer.EffectiveSidebarWidth(width);
-        const auto layout = s.renderer.ToolbarLayoutAt(width, s.renderer.NewButtonWidthPx(width - left < 600 * s.scale),
-                                                       s.pane ? s.pane->filter_expand : 0.0f);
-        POINT anchor{static_cast<LONG>(layout.view.left), static_cast<LONG>(layout.view.bottom)};
-        ClientToScreen(s.hwnd, &anchor);
-        auto items = ViewMenuItems(s, *tab);
-        items.back().separator_after = true;
-        items.push_back(app::BuildShortcutHints());
-        const int cmd = s.menu->TrackPopup(anchor, std::move(items));
-        if (cmd != app::CmdNone) DispatchMenuCommand(s, cmd);
-    }
+    const float width = static_cast<float>(s.compositor.Width());
+    const float left = s.renderer.EffectiveSidebarWidth(width);
+    const auto layout = s.renderer.ToolbarLayoutAt(width, s.renderer.NewButtonWidthPx(width - left < 600 * s.scale),
+                                                   s.pane ? s.pane->filter_expand : 0.0f);
+    POINT anchor{static_cast<LONG>(layout.view.left), static_cast<LONG>(layout.view.bottom)};
+    ClientToScreen(s.hwnd, &anchor);
+    auto items = ViewMenuItems(s, *tab);
+    items.back().separator_after = true;
+    items.push_back(app::BuildShortcutHints());
+    const int cmd = s.menu->TrackPopup(anchor, std::move(items));
+    if (cmd != app::CmdNone) DispatchMenuCommand(s, cmd);
 }
 
 // Drum pickers (group_wheel_ui.cpp) instead of popup menus; false restores the menu.

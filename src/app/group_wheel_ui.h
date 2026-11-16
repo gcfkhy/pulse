@@ -13,9 +13,6 @@ void OpenGroupWheel(AppState& s);
 // placement as segments, preview = the folder's first entries in that order.
 void OpenSortWheel(AppState& s);
 bool ApplySortToAllFolders(AppState& s, int column, bool desc, int folder, bool confirm = true);
-// And for the toolbar 视图 button: the views on the drum, a sketch of each
-// one's layout as the preview. Details is the default row.
-void OpenViewWheel(AppState& s);
 // WndProc hook: true when the message was consumed by the open picker.
 bool GroupWheelMessage(AppState& s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 

@@ -965,10 +965,9 @@ void MainRenderer::DrawToolbar(const WindowViewModel& vm, const D2D1_RECT_F& rec
     // in step with its open/close fade.
     const float picker_open=group_wheel_.OpenAmount();
     const bool sort_picker=group_wheel_.IsSortPicker();
-    const bool view_picker=group_wheel_.IsViewPicker();
     if (layout.view.right > layout.view.left)
         command(layout.view,kToolbarViewGlyph,l10n::StringId::ToolbarView,HitTestResult::ToolbarView,true,
-            view_picker ? picker_open : 0.0f);
+            0.0f);
     if (layout.sort.right > layout.sort.left)
         command(layout.sort,L"\xE8CB",l10n::StringId::ToolbarSort,HitTestResult::ToolbarSort,true,
             sort_picker ? picker_open : 0.0f);
@@ -1001,7 +1000,7 @@ void MainRenderer::DrawToolbar(const WindowViewModel& vm, const D2D1_RECT_F& rec
         const bool icon_only=g.right-g.left < 60*scale_;
         if (!group_chip) {
             command(g,L"\xF168",l10n::StringId::ToolbarGroup,HitTestResult::ToolbarGroup,true,
-                sort_picker || view_picker ? 0.0f : picker_open);
+                sort_picker ? 0.0f : picker_open);
         } else if (icon_only) {
             DrawButton(g,theme,IsHovered(vm,HitTestResult::ToolbarGroup) ? theme.fill_hover : theme.fill_selected,
                 L"\xF168",L"",theme.accent,true,true);

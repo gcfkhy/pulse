@@ -146,45 +146,8 @@ ui::GroupWheelOption BuildOption(const app::Tab& tab, const ModeStyle& mode,
     return o;
 }
 
-enum class WheelKind { Group, Sort, View };
+enum class WheelKind { Group, Sort };
 WheelKind g_kind = WheelKind::Group;
-
-// The view picker's rows: Details first (the default), then the other
-// layouts. value / layout is the ViewModeIndex, 8 the photo wall.
-struct ViewStyle {
-    int layout;
-    l10n::StringId name;
-    l10n::StringId hint;
-    ui::command_icons::Icon icon;
-    uint32_t hue1, hue2;
-};
-
-constexpr int kViewWall = 8;
-constexpr ViewStyle kViewStyles[] = {
-    {5, l10n::StringId::ViewDetails, l10n::StringId::ViewWheelHintDetails,
-     ui::command_icons::Icon::List, 0x60A5FA, 0x1D4ED8},
-    {4, l10n::StringId::ViewList, l10n::StringId::ViewWheelHintList,
-     ui::command_icons::Icon::Columns, 0x22D3EE, 0x0E7490},
-    {6, l10n::StringId::ViewTiles, l10n::StringId::ViewWheelHintTiles,
-     ui::command_icons::Icon::Stack, 0xA78BFA, 0x6D28D9},
-    {7, l10n::StringId::ViewContent, l10n::StringId::ViewWheelHintContent,
-     ui::command_icons::Icon::File, 0xF472B6, 0xBE185D},
-    {3, l10n::StringId::ViewSmall, l10n::StringId::ViewWheelHintSmall,
-     ui::command_icons::Icon::Grid, 0x34D399, 0x0F766E},
-    {2, l10n::StringId::MediumIcons, l10n::StringId::ViewWheelHintMedium,
-     ui::command_icons::Icon::Grid, 0xFBBF24, 0xB45309},
-    {1, l10n::StringId::ViewLarge, l10n::StringId::ViewWheelHintLarge,
-     ui::command_icons::Icon::Image, 0xFB923C, 0xC2410C},
-    {0, l10n::StringId::ViewExtraLarge, l10n::StringId::ViewWheelHintExtraLarge,
-     ui::command_icons::Icon::Image, 0xF87171, 0xB91C1C},
-    {kViewWall, l10n::StringId::PhotoWall, l10n::StringId::ViewWheelHintWall,
-     ui::command_icons::Icon::Layers, 0xE879F9, 0xA21CAF},
-};
-
-void ApplyView(AppState& s, int value) {
-    if (value == kViewWall) ShowIconWall(s, true);
-    else ChooseViewMode(s, ui::ViewModeFromIndex(value));
-}
 
 struct SortStyle {
     ui::SortColumn column;
@@ -358,7 +321,6 @@ void Apply(AppState& s, HWND hwnd, int value) {
     auto& wheel = s.renderer.GroupWheelPicker();
     wheel.Close();
     if (g_kind == WheelKind::Sort) ApplySort(s, value, wheel.Desc(), wheel.Folder());
-    else if (g_kind == WheelKind::View) ApplyView(s, value);
     else SetGroupBy(s, value);
     Kick(s, hwnd);
 }
@@ -574,45 +536,6 @@ void OpenSortWheel(AppState& s) {
     Kick(s, s.hwnd);
 }
 
-void OpenViewWheel(AppState& s) {
-    app::Tab* tab = ActiveTab(s);
-    if (!tab) return;
-    ui::GroupWheelData data;
-    data.view_picker = true;
-    const bool wall = tab->wall && ui::IsZoomIconMode(tab->view_mode);
-    const int current = wall ? kViewWall : ui::ViewModeIndex(tab->view_mode);
-    for (const auto& view : kViewStyles) {
-        ui::GroupWheelOption o;
-        o.value = view.layout;
-        o.view_layout = view.layout;
-        o.icon = static_cast<int>(view.icon);
-        o.name = l10n::Get(view.name);
-        o.meta = l10n::Get(view.hint);
-        o.hue1 = view.hue1;
-        o.hue2 = view.hue2;
-        o.apply_all = view.layout != kViewWall;   // a photo wall is no folder's saved view
-        if (view.layout == current) data.applied = static_cast<int>(data.options.size());
-        data.options.push_back(std::move(o));
-    }
-    data.current_text = l10n::Get(l10n::StringId::GroupWheelCurrent);
-    data.apply_text = l10n::Get(l10n::StringId::GroupWheelApply);
-    data.click_apply_text = l10n::Get(l10n::StringId::GroupWheelClickApply);
-    data.cancel_text = l10n::Get(l10n::StringId::Cancel);
-    if (!tab->current_path.empty() && !fs::IsVirtualPath(tab->current_path))
-        data.apply_all_text = l10n::Get(l10n::StringId::ApplyGroupAllShort);
-
-    const float width = static_cast<float>(s.compositor.Width());
-    const float height = static_cast<float>(s.compositor.Height());
-    const float left = s.renderer.EffectiveSidebarWidth(width);
-    const auto layout = s.renderer.ToolbarLayoutAt(width, s.renderer.NewButtonWidthPx(width - left < 600 * s.scale),
-                                                   s.pane ? s.pane->filter_expand : 0.0f);
-    g_wheel_accum = 0;
-    g_kind = WheelKind::View;
-    s.renderer.GroupWheelPicker().Open(std::move(data), layout.view, D2D1::RectF(0, 0, width, height),
-                                       s.scale, ui::motion::SystemAnimationsEnabled());
-    Kick(s, s.hwnd);
-}
-
 // A click that closes the picker can be the first half of a double click: the
 // second half must not reach the list below (it would open an item).
 static ULONGLONG g_swallow_dblclk_until = 0;
@@ -677,11 +600,7 @@ bool GroupWheelMessage(AppState& s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
             wheel.Close();
             Kick(s, hwnd);
             if (g_kind == WheelKind::Sort) ApplySortToAllFolders(s, value, desc, folder);
-            else if (g_kind == WheelKind::View) {
-                // The choice takes effect here first; the confirm then spreads it.
-                ApplyView(s, value);
-                ApplyViewToAllFolders(s);
-            } else ApplyGroupToAllFolders(s, value);
+            else ApplyGroupToAllFolders(s, value);
             Kick(s, hwnd);
             return true;
         }

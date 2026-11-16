@@ -5010,13 +5010,4 @@ BEGIN
     IDS_SURFACE_TONE_NEUTRAL "中性灰"
     IDS_SURFACE_TONE_CUSTOM "自訂…"
     IDS_TOOLBAR_VIEW "檢視"
-    IDS_VIEW_WHEEL_HINT_DETAILS "名稱、日期、類型和大小分欄顯示"
-    IDS_VIEW_WHEEL_HINT_LIST "緊湊的名稱清單，排滿一欄後換欄"
-    IDS_VIEW_WHEEL_HINT_SMALL "小圖示，一屏容納更多項目"
-    IDS_VIEW_WHEEL_HINT_MEDIUM "中等圖示，圖片和名稱都清楚"
-    IDS_VIEW_WHEEL_HINT_LARGE "大圖示，便於辨認圖片和文件"
-    IDS_VIEW_WHEEL_HINT_EXTRA_LARGE "超大圖示，適合瀏覽相片"
-    IDS_VIEW_WHEEL_HINT_TILES "圖示加兩行說明"
-    IDS_VIEW_WHEEL_HINT_CONTENT "名稱下方帶日期和大小等詳情"
-    IDS_VIEW_WHEEL_HINT_WALL "相片依原比例連續排列"
 END

@@ -33,8 +33,6 @@ struct GroupWheelOption {
     uint32_t hue1 = 0x94A3B8, hue2 = 0x64748B;   // preview colour wash
     std::vector<std::pair<std::wstring, int>> groups;  // preview; empty = flat
     bool apply_all = true;      // group picker: the footer button shows while it is centred
-    // View picker only: the layout its preview sketches (ViewModeIndex 0..7, 8 = photo wall).
-    int view_layout = -1;
     // Sort picker only: direction labels (asc, desc) and the preview for
     // each direction x folder mode (index desc * 3 + folder).
     std::array<std::wstring, 2> directions;
@@ -50,9 +48,6 @@ struct GroupWheelData {
     // Sort picker: direction + folder segments under the preview, the preview
     // shows `files` instead of group headers, and Left/Right set the direction.
     bool sort_controls = false;
-    // View picker (toolbar 视图 button): the options are the views, the preview
-    // sketches each one's layout (GroupWheelOption::view_layout), no pill.
-    bool view_picker = false;
     bool desc = false;
     int folder = 0;             // app::FolderSortMode
     std::wstring direction_text, folder_text;
@@ -79,7 +74,6 @@ public:
     // 0..1 open amount, frame-stable (follows the fade; 0/1 without animation).
     float OpenAmount() const noexcept { return Visible() ? fade_value_ : 0.0f; }
     bool IsSortPicker() const noexcept { return data_.sort_controls; }
-    bool IsViewPicker() const noexcept { return data_.view_picker; }
 
     bool Contains(float x, float y) const noexcept;
     // Footer "apply to all folders" button (laid out while drawing).

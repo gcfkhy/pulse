@@ -82,104 +82,6 @@ struct Ink {
 
 Ink g_ink;  // valid only inside GroupWheel::Draw (UI thread)
 
-// The view picker's preview: a skeleton of a folder in that view, drawn inside
-// `area`. layout is the ViewModeIndex (0 extra large icons .. 7 content), 8 the
-// photo wall.
-void DrawViewMock(const Theme& theme, float s, const D2D1_RECT_F& area, int layout, float alpha) {
-    const float x = area.left, y = area.top, w = area.right - area.left, bottom = area.bottom;
-    if (w <= 0.0f || bottom <= y) return;
-    const D2D1_COLOR_F bar = GwAlpha(theme.text, 0.11f * alpha);
-    const D2D1_COLOR_F faint = GwAlpha(theme.text, 0.065f * alpha);
-    const auto rect = [&](float l, float t, float r, float b, float radius, const D2D1_COLOR_F& c) {
-        if (b > bottom) return;   // a row that does not fit is left out, not cut
-        g_ink.Fill(D2D1::RectF(l, t, r, b), radius * s, c);
-    };
-    const auto swatch = [&](int i, float a) { return GwRgb(kSkeletonColors[i % 7], a * alpha); };
-    switch (layout) {
-    case 5: {   // Details: a header, then name, date, type and size columns
-        rect(x, y, x + w, y + 13.0f * s, 3.0f, faint);
-        const float cols[] = {0.0f, 0.50f, 0.70f, 0.86f};
-        const float lens[] = {0.30f, 0.14f, 0.10f, 0.08f};
-        for (int c = 0; c < 4; ++c)
-            rect(x + w * cols[c] + 6.0f * s, y + 4.5f * s, x + w * (cols[c] + lens[c]) + 6.0f * s, y + 8.5f * s, 2.0f, bar);
-        int row = 0;
-        for (float ry = y + 19.0f * s; ry + 14.0f * s <= bottom; ry += 19.0f * s, ++row) {
-            rect(x + 4.0f * s, ry, x + 16.0f * s, ry + 12.0f * s, 3.0f, swatch(row, 0.9f));
-            rect(x + 22.0f * s, ry + 3.0f * s, x + w * (0.30f + 0.04f * static_cast<float>(row % 4)), ry + 9.0f * s, 2.0f, bar);
-            for (int c = 1; c < 4; ++c)
-                rect(x + w * cols[c] + 6.0f * s, ry + 3.0f * s, x + w * (cols[c] + lens[c] * 0.8f) + 6.0f * s, ry + 9.0f * s, 2.0f, faint);
-        }
-        break;
-    }
-    case 4: case 3: {   // List (down, then across) and small icons (across, then down)
-        const int cols = 3;
-        const float cell = w / static_cast<float>(cols), step = 18.0f * s;
-        const int rows = std::max(1, static_cast<int>((bottom - y) / step));
-        for (int i = 0; i < rows * cols; ++i) {
-            const int col = layout == 4 ? i / rows : i % cols, row = layout == 4 ? i % rows : i / cols;
-            if (col >= cols) break;
-            const float cx = x + cell * static_cast<float>(col), cy = y + step * static_cast<float>(row);
-            rect(cx + 2.0f * s, cy + 3.0f * s, cx + 13.0f * s, cy + 14.0f * s, 3.0f, swatch(i, 0.9f));
-            rect(cx + 18.0f * s, cy + 6.0f * s, cx + cell * (0.55f + 0.08f * static_cast<float>(i % 3)), cy + 11.0f * s, 2.0f, bar);
-        }
-        break;
-    }
-    case 2: case 1: case 0: {   // Medium, large and extra large icons: a grid, the name under each
-        const int cols = layout == 2 ? 4 : layout == 1 ? 3 : 2;
-        const float cell = w / static_cast<float>(cols);
-        const float icon = cell * (layout == 0 ? 0.62f : 0.56f);
-        const float height = icon + 18.0f * s;
-        int i = 0;
-        for (float cy = y; cy + height <= bottom; cy += height + 4.0f * s) {
-            for (int col = 0; col < cols; ++col, ++i) {
-                const float cx = x + cell * static_cast<float>(col) + (cell - icon) * 0.5f;
-                rect(cx, cy, cx + icon, cy + icon, 6.0f, swatch(i, 0.85f));
-                const float nx = x + cell * static_cast<float>(col) + cell * 0.18f;
-                rect(nx, cy + icon + 6.0f * s, nx + cell * 0.64f, cy + icon + 11.0f * s, 2.0f, bar);
-            }
-        }
-        break;
-    }
-    case 6: {   // Tiles: an icon and two lines, two across
-        const float cell = w / 2.0f, height = 40.0f * s;
-        int i = 0;
-        for (float cy = y; cy + 32.0f * s <= bottom; cy += height) {
-            for (int col = 0; col < 2; ++col, ++i) {
-                const float cx = x + cell * static_cast<float>(col);
-                rect(cx + 2.0f * s, cy, cx + 30.0f * s, cy + 28.0f * s, 6.0f, swatch(i, 0.85f));
-                rect(cx + 36.0f * s, cy + 6.0f * s, cx + cell * 0.88f, cy + 12.0f * s, 2.0f, bar);
-                rect(cx + 36.0f * s, cy + 17.0f * s, cx + cell * (0.55f + 0.06f * static_cast<float>(i % 3)), cy + 22.0f * s, 2.0f, faint);
-            }
-        }
-        break;
-    }
-    case 7: {   // Content: the name, with its details beneath, one item a row
-        int i = 0;
-        for (float cy = y; cy + 28.0f * s <= bottom; cy += 36.0f * s, ++i) {
-            rect(x + 2.0f * s, cy, x + 28.0f * s, cy + 26.0f * s, 6.0f, swatch(i, 0.85f));
-            rect(x + 36.0f * s, cy + 4.0f * s, x + w * (0.45f + 0.05f * static_cast<float>(i % 3)), cy + 10.0f * s, 2.0f, bar);
-            rect(x + 36.0f * s, cy + 15.0f * s, x + w * 0.92f, cy + 20.0f * s, 2.0f, faint);
-        }
-        break;
-    }
-    default: {  // Photo wall: pictures in rows, each at its own width
-        static constexpr float kRows[4][4] = {{0.34f, 0.26f, 0.40f, 0.0f}, {0.22f, 0.38f, 0.20f, 0.20f},
-                                              {0.52f, 0.48f, 0.0f, 0.0f}, {0.30f, 0.30f, 0.40f, 0.0f}};
-        const float gap = 4.0f * s, height = 40.0f * s;
-        int i = 0, row = 0;
-        for (float cy = y; cy + height <= bottom; cy += height + gap, ++row) {
-            float cx = x;
-            for (int k = 0; k < 4 && kRows[row % 4][k] > 0.0f; ++k, ++i) {
-                const float cw = w * kRows[row % 4][k] - gap;
-                rect(cx, cy, cx + cw, cy + height, 5.0f, swatch(i, 0.6f));
-                cx += cw + gap;
-            }
-        }
-        break;
-    }
-    }
-}
-
 } // namespace
 
 void GroupWheel::Open(GroupWheelData data, const D2D1_RECT_F& anchor, const D2D1_RECT_F& client,
@@ -488,7 +390,7 @@ void GroupWheel::DrawRow(ID2D1DeviceContext* dc, const Theme& theme, int index, 
     const bool go = cur && hover_step_ == 0 && !dragging_ && std::abs(p_ - t_) < 0.05f &&
                     !data_.click_apply_text.empty();
     const std::wstring pill_text = go ? data_.click_apply_text
-                                 : data_.sort_controls || data_.view_picker ? std::wstring() : o.pill;
+                                 : data_.sort_controls ? std::wstring() : o.pill;
     const float pill_w = g_ink.Measure(f_small_, pill_text) + 16.0f * s;
     const D2D1_RECT_F pill = D2D1::RectF(right - pill_w, -10.0f * s, right, 10.0f * s);
     if (!pill_text.empty()) {
@@ -669,10 +571,6 @@ void GroupWheel::Draw(ID2D1DeviceContext* dc, IDWriteFactory* dwrite, IDWriteTex
                 g_ink.Fill(D2D1::RectF(x + 4.0f * s, y + 3.5f * s, x + 12.0f * s, y + 11.5f * s), 2.0f * s, GwRgb(rgb, alpha));
                 y += 20.0f * s;
             };
-            if (data_.view_picker) {
-                DrawViewMock(theme, s, D2D1::RectF(x, y, x + w, pv.bottom - 8.0f * s), o.view_layout, alpha);
-                return;
-            }
             if (data_.sort_controls) {
                 const auto& rows = o.files[static_cast<size_t>((data_.desc ? 3 : 0) + std::clamp(data_.folder, 0, 2))];
                 for (const auto& row : rows) {
