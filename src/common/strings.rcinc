@@ -5012,6 +5012,10 @@ BEGIN
     IDS_SURFACE_TONE_NEUTRAL "中性灰"
     IDS_SURFACE_TONE_CUSTOM "自定义…"
     IDS_TOOLBAR_VIEW "视图"
+    IDS_COLOR_FORMAT_HEX "十六进制"
+    IDS_COLOR_FORMAT_RGB "RGB"
+    IDS_COLOR_FORMAT_HSL "HSL"
+    IDS_COLOR_EYEDROPPER "吸取屏幕颜色"
 END
 
 LANGUAGE 0x09, 0x01
@@ -10023,6 +10027,10 @@ BEGIN
     IDS_SURFACE_TONE_NEUTRAL "Neutral gray"
     IDS_SURFACE_TONE_CUSTOM "Custom…"
     IDS_TOOLBAR_VIEW "View"
+    IDS_COLOR_FORMAT_HEX "Hex"
+    IDS_COLOR_FORMAT_RGB "RGB"
+    IDS_COLOR_FORMAT_HSL "HSL"
+    IDS_COLOR_EYEDROPPER "Pick color from screen"
 END
 
 // Traditional Chinese (Taiwan), generated from the Simplified entries above.

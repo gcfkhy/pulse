@@ -150,6 +150,7 @@ namespace pulse::app { bool RunMediaColumnResizeCapture(); }
 #include "update_shutdown.h"
 #include "link_resolve.h"
 #include "../ui/color_picker.h"
+#include "../ui/browser_color_picker.h"
 #include "../ui/bloom_accent_picker.h"
 #include "../ui/folder_picker_dialog.h"
 #ifdef PULSE_WITH_SELFTEST
@@ -4331,6 +4332,7 @@ bool SkipSingletonFromArgv() {
             wcscmp(__wargv[i], L"--test-instance") == 0 ||
             wcscmp(__wargv[i], L"--colorpickshot") == 0 ||
             wcscmp(__wargv[i], L"--tagmanagershot") == 0 ||
+            wcscmp(__wargv[i], L"--browserpickshot") == 0 ||
             wcscmp(__wargv[i], L"--colorpickdialog") == 0)
             return true;
     }
@@ -4649,9 +4651,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
         } else if (wcscmp(__wargv[i], L"--menushot-search") == 0) {
             state.menushot_search = true;
         } else if ((wcscmp(__wargv[i], L"--colorpickshot") == 0 ||
-                    wcscmp(__wargv[i], L"--tagmanagershot") == 0) && i + 1 < __argc) {
+                    wcscmp(__wargv[i], L"--tagmanagershot") == 0 ||
+                    wcscmp(__wargv[i], L"--browserpickshot") == 0) && i + 1 < __argc) {
             state.colorpickshot = true;
             state.colorpickshot_tags = wcscmp(__wargv[i], L"--tagmanagershot") == 0;
+            state.colorpickshot_browser = wcscmp(__wargv[i], L"--browserpickshot") == 0;
             state.colorpickshot_out = __wargv[++i];
             if (i + 1 < __argc && wcscmp(__wargv[i + 1], L"light") == 0) {
                 state.colorpickshot_dark = false;
@@ -5213,6 +5217,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
         // Render the color picker popup (or the tag manager) to a PNG (GUI verification).
         const bool ok = state.colorpickshot_tags
             ? SaveTagManagerSnapshot(state, state.colorpickshot_out.c_str(), state.colorpickshot_dark)
+            : state.colorpickshot_browser
+            ? ui::BrowserColorPicker::SaveDebugSnapshot(
+                  &state.compositor, state.colorpickshot_out.c_str(),
+                  state.colorpickshot_dark, state.accentColor, state.scale)
             : ui::ColorPickerPopup::SaveDebugSnapshot(
                   &state.compositor, state.colorpickshot_out.c_str(),
                   state.colorpickshot_dark, state.accentColor, state.scale);

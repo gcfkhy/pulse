@@ -82,6 +82,7 @@
 #include "../ui/ui_motion.h"
 #include <map>
 #include "../ui/color_picker.h"
+#include "../ui/browser_color_picker.h"
 #include "../ui/bloom_accent_picker.h"
 #include "../ui/drag_drop.h"
 #include "../ui/ui_renderer.h"
@@ -9294,6 +9295,67 @@ void TestColorPickerModel() {
           L"colorpicker: format #rrggbb lowercase");
 }
 
+void TestBrowserColorPickerModel() {
+    Check(ui::RgbFromHsl(0, 0, 0) == 0x000000, L"browserpicker: HSL black");
+    Check(ui::RgbFromHsl(0, 0, 100) == 0xFFFFFF, L"browserpicker: HSL white");
+    Check(ui::RgbFromHsl(0, 0, 50) == 0x808080, L"browserpicker: HSL mid gray");
+    Check(ui::RgbFromHsl(0, 100, 50) == 0xFF0000, L"browserpicker: HSL pure red");
+    Check(ui::RgbFromHsl(360, 100, 50) == 0xFF0000, L"browserpicker: HSL hue 360 wraps to red");
+    {
+        const ui::HslColor black = ui::HslFromRgb(0x000000);
+        Check(black.s == 0 && black.l == 0, L"browserpicker: HslFromRgb black");
+        const ui::HslColor white = ui::HslFromRgb(0xFFFFFF);
+        Check(white.s == 0 && white.l == 100, L"browserpicker: HslFromRgb white");
+        const ui::HslColor gray = ui::HslFromRgb(0x808080);
+        Check(gray.s == 0 && gray.l == 50, L"browserpicker: HslFromRgb gray");
+    }
+    bool hsl_roundtrip = true;
+    for (const uint32_t rgb : {0x000000u, 0xFFFFFFu, 0x808080u, 0xFF0000u, 0x00FF00u,
+                               0x0000FFu, 0xD6E4F0u, 0xF1F3EEu, 0xA855F7u, 0x0078D4u}) {
+        const ui::HslColor hsl = ui::HslFromRgb(rgb);
+        const uint32_t back = ui::RgbFromHsl(hsl.h, hsl.s, hsl.l);
+        for (int shift = 0; shift < 24; shift += 8) {
+            const int a = static_cast<int>((rgb >> shift) & 0xff);
+            const int b = static_cast<int>((back >> shift) & 0xff);
+            if (std::abs(a - b) > 3) hsl_roundtrip = false;
+        }
+    }
+    Check(hsl_roundtrip, L"browserpicker: RGB<->HSL roundtrip within tolerance");
+
+    const ui::SvNorm tl = ui::SvFromSquare(0.0f, 0.0f);
+    Check(tl.s == 0.0f && tl.v == 1.0f, L"browserpicker: SV top-left is white");
+    const ui::SvNorm tr = ui::SvFromSquare(1.0f, 0.0f);
+    Check(tr.s == 1.0f && tr.v == 1.0f, L"browserpicker: SV top-right is pure hue");
+    const ui::SvNorm br = ui::SvFromSquare(1.0f, 1.0f);
+    Check(br.s == 1.0f && br.v == 0.0f, L"browserpicker: SV bottom-right is black");
+    float nx = 0.0f, ny = 0.0f;
+    ui::SquareFromSv(0.5f, 0.25f, nx, ny);
+    Check(std::abs(nx - 0.5f) < 1.0e-6f && std::abs(ny - 0.75f) < 1.0e-6f,
+          L"browserpicker: SquareFromSv inverts SvFromSquare");
+    Check(ui::RgbFromHueSv(0, 1.0f, 1.0f) == 0xFF0000, L"browserpicker: hue/SV pure red");
+    Check(ui::RgbFromHueSv(0, 0.0f, 1.0f) == 0xFFFFFF, L"browserpicker: hue/SV white");
+    Check(ui::RgbFromHueSv(120, 0.0f, 0.0f) == 0x000000, L"browserpicker: hue/SV black");
+
+    uint32_t rgb = 0;
+    Check(ui::ParseRgbChannels(L"255", L"0", L"0", rgb) && rgb == 0xFF0000,
+          L"browserpicker: parse RGB 255 0 0");
+    Check(!ui::ParseRgbChannels(L"256", L"0", L"0", rgb), L"browserpicker: reject RGB 256");
+    Check(!ui::ParseRgbChannels(L"", L"0", L"0", rgb), L"browserpicker: reject empty RGB");
+    Check(!ui::ParseRgbChannels(L"12x", L"0", L"0", rgb), L"browserpicker: reject RGB junk");
+    Check(ui::ParseHslChannels(L"360", L"100", L"50", rgb) && rgb == 0xFF0000,
+          L"browserpicker: parse HSL 360 wraps");
+    Check(!ui::ParseHslChannels(L"361", L"100", L"50", rgb), L"browserpicker: reject HSL hue 361");
+    Check(!ui::ParseHslChannels(L"0", L"101", L"50", rgb), L"browserpicker: reject HSL sat 101");
+    uint32_t argb = 0;
+    Check(ui::ParseHexColor(L"#d6e4f0", argb) && (argb & 0x00FFFFFFu) == 0xD6E4F0u,
+          L"browserpicker: parse hex");
+    Check(!ui::ParseHexColor(L"#xyzxyz", argb), L"browserpicker: reject illegal hex");
+    Check(ui::kBrowserPickerSwatches[0] == ui::kSurfaceDefaultRgb &&
+          ui::kBrowserPickerSwatches[1] == ui::kSurfaceNeutralRgb &&
+          ui::kBrowserPickerSwatchCount == 26,
+          L"browserpicker: swatch defaults occupy the first two slots");
+}
+
 
 void TestDetailsPreviewInteraction() {
     ui::PreviewViewport view;
@@ -9537,6 +9599,14 @@ int RunSelfTest1B2() {
         wcscmp(test_case, L"keymap") == 0) {
         TestKeymap();
         LogLine(L"\n== keymap: %d passed, %d failed ==\n", g_pass, g_fail);
+        if (g_log) { fclose(g_log); g_log = nullptr; }
+        return g_fail ? 1 : 0;
+    }
+    if (GetEnvironmentVariableW(L"PULSE_SELFTEST_CASE", test_case, ARRAYSIZE(test_case)) &&
+        wcscmp(test_case, L"colorpicker") == 0) {
+        TestColorPickerModel();
+        TestBrowserColorPickerModel();
+        LogLine(L"\n== colorpicker: %d passed, %d failed ==\n", g_pass, g_fail);
         if (g_log) { fclose(g_log); g_log = nullptr; }
         return g_fail ? 1 : 0;
     }
@@ -9881,6 +9951,7 @@ int RunSelfTest1B2() {
     TestLayoutOwnedTabs();
     TestUtf8PersistFile();
     TestColorPickerModel();
+    TestBrowserColorPickerModel();
     TestBloomAccentGeometry();
     TestBloomSpring();
     TestLayerAlphas();

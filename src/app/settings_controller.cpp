@@ -821,10 +821,24 @@ void SettingsController::SurfaceTone(int tone) {
 void SettingsController::SurfaceCustom(uint32_t rgb) {
     if (!prefs_) return;
     rgb &= 0xFFFFFFu;
-    if (prefs_->surface_tone == ui::kSurfaceToneCustom && prefs_->surface_rgb == rgb) return;
     prefs_->surface_tone = ui::kSurfaceToneCustom;
     prefs_->surface_rgb = rgb;
+    // Always persist: a preceding PreviewSurfaceCustom may already hold this
+    // colour in memory, and accepting the picker still has to write prefs.
     SaveAndApply(SettingsEffect::Accent);
+}
+
+void SettingsController::PreviewSurfaceCustom(uint32_t rgb) {
+    PreviewSurface(ui::kSurfaceToneCustom, rgb);
+}
+
+void SettingsController::PreviewSurface(int tone, uint32_t rgb) {
+    if (!prefs_ || tone < ui::kSurfaceToneDefault || tone >= ui::kSurfaceToneCount) return;
+    rgb &= 0xFFFFFFu;
+    if (prefs_->surface_tone == tone && prefs_->surface_rgb == rgb) return;
+    prefs_->surface_tone = tone;
+    prefs_->surface_rgb = rgb;
+    Apply(SettingsEffect::Accent);
 }
 
 namespace {

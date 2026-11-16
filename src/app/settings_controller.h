@@ -254,6 +254,11 @@ public:
     // 界面底色: a preset (ui::kSurfaceTone*), or a picked colour (0xRRGGBB).
     void SurfaceTone(int tone);
     void SurfaceCustom(uint32_t rgb);
+    // Live preview while the browser colour picker is open: apply the chrome
+    // colour without writing prefs. PreviewSurface restores a preset (or the
+    // previous custom rgb) the same way, used on Esc.
+    void PreviewSurfaceCustom(uint32_t rgb);
+    void PreviewSurface(int tone, uint32_t rgb);
     void RowHeight(int index);
     void FolderSort(int index);
     void MtimeStyle(int index);     // 修改时间提示: off, dot, bar, text

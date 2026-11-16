@@ -2478,6 +2478,17 @@ int wmain(int argc, wchar_t** argv) {
     passed &= Report("settings surface tone keeps a picked custom colour",
         prefs.surface_tone == pulse::ui::kSurfaceToneCustom && prefs.surface_rgb == 0x335577 &&
         HasEffect(last_effect, SettingsEffect::Accent));
+    const int effects_before_preview = applied_effects;
+    settings_ui.PreviewSurfaceCustom(0xAABBCC);
+    passed &= Report("settings surface preview applies a custom colour",
+        prefs.surface_tone == pulse::ui::kSurfaceToneCustom && prefs.surface_rgb == 0xAABBCC &&
+        HasEffect(last_effect, SettingsEffect::Accent) &&
+        applied_effects == effects_before_preview + 1);
+    settings_ui.PreviewSurface(pulse::ui::kSurfaceToneNeutral, pulse::ui::kSurfaceNeutralRgb);
+    passed &= Report("settings surface preview restores a preset without a second save path",
+        prefs.surface_tone == pulse::ui::kSurfaceToneNeutral &&
+        prefs.surface_rgb == pulse::ui::kSurfaceNeutralRgb);
+    settings_ui.SurfaceCustom(0x335577);
     settings_ui.SurfaceTone(9);
     passed &= Report("settings surface tone ignores unknown choices",
         prefs.surface_tone == pulse::ui::kSurfaceToneCustom);

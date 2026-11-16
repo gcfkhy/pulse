@@ -5022,6 +5022,10 @@ enum class StringId : UINT {
     SurfaceToneNeutral = IDS_SURFACE_TONE_NEUTRAL,
     SurfaceToneCustom = IDS_SURFACE_TONE_CUSTOM,
     ToolbarView = IDS_TOOLBAR_VIEW,
+    ColorFormatHex = IDS_COLOR_FORMAT_HEX,
+    ColorFormatRgb = IDS_COLOR_FORMAT_RGB,
+    ColorFormatHsl = IDS_COLOR_FORMAT_HSL,
+    ColorEyedropper = IDS_COLOR_EYEDROPPER,
 };
 
 bool IsLanguageId(std::wstring_view id) noexcept;

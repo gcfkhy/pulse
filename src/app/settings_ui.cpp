@@ -22,7 +22,7 @@
 #include "ai_assistant_settings.h"
 #include "update_transport.h"
 #include "../ui/ui_renderer.h"
-#include "../ui/color_picker.h"
+#include "../ui/browser_color_picker.h"
 #include <shellapi.h>
 #include <shlobj.h>
 #include <algorithm>
@@ -502,14 +502,23 @@ bool HandleSettingsControl(AppState& s,const H& hit) {
     case H::SettingsIntegration: s.settings.IntegrationAction(hit.index);break;
     case H::SettingsSurfaceTone:
         if (hit.index == ui::kSurfaceToneCustom) {
-            // 自定义…: the picker starts from the colour in use; cancelling keeps the tone.
+            // 自定义…: Chrome-style picker; live preview does not write prefs.
+            // Enter / click outside accepts; Esc restores the tone that was open.
             POINT at{};
             GetCursorPos(&at);
-            uint32_t picked = s.appPrefs.surface_tone == ui::kSurfaceToneCustom ? s.appPrefs.surface_rgb :
-                s.appPrefs.surface_tone == ui::kSurfaceToneNeutral ? ui::kSurfaceNeutralRgb : ui::kSurfaceDefaultRgb;
-            if (ui::ColorPickerPopup::Pick(s.hwnd, &s.compositor, s.menu.get(), s.scale, at, picked,
-                                           s.darkMode, picked))
+            const int orig_tone = s.appPrefs.surface_tone;
+            const uint32_t orig_rgb = s.appPrefs.surface_rgb;
+            uint32_t picked = orig_tone == ui::kSurfaceToneCustom ? orig_rgb :
+                orig_tone == ui::kSurfaceToneNeutral ? ui::kSurfaceNeutralRgb : ui::kSurfaceDefaultRgb;
+            if (ui::BrowserColorPicker::Pick(s.hwnd, &s.compositor, s.scale, at, picked, s.darkMode,
+                    [&](uint32_t rgb) {
+                        s.settings.PreviewSurfaceCustom(rgb);
+                        if (s.hwnd) UpdateWindow(s.hwnd);
+                    }, picked)) {
                 s.settings.SurfaceCustom(picked);
+            } else {
+                s.settings.PreviewSurface(orig_tone, orig_rgb);
+            }
         } else {
             s.settings.SurfaceTone(hit.index);
         }

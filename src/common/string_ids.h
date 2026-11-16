@@ -5030,5 +5030,9 @@
 #define IDS_SURFACE_TONE_NEUTRAL                                                         6457
 #define IDS_SURFACE_TONE_CUSTOM                                                          6458
 #define IDS_TOOLBAR_VIEW                                                                 6459
+#define IDS_COLOR_FORMAT_HEX                                                             6469
+#define IDS_COLOR_FORMAT_RGB                                                             6470
+#define IDS_COLOR_FORMAT_HSL                                                             6471
+#define IDS_COLOR_EYEDROPPER                                                             6472
 
 #endif  // PULSE_STRING_IDS_H

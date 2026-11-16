@@ -512,6 +512,7 @@ struct AppState : AppCoreOwner {
     bool colorpickshot = false;
     bool colorpickshot_dark = true;
     bool colorpickshot_tags = false;   // --tagmanagershot: the 管理标签 panel instead
+    bool colorpickshot_browser = false; // --browserpickshot: Chrome-style 界面底色 picker
     std::wstring colorpickshot_out;
     // Smoke test: open the interactive color picker dialog on launch.
     bool colorpickdialog = false;
